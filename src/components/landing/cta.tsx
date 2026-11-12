@@ -21,18 +21,13 @@ export function PrimaryCta({
       href={user ? "/today" : "/sign-up"}
       className={cn(
         "group inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-[filter,transform] duration-100 hover:brightness-95 active:scale-[0.97] active:brightness-90",
-        tone === "accent"
-          ? "bg-accent text-on-accent"
-          : "bg-white text-[var(--accent-on-white)]",
+        tone === "accent" ? "bg-accent text-on-accent" : "bg-white text-[var(--accent-on-white)]",
         size === "large" ? "h-12 px-6 text-[17px]" : "h-9 px-4 text-[15px]",
         className,
       )}
     >
       {user ? "Open Orbit" : "Get started — it’s free"}
-      <ArrowRight
-        className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
-        aria-hidden
-      />
+      <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
     </Link>
   );
 }

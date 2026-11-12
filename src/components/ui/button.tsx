@@ -37,7 +37,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        "inline-flex select-none items-center justify-center gap-2 rounded-md px-4 text-body font-semibold whitespace-nowrap transition-[background-color,filter,opacity] duration-150 disabled:opacity-40",
+        "inline-flex items-center justify-center gap-2 rounded-md px-4 text-body font-semibold whitespace-nowrap transition-[background-color,filter,opacity] duration-150 select-none disabled:opacity-40",
         size === "large" ? "h-control-lg px-5" : "h-control",
         variants[variant],
         className,

@@ -7,6 +7,7 @@ import { SyncEngine } from "@/lib/sync/engine";
 import type { Mutation } from "@/lib/sync/protocol";
 import { pushRequestSchema } from "@/lib/sync/protocol";
 import { applyMutations, pullChanges } from "@/lib/sync/server";
+import { newTaskFields } from "@/features/tasks/model";
 
 let mongod: MongoMemoryServer;
 let client: MongoClient;
@@ -26,11 +27,7 @@ beforeEach(() => {
 
 let n = 0;
 const id = () => `01TESTID${String(++n).padStart(8, "0")}`;
-const upsert = (
-  entityId: string,
-  fields: Record<string, unknown>,
-  clientTime: number,
-): Mutation => ({
+const upsert = (entityId: string, fields: Record<string, unknown>, clientTime: number): Mutation => ({
   mutationId: id(),
   entity: "tasks",
   entityId,
@@ -38,19 +35,12 @@ const upsert = (
   fields,
   clientTime,
 });
-const newTask = (title: string) => ({
-  title,
-  status: "todo",
-  completedAt: null,
-  order: 1,
-});
+const newTask = (title: string) => newTaskFields({ title, status: "todo", order: 1 });
 
 describe("server sync", () => {
   it("creates, then returns the doc on pull without private fields", async () => {
     const t = id();
-    const res = await applyMutations(db, "u1", [
-      upsert(t, newTask("Write CV"), 1000),
-    ]);
+    const res = await applyMutations(db, "u1", [upsert(t, newTask("Write CV"), 1000)]);
     expect(res.applied).toHaveLength(1);
     const pull = await pullChanges(db, "u1", 0);
     expect(pull.changes).toHaveLength(1);
@@ -68,9 +58,7 @@ describe("server sync", () => {
     await applyMutations(db, "u1", [upsert(t, newTask("A"), 1000)]);
     // Device 2 renames at t=3000; device 1 (offline) completes at t=2000 and renames at t=2000.
     await applyMutations(db, "u1", [upsert(t, { title: "B" }, 3000)]);
-    await applyMutations(db, "u1", [
-      upsert(t, { title: "C", status: "done" }, 2000),
-    ]);
+    await applyMutations(db, "u1", [upsert(t, { title: "C", status: "done" }, 2000)]);
     const { changes } = await pullChanges(db, "u1", 0);
     expect(changes[0].doc).toMatchObject({ title: "B", status: "done" });
   });
@@ -105,9 +93,7 @@ describe("server sync", () => {
   it("never lets one user touch or see another user's data", async () => {
     const t = id();
     await applyMutations(db, "u1", [upsert(t, newTask("mine"), 1000)]);
-    const res = await applyMutations(db, "u2", [
-      upsert(t, { title: "stolen" }, 2000),
-    ]);
+    const res = await applyMutations(db, "u2", [upsert(t, { title: "stolen" }, 2000)]);
     expect(res.rejected[0].reason).toBe("forbidden");
     expect((await pullChanges(db, "u2", 0)).changes).toHaveLength(0);
     expect((await pullChanges(db, "u1", 0)).changes[0].doc.title).toBe("mine");
@@ -123,12 +109,8 @@ describe("server sync", () => {
 
   it("clamps future device clocks so a bad clock can't lock a field", async () => {
     const t = id();
-    await applyMutations(db, "u1", [
-      upsert(t, newTask("A"), Date.now() + 10 * 365 * 864e5),
-    ]);
-    await applyMutations(db, "u1", [
-      upsert(t, { title: "B" }, Date.now() + 1000),
-    ]);
+    await applyMutations(db, "u1", [upsert(t, newTask("A"), Date.now() + 10 * 365 * 864e5)]);
+    await applyMutations(db, "u1", [upsert(t, { title: "B" }, Date.now() + 1000)]);
     expect((await pullChanges(db, "u1", 0)).changes[0].doc.title).toBe("B");
   });
 
@@ -136,9 +118,7 @@ describe("server sync", () => {
     await applyMutations(
       db,
       "u1",
-      Array.from({ length: 5 }, (_, i) =>
-        upsert(id(), newTask(`t${i}`), 1000 + i),
-      ),
+      Array.from({ length: 5 }, (_, i) => upsert(id(), newTask(`t${i}`), 1000 + i)),
     );
     const p1 = await pullChanges(db, "u1", 0, 3);
     expect(p1.changes).toHaveLength(3);
@@ -146,6 +126,47 @@ describe("server sync", () => {
     const p2 = await pullChanges(db, "u1", p1.cursor, 3);
     expect(p2.changes).toHaveLength(2);
     expect(p2.hasMore).toBe(false);
+  });
+
+  it("numbers tasks per user, once, on the server", async () => {
+    const [a, b] = [id(), id()];
+    await applyMutations(db, "u1", [upsert(a, newTask("A"), 1000), upsert(b, newTask("B"), 1001)]);
+    await applyMutations(db, "u1", [upsert(a, { title: "A2" }, 2000)]);
+    await applyMutations(db, "u2", [upsert(id(), newTask("other user"), 1000)]);
+    const docs = (await pullChanges(db, "u1", 0)).changes.map((c) => c.doc);
+    expect(docs.find((d) => d.id === a)?.number).toBe(1);
+    expect(docs.find((d) => d.id === b)?.number).toBe(2);
+    expect((await pullChanges(db, "u2", 0)).changes[0].doc.number).toBe(1);
+  });
+
+  it("rejects references to another user's documents but allows unknown ones", async () => {
+    const goal = id();
+    await applyMutations(db, "u1", [
+      {
+        mutationId: id(),
+        entity: "goals",
+        entityId: goal,
+        op: "upsert",
+        clientTime: 1000,
+        fields: {
+          areaId: null,
+          title: "G",
+          description: "",
+          status: "active",
+          health: null,
+          priority: "none",
+          startDate: null,
+          targetDate: null,
+          droppedReason: null,
+          completedAt: null,
+          order: 0,
+        },
+      },
+    ]);
+    const stolen = await applyMutations(db, "u2", [upsert(id(), { ...newTask("x"), goalId: goal }, 1000)]);
+    expect(stolen.rejected[0].reason).toBe("forbidden reference: goalId");
+    const pending = await applyMutations(db, "u2", [upsert(id(), { ...newTask("y"), goalId: id() }, 1000)]);
+    expect(pending.applied).toHaveLength(1);
   });
 
   it("validates push payloads", () => {
@@ -166,23 +187,15 @@ function fakeServer(userId: string, state: { online: boolean }): typeof fetch {
       const body = pushRequestSchema.parse(JSON.parse(String(init!.body)));
       return Response.json(await applyMutations(db, userId, body.mutations));
     }
-    return Response.json(
-      await pullChanges(db, userId, Number(url.searchParams.get("since"))),
-    );
+    return Response.json(await pullChanges(db, userId, Number(url.searchParams.get("since"))));
   }) as typeof fetch;
 }
 
 describe("client engine (offline → online)", () => {
   it("writes locally while offline, then syncs to a second device", async () => {
     const net = { online: false };
-    const phone = new SyncEngine(
-      openLocalDb(`phone-${id()}`),
-      fakeServer("u1", net),
-    );
-    const laptop = new SyncEngine(
-      openLocalDb(`laptop-${id()}`),
-      fakeServer("u1", net),
-    );
+    const phone = new SyncEngine(openLocalDb(`phone-${id()}`), fakeServer("u1", net));
+    const laptop = new SyncEngine(openLocalDb(`laptop-${id()}`), fakeServer("u1", net));
 
     const taskId = await phone.create("tasks", newTask("Call mum") as never);
     await phone.update("tasks", taskId, { status: "done" });
@@ -222,5 +235,16 @@ describe("client engine (offline → online)", () => {
       title: "Local title",
       status: "in_progress",
     });
+  });
+});
+
+describe("concurrent pushes", () => {
+  it("applies the same new document from two requests at once without failing", async () => {
+    const t = id();
+    const a = upsert(t, newTask("A"), 1000);
+    const b = { ...a, mutationId: id() };
+    const results = await Promise.all([applyMutations(db, "u1", [a]), applyMutations(db, "u1", [b])]);
+    expect(results.flatMap((r) => r.rejected)).toEqual([]);
+    expect((await pullChanges(db, "u1", 0)).changes.filter((c) => c.doc.id === t)).toHaveLength(1);
   });
 });

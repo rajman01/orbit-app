@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { SyncedDoc } from "@/lib/sync/entities";
+import type { EntityName, SyncedDoc } from "@/lib/sync/entities";
 import type { Mutation } from "@/lib/sync/protocol";
 
 export interface OutboxItem extends Mutation {
@@ -11,17 +11,33 @@ export interface MetaRow {
   value: unknown;
 }
 
-export type OrbitDB = Dexie & {
-  tasks: EntityTable<SyncedDoc<"tasks">, "id">;
-  outbox: EntityTable<OutboxItem, "seq">;
-  meta: EntityTable<MetaRow, "key">;
-};
+type Tables = { [E in EntityName]: EntityTable<SyncedDoc<E>, "id"> };
+
+export type OrbitDB = Dexie &
+  Tables & {
+    outbox: EntityTable<OutboxItem, "seq">;
+    meta: EntityTable<MetaRow, "key">;
+  };
 
 /** One IndexedDB database per signed-in user, so accounts never mix on a shared device. */
 export function openLocalDb(userId: string): OrbitDB {
   const db = new Dexie(`orbit-${userId}`) as OrbitDB;
   db.version(1).stores({
     tasks: "id, status, order, deletedAt, serverVersion",
+    outbox: "++seq, entityId",
+    meta: "key",
+  });
+  // Phase 1A: full planning model.
+  db.version(2).stores({
+    tasks:
+      "id, status, order, deletedAt, serverVersion, goalId, areaId, parentTaskId, milestoneId, dueDate, scheduledDate",
+    settings: "id",
+    areas: "id, order",
+    goals: "id, areaId, status, order",
+    keyResults: "id, goalId",
+    krCheckins: "id, keyResultId, goalId",
+    milestones: "id, goalId",
+    taskEvents: "id, taskId",
     outbox: "++seq, entityId",
     meta: "key",
   });

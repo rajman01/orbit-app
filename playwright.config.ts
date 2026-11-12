@@ -20,8 +20,7 @@ export default defineConfig({
     timeout: 240_000,
     reuseExistingServer: !process.env.CI,
     env: {
-      MONGODB_URI:
-        process.env.E2E_MONGODB_URI ?? "mongodb://127.0.0.1:27017/orbit_e2e",
+      MONGODB_URI: process.env.E2E_MONGODB_URI ?? "mongodb://127.0.0.1:27017/orbit_e2e",
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
     },
   },

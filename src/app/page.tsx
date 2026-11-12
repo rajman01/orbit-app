@@ -101,29 +101,17 @@ const AREAS = [
   { name: "Learning", color: "var(--area-orange)" },
 ];
 
-const SKIP_REASONS = [
-  "Too big",
-  "Unclear what to do",
-  "No time",
-  "Low energy",
-  "Avoiding it",
-];
+const SKIP_REASONS = ["Too big", "Unclear what to do", "No time", "Low energy", "Avoiding it"];
 
 export default function Landing() {
   return (
     <div className="min-h-dvh bg-bg text-label">
       {/* Translucent nav — content scrolls beneath it */}
-      <header className="material-chrome sticky top-0 z-30 border-b border-separator pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-30 border-b border-separator pt-[env(safe-area-inset-top)] material-chrome">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link
-            href="/"
-            className="flex items-center gap-2"
-            aria-label="Orbit home"
-          >
+          <Link href="/" className="flex items-center gap-2" aria-label="Orbit home">
             <OrbitMark size={26} />
-            <span className="text-[17px] font-semibold tracking-[-0.01em]">
-              Orbit
-            </span>
+            <span className="text-[17px] font-semibold tracking-[-0.01em]">Orbit</span>
           </Link>
           <nav className="flex items-center gap-1" aria-label="Site">
             <a
@@ -155,10 +143,7 @@ export default function Landing() {
                     key={a.name}
                     className="inline-flex h-7 items-center gap-1.5 rounded-full bg-fill px-3 text-[13px] font-medium text-label-secondary"
                   >
-                    <span
-                      className="size-2 rounded-full"
-                      style={{ background: a.color }}
-                    />
+                    <span className="size-2 rounded-full" style={{ background: a.color }} />
                     {a.name}
                   </span>
                 ))}
@@ -172,15 +157,13 @@ export default function Landing() {
                 </span>
               </h1>
               <p className="mx-auto mt-6 max-w-xl text-[clamp(1.0625rem,1.6vw,1.25rem)] leading-[1.5] text-label-secondary lg:mx-0">
-                Orbit is Linear for your life. It turns everything you want — a
-                better role, stronger relationships, healthier finances — into a
-                plan with clear next steps, and holds you to it.
+                Orbit is Linear for your life. It turns everything you want — a better role, stronger relationships,
+                healthier finances — into a plan with clear next steps, and holds you to it.
               </p>
               <div className="mt-9 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start">
                 <PrimaryCta />
                 <span className="flex items-center gap-2 text-[14px] text-label-secondary">
-                  <WifiOff className="size-4" aria-hidden /> Installs on your
-                  phone · works offline
+                  <WifiOff className="size-4" aria-hidden /> Installs on your phone · works offline
                 </span>
               </div>
             </div>
@@ -194,18 +177,15 @@ export default function Landing() {
         {/* Problem */}
         <section className="border-y border-separator bg-bg-grouped">
           <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:py-24">
-            <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">
-              Why Orbit
-            </p>
+            <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">Why Orbit</p>
             <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
               You don’t lack ambition.
               <br />
               You lack a system that won’t let you drift.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-[18px] leading-[1.55] text-label-secondary">
-              To-do apps forget why a task matters. Goal apps never get down to
-              today. Orbit connects the two — your vision, goals, cycles and
-              today’s three must-dos — and notices when something quietly slips.
+              To-do apps forget why a task matters. Goal apps never get down to today. Orbit connects the two — your
+              vision, goals, cycles and today’s three must-dos — and notices when something quietly slips.
             </p>
             <ChaosToOrbitIllustration className="mx-auto mt-12 w-full max-w-[560px]" />
           </div>
@@ -215,9 +195,7 @@ export default function Landing() {
         <section id="features" className="scroll-mt-16">
           <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
             <div className="max-w-2xl">
-              <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">
-                Features
-              </p>
+              <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">Features</p>
               <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
                 Everything between “someday” and done.
               </h2>
@@ -237,12 +215,8 @@ export default function Landing() {
                     <Art className="h-full w-full" />
                   </div>
                   <div className="p-6 pt-5">
-                    <h3 className="text-[19px] font-semibold tracking-[-0.01em]">
-                      {title}
-                    </h3>
-                    <p className="mt-2 text-[15px] leading-[1.55] text-label-secondary">
-                      {body}
-                    </p>
+                    <h3 className="text-[19px] font-semibold tracking-[-0.01em]">{title}</h3>
+                    <p className="mt-2 text-[15px] leading-[1.55] text-label-secondary">{body}</p>
                   </div>
                 </article>
               ))}
@@ -254,17 +228,13 @@ export default function Landing() {
         <section className="bg-bg-grouped">
           <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
             <div>
-              <p className="text-[13px] font-semibold tracking-[0.08em] text-warning-text uppercase">
-                Accountability
-              </p>
+              <p className="text-[13px] font-semibold tracking-[0.08em] text-warning-text uppercase">Accountability</p>
               <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
                 Firm, never shaming.
               </h2>
               <p className="mt-5 text-[18px] leading-[1.55] text-label-secondary">
-                Every skip needs a reason. Tasks you keep postponing get pinned
-                until you decide what to do with them. Over time, Orbit shows
-                you <em>why</em> you procrastinate — and what actually helps you
-                start.
+                Every skip needs a reason. Tasks you keep postponing get pinned until you decide what to do with them.
+                Over time, Orbit shows you <em>why</em> you procrastinate — and what actually helps you start.
               </p>
               <ul className="mt-8 flex flex-col gap-3 text-[16px]">
                 {[
@@ -280,16 +250,9 @@ export default function Landing() {
               </ul>
             </div>
             <div className="mx-auto w-full max-w-md rounded-[28px] border border-separator bg-surface p-6 shadow-3">
-              <div
-                className="mx-auto mb-5 h-[5px] w-9 rounded-full bg-fill-strong"
-                aria-hidden
-              />
-              <p className="text-[20px] font-semibold tracking-[-0.01em]">
-                Why are you skipping this?
-              </p>
-              <p className="mt-1 text-[15px] text-label-secondary">
-                “Update LinkedIn profile” · postponed 3×
-              </p>
+              <div className="mx-auto mb-5 h-[5px] w-9 rounded-full bg-fill-strong" aria-hidden />
+              <p className="text-[20px] font-semibold tracking-[-0.01em]">Why are you skipping this?</p>
+              <p className="mt-1 text-[15px] text-label-secondary">“Update LinkedIn profile” · postponed 3×</p>
               <div className="mt-5 flex flex-col gap-2">
                 {SKIP_REASONS.map((r) => (
                   <div
@@ -297,11 +260,7 @@ export default function Landing() {
                     className={`flex h-12 items-center justify-between rounded-[12px] px-4 text-[16px] font-medium ${r === "Avoiding it" ? "bg-accent-fill text-accent-text" : "bg-fill"}`}
                   >
                     {r}
-                    {r === "Avoiding it" ? (
-                      <span className="text-[13px] font-semibold">
-                        Start 5 min →
-                      </span>
-                    ) : null}
+                    {r === "Avoiding it" ? <span className="text-[13px] font-semibold">Start 5 min →</span> : null}
                   </div>
                 ))}
               </div>
@@ -313,9 +272,7 @@ export default function Landing() {
         <section id="how" className="scroll-mt-16">
           <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">
-                How it works
-              </p>
+              <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">How it works</p>
               <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
                 One loop, every two weeks.
               </h2>
@@ -327,16 +284,10 @@ export default function Landing() {
                     <Art className="h-full w-full" />
                   </div>
                   <div className="mt-5 flex items-baseline gap-2.5">
-                    <span className="text-[13px] font-semibold text-accent-text tabular-nums">
-                      0{i + 1}
-                    </span>
-                    <h3 className="text-[19px] font-semibold tracking-[-0.01em]">
-                      {title}
-                    </h3>
+                    <span className="text-[13px] font-semibold text-accent-text tabular-nums">0{i + 1}</span>
+                    <h3 className="text-[19px] font-semibold tracking-[-0.01em]">{title}</h3>
                   </div>
-                  <p className="mt-1.5 text-[15px] leading-[1.55] text-label-secondary">
-                    {body}
-                  </p>
+                  <p className="mt-1.5 text-[15px] leading-[1.55] text-label-secondary">{body}</p>
                 </li>
               ))}
             </ol>
@@ -351,8 +302,7 @@ export default function Landing() {
               The best version of you is a plan away.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-[18px] leading-[1.5] text-white/80">
-              Set up your first goal in under three minutes. Add Orbit to your
-              home screen and take it everywhere.
+              Set up your first goal in under three minutes. Add Orbit to your home screen and take it everywhere.
             </p>
             <div className="mt-9 flex justify-center">
               <PrimaryCta tone="inverse" />
@@ -375,21 +325,8 @@ export default function Landing() {
 
 function OrbitMarkWhite() {
   return (
-    <svg
-      width={44}
-      height={44}
-      viewBox="0 0 32 32"
-      className="mx-auto"
-      aria-hidden
-    >
-      <circle
-        cx="16"
-        cy="16"
-        r="10.5"
-        fill="none"
-        stroke="white"
-        strokeWidth="3"
-      />
+    <svg width={44} height={44} viewBox="0 0 32 32" className="mx-auto" aria-hidden>
+      <circle cx="16" cy="16" r="10.5" fill="none" stroke="white" strokeWidth="3" />
       <circle cx="24.5" cy="9" r="4" fill="white" />
     </svg>
   );

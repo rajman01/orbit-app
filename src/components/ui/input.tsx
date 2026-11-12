@@ -10,7 +10,7 @@ export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTML
       ref={ref}
       className={cn(
         "h-control w-full rounded-md bg-surface-sunken px-3 text-body text-label placeholder:text-label-tertiary",
-        "outline-none ring-accent transition-shadow duration-150 focus-visible:ring-2 focus-visible:outline-none",
+        "ring-accent transition-shadow duration-150 outline-none focus-visible:ring-2 focus-visible:outline-none",
         "aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-danger",
         className,
       )}

@@ -5,7 +5,15 @@ import { cn } from "@/lib/cn";
 import { Kbd } from "./pill";
 
 /** DESIGN.md §11.8 — scales from its trigger (transform-origin follows Radix's anchor). */
-export function Menu({ trigger, children, align = "start" }: { trigger: React.ReactNode; children: React.ReactNode; align?: "start" | "end" }) {
+export function Menu({
+  trigger,
+  children,
+  align = "start",
+}: {
+  trigger: React.ReactNode;
+  children: React.ReactNode;
+  align?: "start" | "end";
+}) {
   return (
     <M.Root>
       <M.Trigger asChild>{trigger}</M.Trigger>
@@ -14,7 +22,7 @@ export function Menu({ trigger, children, align = "start" }: { trigger: React.Re
           align={align}
           sideOffset={6}
           className={cn(
-            "material-popover z-50 min-w-[200px] rounded-lg p-1 shadow-2 outline-none",
+            "z-50 min-w-[200px] rounded-lg p-1 shadow-2 material-popover outline-none",
             "origin-[var(--radix-dropdown-menu-content-transform-origin)] animate-[menu-in_180ms_cubic-bezier(0.2,0.9,0.3,1)] motion-reduce:animate-none",
           )}
         >

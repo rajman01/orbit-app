@@ -1,0 +1,36 @@
+# Phase 2 — Coach, calendar, people
+
+| | |
+|---|---|
+| **Status** | Planned (outline — detailed when Phase 1 is done) |
+| **Depends on** | Phase 1 |
+| **PRD** | §7.1 (VIS), §7.3 (GOAL-7/8), §7.6 (CYC-6/7), §7.11, §7.12 (CAR-1), §7.13, §10, §11, §13 |
+
+## Goal
+
+Remove the friction of planning and connect Orbit to the rest of your life: an AI coach that can build plans and act on them, your Google and Apple calendars, your close circle, and reflection.
+
+**Exit criterion:** ask the coach to build a plan and it appears in Orbit and in your calendar; relationship reminders arrive on your phone.
+
+## Parts
+
+| Part | Scope (PRD IDs) |
+|---|---|
+| **2A — AI coach** | AI-1 – AI-9: chat with app context, plan creation, task breakdown, reminders and scheduling by request, cycle planning assistant, ritual facilitation, proactive check-ins (§8.4), quick-capture parsing, memory; autonomy setting, action log and undo (§10.5); AI onboarding (ONB-3) |
+| **2B — Calendar** | CAL-1 – CAL-7: Google Calendar (OAuth, two-way), Apple via CalDAV with an app-specific password, private ICS feed, time blocking, availability-aware planning; calendar view (VIEW-3) |
+| **2C — People** | REL-1 – REL-7: people, contact cadence, reach-out list, interaction log, gift ideas, important dates |
+| **2D — Reflection and capture** | VIS-1/2 vision and values, GOAL-7/8 goal updates and timeline, CYC-6/7 cycle history and themes, CAR-1 wins log, JRN-1/2 journal; quick capture via share target, iOS Shortcut and personal API tokens (SET-8); HAB-4/6, TASK-7, CMD-4, notification centre and actions, SET-5 – SET-7 |
+
+## Known decisions and risks to work through
+
+- **AI cost and model choice:** Sonnet for chat/planning, Haiku for parsing; prompt caching; per-user usage tracking.
+- **AI on Vercel:** streaming responses and tool loops must fit Vercel function time limits.
+- **Google Calendar scopes need Google's app verification** before anyone other than test users can connect; plan time for it.
+- **Apple Calendar via CalDAV** is fragile; the ICS feed is the fallback.
+- **Every AI action goes through the same service layer as the UI**, with before/after snapshots for undo.
+
+## Build log
+
+| Date | What |
+|---|---|
+| | |

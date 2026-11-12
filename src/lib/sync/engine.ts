@@ -2,15 +2,9 @@ import { ulid } from "ulid";
 import type { OrbitDB } from "@/lib/local-db/db";
 import type { EntityFields, EntityName } from "./entities";
 import { applyLocal, table } from "./local";
-import {
-  MAX_PUSH,
-  type Mutation,
-  type PullResponse,
-  type PushResponse,
-} from "./protocol";
+import { MAX_PUSH, type Mutation, type PullResponse, type PushResponse } from "./protocol";
 
-export type SyncState =
-  "idle" | "syncing" | "offline" | "error" | "unauthorized";
+export type SyncState = "idle" | "syncing" | "offline" | "error" | "unauthorized";
 
 export interface SyncStatus {
   state: SyncState;
@@ -22,6 +16,14 @@ export interface SyncStatus {
 const CURSOR_OVERLAP = 20;
 const INTERVAL_MS = 60_000;
 
+/** Opt-in debug logging: localStorage.setItem("orbit:debug-sync", "1"). */
+function debug(...args: unknown[]) {
+  try {
+    if (typeof localStorage !== "undefined" && localStorage.getItem("orbit:debug-sync"))
+      console.log("[sync]", Date.now(), ...args);
+  } catch {}
+}
+
 type Fetch = typeof fetch;
 
 /**
@@ -30,6 +32,7 @@ type Fetch = typeof fetch;
  */
 export class SyncEngine {
   private running = false;
+  private failures = 0;
   private again = false;
   private timer: ReturnType<typeof setInterval> | undefined;
   private debounce: ReturnType<typeof setTimeout> | undefined;
@@ -43,20 +46,12 @@ export class SyncEngine {
 
   // ---------- writes ----------
 
-  async create<E extends EntityName>(
-    entity: E,
-    fields: EntityFields<E>,
-    id: string = ulid(),
-  ): Promise<string> {
+  async create<E extends EntityName>(entity: E, fields: EntityFields<E>, id: string = ulid()): Promise<string> {
     await this.enqueue({ entity, entityId: id, op: "upsert", fields });
     return id;
   }
 
-  async update<E extends EntityName>(
-    entity: E,
-    id: string,
-    fields: Partial<EntityFields<E>>,
-  ): Promise<void> {
+  async update<E extends EntityName>(entity: E, id: string, fields: Partial<EntityFields<E>>): Promise<void> {
     await this.enqueue({ entity, entityId: id, op: "upsert", fields });
   }
 
@@ -64,42 +59,50 @@ export class SyncEngine {
     await this.enqueue({ entity, entityId: id, op: "delete" });
   }
 
-  private async enqueue(
-    partial: Omit<Mutation, "mutationId" | "clientTime">,
-  ): Promise<void> {
+  private async enqueue(partial: Omit<Mutation, "mutationId" | "clientTime">): Promise<void> {
     const m: Mutation = {
       ...partial,
       mutationId: ulid(),
       clientTime: Date.now(),
     };
-    await this.db.transaction(
-      "rw",
-      [table(this.db, m.entity), this.db.outbox],
-      async () => {
-        await applyLocal(this.db, m);
-        await this.db.outbox.add(m);
-      },
-    );
+    await this.db.transaction("rw", [table(this.db, m.entity), this.db.outbox], async () => {
+      await applyLocal(this.db, m);
+      await this.db.outbox.add(m);
+    });
     await this.refreshPending();
     this.requestSync(300);
   }
 
   // ---------- lifecycle ----------
 
+  private starts = 0;
+  private teardown: (() => void) | null = null;
+
+  /** Starts background syncing. Reference-counted: safe to call from several places. */
   start(): () => void {
-    const onOnline = () => this.requestSync();
-    const onVisible = () =>
-      document.visibilityState === "visible" && this.requestSync();
-    window.addEventListener("online", onOnline);
-    document.addEventListener("visibilitychange", onVisible);
-    this.timer = setInterval(() => this.requestSync(), INTERVAL_MS);
-    void this.refreshPending();
-    this.requestSync();
+    if (this.starts++ === 0) {
+      const onOnline = () => this.requestSync();
+      const onVisible = () => document.visibilityState === "visible" && this.requestSync();
+      window.addEventListener("online", onOnline);
+      document.addEventListener("visibilitychange", onVisible);
+      this.timer = setInterval(() => this.requestSync(), INTERVAL_MS);
+      void this.refreshPending();
+      this.requestSync();
+      this.teardown = () => {
+        window.removeEventListener("online", onOnline);
+        document.removeEventListener("visibilitychange", onVisible);
+        clearInterval(this.timer);
+        clearTimeout(this.debounce);
+      };
+    }
+    let stopped = false;
     return () => {
-      window.removeEventListener("online", onOnline);
-      document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(this.timer);
-      clearTimeout(this.debounce);
+      if (stopped) return;
+      stopped = true;
+      if (--this.starts === 0) {
+        this.teardown?.();
+        this.teardown = null;
+      }
     };
   }
 
@@ -129,12 +132,14 @@ export class SyncEngine {
         // Changes made while we were pulling go out in the same run.
         if ((await this.db.outbox.count()) > 0) this.again = true;
       } while (this.again);
+      this.failures = 0;
       this.setStatus({ state: "idle", lastSyncedAt: Date.now(), pending: 0 });
     } catch (err) {
-      if (err instanceof UnauthorizedError)
-        this.setStatus({ state: "unauthorized" });
-      else if (typeof navigator !== "undefined" && !navigator.onLine)
-        this.setStatus({ state: "offline" });
+      // Retry soon with backoff (2s, 4s, … 30s) instead of waiting for the next minute tick.
+      this.failures++;
+      if (!(err instanceof UnauthorizedError)) this.requestSync(Math.min(30_000, 1000 * 2 ** this.failures));
+      if (err instanceof UnauthorizedError) this.setStatus({ state: "unauthorized" });
+      else if (typeof navigator !== "undefined" && !navigator.onLine) this.setStatus({ state: "offline" });
       else if (err instanceof TypeError)
         this.setStatus({ state: "offline" }); // fetch network failure
       else {
@@ -149,10 +154,7 @@ export class SyncEngine {
 
   private async push(): Promise<void> {
     for (;;) {
-      const batch = await this.db.outbox
-        .orderBy("seq")
-        .limit(MAX_PUSH)
-        .toArray();
+      const batch = await this.db.outbox.orderBy("seq").limit(MAX_PUSH).toArray();
       if (batch.length === 0) return;
       const res = await this.fetchImpl("/api/sync/push", {
         method: "POST",
@@ -164,22 +166,21 @@ export class SyncEngine {
       if (res.status === 401) throw new UnauthorizedError();
       if (!res.ok) throw new Error(`push failed: ${res.status}`);
       const body = (await res.json()) as PushResponse;
-      for (const r of body.rejected)
-        console.warn("[sync] rejected", r.mutationId, r.reason);
-      const done = new Set([
-        ...body.applied,
-        ...body.rejected.map((r) => r.mutationId),
-      ]);
-      await this.db.outbox.bulkDelete(
-        batch.filter((b) => done.has(b.mutationId)).map((b) => b.seq!),
+      debug(
+        "pushed",
+        batch.map((b) => `${b.entityId.slice(-4)}:${Object.keys(b.fields ?? {}).join(",") || b.op}`),
+        "applied",
+        body.applied.length,
       );
+      for (const r of body.rejected) console.warn("[sync] rejected", r.mutationId, r.reason);
+      const done = new Set([...body.applied, ...body.rejected.map((r) => r.mutationId)]);
+      await this.db.outbox.bulkDelete(batch.filter((b) => done.has(b.mutationId)).map((b) => b.seq!));
       if (batch.length < MAX_PUSH) return;
     }
   }
 
   private async pull(): Promise<void> {
-    const stored =
-      ((await this.db.meta.get("cursor"))?.value as number | undefined) ?? 0;
+    const stored = ((await this.db.meta.get("cursor"))?.value as number | undefined) ?? 0;
     let since = Math.max(0, stored - CURSOR_OVERLAP);
     for (;;) {
       const res = await this.fetchImpl(`/api/sync/pull?since=${since}`, {
@@ -188,6 +189,14 @@ export class SyncEngine {
       if (res.status === 401) throw new UnauthorizedError();
       if (!res.ok) throw new Error(`pull failed: ${res.status}`);
       const body = (await res.json()) as PullResponse;
+      debug(
+        "pulled since",
+        since,
+        "→",
+        body.changes.map((c) => `${c.doc.id.slice(-4)}@${c.doc.serverVersion}`),
+        "cursor",
+        body.cursor,
+      );
       await this.applyRemote(body);
       since = body.cursor;
       if (!body.hasMore) return;
@@ -195,33 +204,20 @@ export class SyncEngine {
   }
 
   private async applyRemote(body: PullResponse): Promise<void> {
-    const tables = [...new Set(body.changes.map((c) => c.entity))].map((e) =>
-      table(this.db, e),
-    );
-    await this.db.transaction(
-      "rw",
-      [...tables, this.db.outbox, this.db.meta],
-      async () => {
-        for (const { entity, doc } of body.changes) {
-          const t = table(this.db, entity);
-          const local = await t.get(doc.id);
-          if (local && (local.serverVersion as number) >= doc.serverVersion)
-            continue;
-          await t.put(doc);
-          // Local edits not yet acknowledged by the server stay on top.
-          const pending = await this.db.outbox
-            .where("entityId")
-            .equals(doc.id)
-            .sortBy("seq");
-          for (const m of pending) await applyLocal(this.db, m);
-        }
-        const current =
-          ((await this.db.meta.get("cursor"))?.value as number | undefined) ??
-          0;
-        if (body.cursor > current)
-          await this.db.meta.put({ key: "cursor", value: body.cursor });
-      },
-    );
+    const tables = [...new Set(body.changes.map((c) => c.entity))].map((e) => table(this.db, e));
+    await this.db.transaction("rw", [...tables, this.db.outbox, this.db.meta], async () => {
+      for (const { entity, doc } of body.changes) {
+        const t = table(this.db, entity);
+        const local = await t.get(doc.id);
+        if (local && (local.serverVersion as number) >= doc.serverVersion) continue;
+        await t.put(doc);
+        // Local edits not yet acknowledged by the server stay on top.
+        const pending = await this.db.outbox.where("entityId").equals(doc.id).sortBy("seq");
+        for (const m of pending) await applyLocal(this.db, m);
+      }
+      const current = ((await this.db.meta.get("cursor"))?.value as number | undefined) ?? 0;
+      if (body.cursor > current) await this.db.meta.put({ key: "cursor", value: body.cursor });
+    });
   }
 
   private async refreshPending(): Promise<void> {
@@ -230,6 +226,7 @@ export class SyncEngine {
 
   private setStatus(patch: Partial<SyncStatus>): void {
     this.status = { ...this.status, ...patch };
+    debug("status", this.status.state, "pending", this.status.pending);
     for (const fn of this.listeners) fn(this.status);
   }
 }

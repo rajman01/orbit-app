@@ -11,7 +11,15 @@ const tones: Record<Tone, string> = {
 };
 
 /** DESIGN.md §11.13 — status/health pills. */
-export function Pill({ tone = "neutral", children, className }: { tone?: Tone; children: React.ReactNode; className?: string }) {
+export function Pill({
+  tone = "neutral",
+  children,
+  className,
+}: {
+  tone?: Tone;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <span className={cn("inline-flex h-5 items-center gap-1 rounded-full px-2 text-caption", tones[tone], className)}>
       {children}

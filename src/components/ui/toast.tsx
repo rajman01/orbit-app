@@ -58,7 +58,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       transition={transition("snappy")}
       onPointerEnter={() => setPaused(true)}
       onPointerLeave={() => setPaused(false)}
-      className="material-popover pointer-events-auto flex min-h-11 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4 text-callout font-medium"
+      className="pointer-events-auto flex min-h-11 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4 text-callout font-medium material-popover"
     >
       <span>{toast.message}</span>
       {toast.action ? (

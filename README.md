@@ -1,7 +1,7 @@
 # Orbit
 
 A life management app — Linear for your life, built to beat procrastination.
-See [docs/PRD.md](docs/PRD.md) for the product and [docs/DESIGN.md](docs/DESIGN.md) for the design system.
+See [docs/PRD.md](docs/PRD.md) for the product, [docs/DESIGN.md](docs/DESIGN.md) for the design system and [docs/phases/](docs/phases/README.md) for the build plan of each phase.
 
 ## Stack
 

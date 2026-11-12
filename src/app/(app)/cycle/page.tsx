@@ -13,7 +13,11 @@ export default function Page() {
   return (
     <>
       <PageHeader title="Cycle" />
-      <EmptyState icon={CalendarSync} title="Not built yet" body="Two-week cycles you commit to, with a Sunday review. Coming in Phase 1." />
+      <EmptyState
+        icon={CalendarSync}
+        title="Not built yet"
+        body="Two-week cycles you commit to, with a Sunday review. Coming in Phase 1."
+      />
     </>
   );
 }

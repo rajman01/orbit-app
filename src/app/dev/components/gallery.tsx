@@ -49,7 +49,20 @@ export function Gallery() {
       </header>
 
       <Section title="Typography">
-        {(["display", "title1", "title2", "title3", "headline", "body", "callout", "subhead", "footnote", "caption"] as const).map((s) => (
+        {(
+          [
+            "display",
+            "title1",
+            "title2",
+            "title3",
+            "headline",
+            "body",
+            "callout",
+            "subhead",
+            "footnote",
+            "caption",
+          ] as const
+        ).map((s) => (
           <p key={s} className={`text-${s}`}>
             {s} — Start with five minutes
           </p>
@@ -97,7 +110,13 @@ export function Gallery() {
       <Section title="Checkbox, progress and pills">
         <div className="flex flex-wrap items-center gap-4">
           <Checkbox checked={checked} onChange={setChecked} label="Complete task" />
-          <Checkbox checked={checked} onChange={setChecked} label="Complete subtask" shape="square" color="var(--accent)" />
+          <Checkbox
+            checked={checked}
+            onChange={setChecked}
+            label="Complete subtask"
+            shape="square"
+            color="var(--accent)"
+          />
           <ProgressRing value={progress} />
           <ProgressRing value={progress} size={64} color="var(--area-blue)" />
           <Button variant="secondary" onClick={() => setProgress((p) => (p >= 1 ? 0 : Math.min(1, p + 0.2)))}>
@@ -117,7 +136,13 @@ export function Gallery() {
 
       <Section title="Overlays">
         <div className="flex flex-wrap items-center gap-2">
-          <Menu trigger={<Button variant="secondary" icon={<MoreHorizontal className="size-4" />}>Menu</Button>}>
+          <Menu
+            trigger={
+              <Button variant="secondary" icon={<MoreHorizontal className="size-4" />}>
+                Menu
+              </Button>
+            }
+          >
             <MenuItem icon={<Pencil />} shortcut="E">
               Edit
             </MenuItem>
@@ -127,7 +152,11 @@ export function Gallery() {
               Delete
             </MenuItem>
           </Menu>
-          <Sheet title="Why are you skipping this?" description="Pick a reason — it helps Orbit help you." trigger={<Button variant="secondary">Sheet</Button>}>
+          <Sheet
+            title="Why are you skipping this?"
+            description="Pick a reason — it helps Orbit help you."
+            trigger={<Button variant="secondary">Sheet</Button>}
+          >
             <div className="flex flex-col gap-2 pb-4">
               {["Too big", "Unclear what to do", "No time", "Low energy", "Avoiding it"].map((r) => (
                 <Button key={r} variant="secondary" size="large" className="justify-start">
@@ -158,9 +187,15 @@ export function Gallery() {
 
       <Section title="Materials">
         <div className="relative h-40 overflow-hidden rounded-lg bg-[linear-gradient(135deg,var(--area-blue),var(--area-pink),var(--area-orange))]">
-          <div className="material-chrome absolute inset-x-0 top-0 flex h-12 items-center px-4 text-headline">material-chrome</div>
-          <div className="material-thin absolute bottom-3 left-3 rounded-full px-4 py-2 text-callout font-medium">material-thin</div>
-          <div className="material-popover absolute right-3 bottom-3 rounded-lg px-4 py-2 text-callout font-medium">material-popover</div>
+          <div className="absolute inset-x-0 top-0 flex h-12 items-center px-4 text-headline material-chrome">
+            material-chrome
+          </div>
+          <div className="absolute bottom-3 left-3 rounded-full px-4 py-2 text-callout font-medium material-thin">
+            material-thin
+          </div>
+          <div className="absolute right-3 bottom-3 rounded-lg px-4 py-2 text-callout font-medium material-popover">
+            material-popover
+          </div>
         </div>
       </Section>
     </main>

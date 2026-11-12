@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | **Product** | Orbit — a life management system |
-| **Version** | PRD v1.0 |
+| **Version** | PRD v1.1 |
 | **Date** | 2026-11-12 |
 | **Owner** | Alameen (product owner, sole user for v1) |
-| **Status** | Draft for approval |
+| **Status** | Approved — Phase 1A built, Phase 1B next ([phase plans](./phases/README.md)) |
 | **Platforms** | Web app + installable PWA (iOS, Android, desktop) |
 | **Repo** | Single Next.js repo at `orbit/orbit-app/` (the `orbit/` root folder is not a repo) |
 
@@ -967,46 +967,22 @@ Since Orbit exists to fight the owner's procrastination, success is measured by 
 
 ## 21. Roadmap and phases
 
-No fixed deadline; phases are ordered by value. Each phase ends with a usable, deployed app.
+No fixed deadline; phases are ordered by value. Each phase (and each part of Phase 1) ends with a usable, deployed app.
 
-### Phase 0 — Foundation
-- Next.js + TypeScript project, Tailwind, lint/format, testing setup.
-- Design system from the Apple design skill: tokens (colour, type, spacing, radius, motion), light/dark, core components.
-- MongoDB Atlas connection, Mongoose models, Zod schemas.
-- Better Auth: email/password + Google; protected routes.
-- PWA shell: manifest, service worker, install prompts, offline fallback.
-- Local-first data layer: Dexie store, outbox, sync push/pull endpoints.
-- Deploy to Vercel with env setup.
+The detailed plan for each phase — scope, data model changes, decisions, steps, tests and a build log — lives in its own document under [`docs/phases/`](./phases/README.md). This section only tracks scope and status.
 
-**Exit:** can sign in on desktop and phone, install the PWA, and a demo entity syncs offline → online.
+| Phase | Scope (PRD IDs) | Exit criterion | Status |
+|---|---|---|---|
+| [0 — Foundation](./phases/phase-0.md) | Project, design system, auth, MongoDB, PWA, local-first sync, tests, deploy | Sign in on desktop and phone, install the PWA, offline changes sync | ✅ Complete (2026-11-12) |
+| [1A — Plan the work](./phases/phase-1a.md) | ONB-2/3, AREA-1/2, GOAL-1–6, GOAL-9, TASK-1–6, TASK-10, INB-1–4, CMD-1–3, VIEW-1/2, SET-1 | Real areas, goals, milestones and tasks set up; inbox capture and triage, all offline | ✅ Built (2026-11-12) |
+| [1B — Do the work, stop drifting](./phases/phase-1b.md) | TODAY-1–6, TASK-4, FOC-1–6, §8.1, §8.2, Upcoming, swipe gestures | A week run from Today; every postponement has a reason | 🔜 Next |
+| [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | Planned |
+| [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | Planned |
+| [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | Planned |
+| [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–4, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, email capture | Insights reflect four cycles of real data | Planned |
+| [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |
 
-### Phase 1 — MVP: Plan, do, stay accountable
-- ONB-1/2/3 (manual), AREA-1/2, GOAL-1–6, GOAL-9, TASK-1–6, TASK-10, INB-1–4, CYC-1–5, TODAY-1–6, FOC-1–6, RIT-1–5, HAB-1–3, CMD-1–3, VIEW-1–2, SET-1–4.
-- Accountability system (§8.1, §8.2, §8.5) and Levels/XP (§9).
-- Push notifications for rituals, tasks, habits (NOT-1, 2, 4, 6).
-- PWA app shortcuts.
-
-**Exit:** the owner runs their life in Orbit for 2 full cycles: daily plans, focus sessions, cycle review, offline on phone.
-
-### Phase 2 — Coach, calendar, people
-- AI coach: AI-1–9, AI ritual facilitation, AI onboarding (ONB-3), autonomy + undo.
-- Calendar: CAL-1–7, calendar view (VIEW-3).
-- Relationships: REL-1–7.
-- Vision (VIS-1/2), goal updates and timeline (GOAL-7/8), cycle history/themes (CYC-6/7).
-- Wins log (CAR-1), Journal (JRN-1/2).
-- Quick capture: share target, iOS Shortcut + API tokens (SET-8), AI capture.
-- Habit heatmap + goal links (HAB-4/6), bulk actions (TASK-7), saved views (CMD-4), notification centre and actions, settings SET-5–7.
-
-**Exit:** the owner can ask the coach to build a plan and it appears in the app and their calendars; relationship reminders work.
-
-### Phase 3 — Insight and growth
-- Insights dashboard + procrastination insights (INS-1–4).
-- Skills, Learning queue, Job pipeline (CAR-2–4).
-- Wheel of Life (AREA-4), area health (AREA-3), routines (HAB-5), task dependencies (TASK-8).
-- Email capture, email fallback, app badge, journal search.
-
-### Phase 4 — Opening up (optional)
-- Multi-user hardening: onboarding polish, per-user AI usage limits, billing (if desired), privacy policy/terms, admin tooling.
+PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 
 ---
 
@@ -1020,7 +996,7 @@ No fixed deadline; phases are ordered by value. Each phase ends with a usable, d
 | Accountability feels nagging → app abandonment | Medium | Strictness setting, kind copy, "never miss twice", quiet hours |
 | AI acting wrongly with autonomy | Medium | Action log, undo, confirmation for destructive/bulk actions, proactive limits |
 | Apple CalDAV fragility | Medium | ICS feed fallback; clear error states; polling with backoff |
-| Vercel cron granularity / cold starts for reminders | Low–Med | Per-minute cron on Pro plan or switch to QStash/Inngest |
+| Vercel cron granularity / cold starts for reminders | Medium | The Hobby plan runs cron jobs at most once a day; reminders need a per-minute job. Decide in Phase 1D: Vercel Pro, or an external scheduler (e.g. Upstash QStash) calling the dispatch route |
 | AI cost | Low | Haiku for light tasks, prompt caching, usage tracking/limits |
 | MongoDB + sync cursor ordering | Medium | Per-user monotonically increasing `serverVersion` counter via atomic `$inc` on a counters doc |
 
@@ -1032,10 +1008,11 @@ No fixed deadline; phases are ordered by value. Each phase ends with a usable, d
 2. **Other life areas** — Health, Mind, Home etc. can be added anytime; should any be pre-created but hidden?
 3. **Habit ideas** — no existing habits to import; do you want a starter habit library during onboarding?
 4. **AI autonomy default** — PRD assumes `Act and tell me`; confirm.
-5. **Strictness default** — PRD assumes `Firm`; confirm.
-6. **Level titles** — keep the space-themed titles (Spark → Constellation) or plain numbers?
-7. **Notifications** — preferred default ritual times (e.g. Daily Plan 07:30, Shutdown 21:00, Cycle Review Sunday 18:00)?
-8. **Domain** — will Orbit have a custom domain (affects Google OAuth setup and push)?
+5. **Strictness default** — PRD assumes `Firm`; confirm. *(Proposed default; needed by Phase 1C.)*
+6. **Level titles** — keep the space-themed titles (Spark → Constellation) or plain numbers? *(Proposed: space-themed; needed by Phase 1D.)*
+7. **Notifications** — preferred default ritual times? *(Proposed: Daily Plan 07:30, Shutdown 21:00, Cycle Review Sunday 18:00; needed by Phase 1D.)*
+8. **Domain** — will Orbit have a custom domain? Currently `orbit-app-three-beta.vercel.app`; a change means updating `BETTER_AUTH_URL` and the Google OAuth client.
+9. **Reminder scheduler** — Vercel Pro or an external per-minute scheduler (see §22)? *(Needed by Phase 1D.)*
 
 ---
 
@@ -1059,3 +1036,8 @@ No fixed deadline; phases are ordered by value. Each phase ends with a usable, d
 | D14 | MongoDB native driver + Zod instead of Mongoose | The sync layer writes every entity through one generic code path; an ODM adds a second schema to keep in step |
 | D15 | App pages are static shells; the session is checked in the browser (`AuthGate`) and every API route re-checks it on the server | Lets the service worker cache whole pages so the installed app opens offline |
 | D16 | Pull cursor re-reads the last 20 versions on every sync | A write that commits out of order can never be skipped; applying a doc twice is harmless |
+| D17 | Phase 1 split into four deployable parts (1A–1D); each phase has its own plan in `docs/phases/` | Smaller, shippable steps; keeps the PRD as the product spec rather than a build diary |
+| D18 | Accent colour: deepened teal (`#0E7C8F`) | Chosen over indigo and Apple blue in a side-by-side comparison; deepened for contrast (DESIGN.md §2.3) |
+| D19 | Production on Vercel at `orbit-app-three-beta.vercel.app` with MongoDB Atlas | First deploy, 2026-11-12 |
+| D20 | The service worker never caches `/api/*` responses | Offline data lives in IndexedDB; cached API responses were stale and could leak across accounts on a shared device |
+| D21 | Task numbers are assigned by the server on first sync | Two offline devices can't safely pick the next number |
