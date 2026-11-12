@@ -19,15 +19,16 @@ export function isMustDoOn(t: Pick<Task, "mustDoDate">, day: Day): boolean {
 }
 
 /**
- * Stale: moved 3+ times, or planned (in progress, or planned for today or earlier) and not
- * touched for 14 days. Resolving it resets the postpone count and touches the task.
+ * Stale: moved 3+ times, or left on the plan untouched for 14 days. A dated task counts from
+ * its day, so one planned weeks ahead isn't stale the day it comes up; an undated task counts
+ * while it is in progress. Resolving it resets the postpone count and touches the task.
  */
 export function isStale(t: Task, todayDay: Day, now: number): boolean {
   if (!isOpen(t) || t.parentTaskId || t.status === "inbox") return false;
   if ((t.postponeCount ?? 0) >= STALE_POSTPONES) return true;
   const day = planDay(t);
-  const planned = t.status === "in_progress" || (day != null && day <= todayDay);
-  return planned && now - t.updatedAt >= STALE_UNTOUCHED_DAYS * 86_400_000;
+  const waiting = day != null ? daysBetween(day, todayDay) >= STALE_UNTOUCHED_DAYS : t.status === "in_progress";
+  return waiting && now - t.updatedAt >= STALE_UNTOUCHED_DAYS * 86_400_000;
 }
 
 /** Why a task is stale, in Orbit's voice (DESIGN.md §13). */

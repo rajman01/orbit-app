@@ -23,6 +23,8 @@ export interface FocusState {
 }
 
 const MIN = 60_000;
+/** The longest session the server accepts; a timer left running for days is logged as this. */
+export const MAX_SESSION_MINUTES = 24 * 60;
 
 export function startFocus(
   sessionId: string,
@@ -101,7 +103,12 @@ export function breakRemainingMs(s: FocusState, now: number): number | null {
 
 /** Minutes worked, rounded to one decimal, for the session log. */
 export function workedMinutes(s: FocusState, now: number): number {
-  return Math.round((elapsedMs(s, now) / MIN) * 10) / 10;
+  return Math.min(MAX_SESSION_MINUTES, Math.round((elapsedMs(s, now) / MIN) * 10) / 10);
+}
+
+/** Planned minutes for the session log; null for an open-ended session. */
+export function plannedMinutes(s: FocusState): number | null {
+  return s.plannedMs == null ? null : Math.min(MAX_SESSION_MINUTES, Math.round(s.plannedMs / MIN));
 }
 
 /** 25:00, or 1:02:03 past an hour. */

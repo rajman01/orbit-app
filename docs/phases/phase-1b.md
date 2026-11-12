@@ -79,7 +79,7 @@ Make starting easy and drifting visible. Today becomes the home screen: three Mu
 | Reorder | Drag by the handle on desktop, long-press on phones, arrow keys from the handle; a drop writes only the moved task's `order` | `today/sortable-tasks.tsx` |
 | Next step (TASK-4) | "Add a 2-minute next step" link on big tasks (effort ≥ 3) in Today; prompt when one becomes a Must-do | `today/today-dialogs.tsx` |
 | Skip flow (§8.2) | Reason first (required at Firm), then per-reason follow-ups: smaller steps (too big), next step (unclear), 5-minute start (avoiding / low energy), follow-up date (waiting), cancel (not important), text (other); then a new date. Opened by swipe left, **Move**, the `S` key, or moving a planned task's date in the task panel | `src/components/skip/skip-flow.tsx` |
-| Stale (§8.1) | Postponed 3× or planned and untouched 14 days; break it down, 5 minutes now, reschedule with an explicit commitment, ask for help (saved to notes), drop (with Undo); resolving resets the count | `today/today-dialogs.tsx` |
+| Stale (§8.1) | Postponed 3×, or on the plan and untouched 14 days (a dated task counts from its day; an undated one while in progress); break it down, 5 minutes now, reschedule with an explicit commitment, ask for help (saved to notes), drop (with Undo); resolving resets the count | `today/today-dialogs.tsx` |
 | Focus mode (FOC-1–6) | Start from Today, the task panel or `F`; opens on a 5-minute first session; 5 / 25 / 50 min / open; pause, +5 min, done, end; "Keep going?" and Pomodoro breaks; outcome on end (done / progress + next step / stuck + smaller steps); minimise to a pill; timer in the tab title; survives reload and offline; vibration and (if already allowed) a system notification when time's up | `src/components/focus/focus-mode.tsx`, `src/features/focus/model.ts` |
 | Swipe | Right = complete (or undo), left = reschedule into the skip flow; touch only, 1:1 tracking, momentum projection, rubber-band, velocity handed to the settle spring, haptic on commit | `src/components/tasks/swipe-row.tsx` |
 | Upcoming | Next 14 days grouped by day, with points per day; `G U`, sidebar and More | `src/app/(app)/upcoming/` |
@@ -96,9 +96,17 @@ Make starting easy and drifting visible. Today becomes the home screen: three Mu
 
 ## Known gaps
 
-- Long-press reorder and swipe gestures are built for touch but haven't been tried on a real phone yet.
+- ~~Long-press reorder and swipe gestures haven't been tried on a real phone.~~ Checked by the owner on a real phone on 2026-11-12: swipe and long-press reorder both work.
 - In-progress tasks with no date show on Today; once dated they follow their date.
 - Swiping and long-press reorder share the same row; a long-press followed by a sideways drag can start both.
+- Found by the week simulation, waiting for a decision (behaviour unchanged):
+  - A recurring task on a fixed schedule that is completed late gets a next task dated straight after the old one, so it can already be overdue (daily task done 2 days late → next one is 1 day late). Catch up one by one, or jump to the next date from today?
+  - "No date" in the skip flow on a task whose due date is today or earlier clears only the planned day: the task stays on Today (or Overdue), the toast says "Moved off your plan", and it counts as a postponement.
+  - The 14-day "untouched" rule looks at edits to the task only. Focus sessions and subtask changes don't count as touching it.
+  - A timed focus session keeps counting work time after "Time's up" until someone answers, so one left overnight logs the whole night (now capped at 24 hours).
+  - A recurring task set to "after completion" that is completed, un-completed, and completed again on a later day gets two next tasks.
+- A device whose clock is 14 or more days ahead of the server shows undated in-progress tasks as stale after a sync (synced copies carry server time). Dated tasks are not affected.
+- Day changes are covered for a full week at the logic level (`tests/unit/week.test.ts`); the browser tests cover two day changes (`tests/e2e/week.spec.ts`). They move only the browser's date: fast-forwarding Playwright's whole clock leaves desktop dialogs stuck mid-close (a test-only effect of the animation clock jumping), and the roll-over test waits up to a minute for the app's own tick.
 
 ## Build log
 
@@ -113,3 +121,8 @@ Make starting easy and drifting visible. Today becomes the home screen: three Mu
 | 2026-11-12 | Test: the offline goal test on phone size failed in 2 full runs (offline navigation took over 5s); its wait is now 15s and 3 full runs pass. Worth watching |
 | 2026-11-12 | Landing page: sections slide in on scroll (`Reveal`); every illustration now plays a small looping story (`il-*` animations in `globals.css`), the hero mock-up ticks a Must-do on a loop, and the hero planets drift around it |
 | 2026-11-12 | Landing page: always-dark starry hero with shooting stars (nav goes dark while over it), hero mock-up rebuilt as the real Today screen, new "The product" section with a live focus timer and a goal planet that grows |
+| 2026-11-12 | Week simulation: `tests/unit/week.test.ts` runs the real actions against a local database with a controlled clock, Monday to Sunday (Must-dos, skips, overdue, stale and its five ways out, recurring tasks, timezones either side of UTC, capacity, focus across midnight, the 14-day rule, a device clock ahead of the server); `tests/e2e/week.spec.ts` crosses midnight in the browser. 21 unit tests and 2 browser tests; shared browser helpers moved to `tests/e2e/helpers.ts` |
+| 2026-11-12 | Fixed (simulation): completing a recurring Must-do put tomorrow's copy in today's Must-dos, and the next task inherited the postpone count (after a task was moved 3×, every next one started out stale). The next task now starts clean |
+| 2026-11-12 | Fixed (simulation): a task planned 14 or more days ahead showed as stale ("Untouched for 14 days") on the day it came up instead of in Also today. A dated task now counts 14 days from its day |
+| 2026-11-12 | Fixed (simulation): a focus session left running for more than 24 hours could not be saved to the server (its length was rejected, so other devices saw it as never ended). Logged length is capped at 24 hours |
+| 2026-11-12 | Fixed (simulation): after a laptop slept or a phone had the app in the background past midnight, Today could show yesterday for up to a minute, and tasks added then were planned for yesterday. The date is now checked as soon as the app is back in view |

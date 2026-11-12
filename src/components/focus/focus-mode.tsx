@@ -23,6 +23,7 @@ import {
   keepGoing,
   parseFocusState,
   pause,
+  plannedMinutes,
   remainingMs,
   resume,
   startBreak,
@@ -185,7 +186,7 @@ function FocusSession({
         outcome,
         interruptions: state.interruptions,
         mode: state.mode,
-        plannedMinutes: state.plannedMs == null ? null : Math.round(state.plannedMs / 60_000),
+        plannedMinutes: plannedMinutes(state),
       });
       if (task) {
         if (outcome === "done") await actions.setTaskDone(task, true);

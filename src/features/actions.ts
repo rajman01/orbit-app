@@ -197,6 +197,9 @@ export function createActions(engine: SyncEngine, userId: string) {
           completedAt: null,
           cancelledAt: null,
           recurrenceParentId: rootId,
+          // The next one starts clean: it is not today's Must-do and has never been moved.
+          mustDoDate: null,
+          postponeCount: 0,
           order: now(),
         },
         id,

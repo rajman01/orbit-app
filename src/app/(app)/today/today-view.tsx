@@ -22,18 +22,14 @@ import {
   staleReason,
   type Capacity,
 } from "@/features/today/model";
-import { useToday } from "@/features/use-today";
+import { subscribeMinute, useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { longDayLabel } from "@/lib/dates";
 import { DayOrbit } from "./day-orbit";
 import { SortableTasks } from "./sortable-tasks";
 import { NextStepDialog, STALE_ACTIONS, SwapMustDoDialog, useStaleResolver } from "./today-dialogs";
 
-// The clock for stale checks; refreshed each minute (same cadence as useToday).
-const subscribeMinute = (cb: () => void) => {
-  const t = setInterval(cb, 60_000);
-  return () => clearInterval(t);
-};
+// The clock for stale checks; refreshed each minute and on return to the app (as useToday is).
 const minuteNow = () => Math.floor(Date.now() / 60_000) * 60_000;
 
 /**
