@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { WifiOff } from "lucide-react";
-import Link from "next/link";
 import { OrbitMark } from "@/components/app/app-shell";
-import { NavAuthLink, PrimaryCta } from "@/components/landing/cta";
+import { PrimaryCta } from "@/components/landing/cta";
 import {
   AccountabilityIllustration,
   CaptureIllustration,
@@ -15,8 +14,12 @@ import {
   PeopleIllustration,
   PlanIllustration,
   ReviewIllustration,
+  Starfield,
   StartIllustration,
 } from "@/components/landing/illustrations";
+import { FocusDemo, GoalDemo } from "@/components/landing/demos";
+import { LandingNav } from "@/components/landing/nav";
+import { Reveal } from "@/components/landing/reveal";
 import { TodayMock } from "@/components/landing/today-mock";
 
 export const metadata: Metadata = {
@@ -106,35 +109,33 @@ const SKIP_REASONS = ["Too big", "Unclear what to do", "No time", "Low energy", 
 export default function Landing() {
   return (
     <div className="min-h-dvh bg-bg text-label">
-      {/* Translucent nav — content scrolls beneath it */}
-      <header className="sticky top-0 z-30 border-b border-separator pt-[env(safe-area-inset-top)] material-chrome">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2" aria-label="Orbit home">
-            <OrbitMark size={26} />
-            <span className="text-[17px] font-semibold tracking-[-0.01em]">Orbit</span>
-          </Link>
-          <nav className="flex items-center gap-1" aria-label="Site">
-            <a
-              href="#features"
-              className="hidden h-9 items-center rounded-full px-4 text-[15px] font-medium text-label-secondary hover:text-label md:inline-flex"
-            >
-              Features
-            </a>
-            <a
-              href="#how"
-              className="hidden h-9 items-center rounded-full px-4 text-[15px] font-medium text-label-secondary hover:text-label md:inline-flex"
-            >
-              How it works
-            </a>
-            <NavAuthLink />
-            <PrimaryCta size="default" />
-          </nav>
-        </div>
-      </header>
+      {/* Without JavaScript nothing waits to be revealed. */}
+      <noscript>
+        <style>{".reveal{opacity:1;transform:none}"}</style>
+      </noscript>
+      <LandingNav />
 
-      <main>
+      <main className="overflow-x-clip">
         {/* Hero */}
-        <section className="relative isolate overflow-hidden">
+        {/* Always night: the hero carries the app's space identity in both themes. */}
+        <section
+          id="hero"
+          className="dark relative isolate -mt-[calc(3.5rem+env(safe-area-inset-top))] overflow-hidden pt-[calc(3.5rem+env(safe-area-inset-top))] text-label"
+          style={{
+            background:
+              "radial-gradient(90% 70% at 72% 45%, #0f3b4a 0%, transparent 60%), linear-gradient(180deg, #04080d 0%, #06141c 55%, #082530 100%)",
+          }}
+        >
+          <Starfield className="pointer-events-none absolute inset-0 -z-10 size-full" />
+          <span
+            aria-hidden
+            className="hero-shoot pointer-events-none absolute top-[12%] left-[8%] -z-10 h-px w-28 rounded-full bg-[linear-gradient(90deg,transparent,white)]"
+          />
+          <span
+            aria-hidden
+            className="hero-shoot pointer-events-none absolute top-[38%] left-[38%] -z-10 h-px w-20 rounded-full bg-[linear-gradient(90deg,transparent,white)]"
+            style={{ ["--il-d" as string]: "7.5s", ["--il-t" as string]: "13s" }}
+          />
           <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-14 px-4 pt-16 pb-20 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:pt-24 lg:pb-28">
             <div className="landing-rise text-center lg:text-left">
               <div className="mb-6 flex flex-wrap justify-center gap-2 lg:justify-start">
@@ -177,33 +178,72 @@ export default function Landing() {
         {/* Problem */}
         <section className="border-y border-separator bg-bg-grouped">
           <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:py-24">
-            <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">Why Orbit</p>
-            <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
-              You don’t lack ambition.
-              <br />
-              You lack a system that won’t let you drift.
-            </h2>
-            <p className="mx-auto mt-5 max-w-2xl text-[18px] leading-[1.55] text-label-secondary">
-              To-do apps forget why a task matters. Goal apps never get down to today. Orbit connects the two — your
-              vision, goals, cycles and today’s three must-dos — and notices when something quietly slips.
-            </p>
-            <ChaosToOrbitIllustration className="mx-auto mt-12 w-full max-w-[560px]" />
+            <Reveal>
+              <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">Why Orbit</p>
+              <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
+                You don’t lack ambition.
+                <br />
+                You lack a system that won’t let you drift.
+              </h2>
+              <p className="mx-auto mt-5 max-w-2xl text-[18px] leading-[1.55] text-label-secondary">
+                To-do apps forget why a task matters. Goal apps never get down to today. Orbit connects the two — your
+                vision, goals, cycles and today’s three must-dos — and notices when something quietly slips.
+              </p>
+            </Reveal>
+            <Reveal from="scale" delay={120}>
+              <ChaosToOrbitIllustration className="mx-auto mt-12 w-full max-w-[560px]" />
+            </Reveal>
+          </div>
+        </section>
+
+        {/* The product */}
+        <section>
+          <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
+            <Reveal className="mx-auto max-w-2xl text-center">
+              <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">The product</p>
+              <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
+                Made to get you moving.
+              </h2>
+              <p className="mx-auto mt-5 max-w-xl text-[18px] leading-[1.55] text-label-secondary">
+                These are the real screens. Start a task with five minutes on the clock, and watch each goal grow as the
+                work gets done.
+              </p>
+            </Reveal>
+            <div className="mt-12 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
+              <Reveal from="left" className="flex flex-col">
+                <FocusDemo />
+                <p className="mt-4 px-1 text-[15px] leading-[1.55] text-label-secondary">
+                  <strong className="font-semibold text-label">Focus mode.</strong> One task, one timer, nothing else.
+                  The first session is five minutes, because starting is the hard part.
+                </p>
+              </Reveal>
+              <Reveal from="right" delay={100} className="flex flex-col">
+                <GoalDemo />
+                <p className="mt-4 px-1 text-[15px] leading-[1.55] text-label-secondary">
+                  <strong className="font-semibold text-label">Goals you can watch grow.</strong> Every goal is a
+                  planet. It grows with your progress, and each milestone is a moon that lights up when you reach it.
+                </p>
+              </Reveal>
+            </div>
           </div>
         </section>
 
         {/* Features */}
+        <div className="border-t border-separator" />
         <section id="features" className="scroll-mt-16">
           <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
-            <div className="max-w-2xl">
+            <Reveal className="max-w-2xl">
               <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">Features</p>
               <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
                 Everything between “someday” and done.
               </h2>
-            </div>
+            </Reveal>
             <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map(({ art: Art, tint, title, body }) => (
-                <article
+              {FEATURES.map(({ art: Art, tint, title, body }, i) => (
+                <Reveal
+                  as="article"
                   key={title}
+                  delay={(i % 3) * 90}
                   className="overflow-hidden rounded-[20px] border border-separator bg-surface shadow-1"
                 >
                   <div
@@ -218,7 +258,7 @@ export default function Landing() {
                     <h3 className="text-[19px] font-semibold tracking-[-0.01em]">{title}</h3>
                     <p className="mt-2 text-[15px] leading-[1.55] text-label-secondary">{body}</p>
                   </div>
-                </article>
+                </Reveal>
               ))}
             </div>
           </div>
@@ -227,7 +267,7 @@ export default function Landing() {
         {/* Accountability spotlight */}
         <section className="bg-bg-grouped">
           <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
-            <div>
+            <Reveal from="left">
               <p className="text-[13px] font-semibold tracking-[0.08em] text-warning-text uppercase">Accountability</p>
               <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
                 Firm, never shaming.
@@ -248,8 +288,12 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
-            </div>
-            <div className="mx-auto w-full max-w-md rounded-[28px] border border-separator bg-surface p-6 shadow-3">
+            </Reveal>
+            <Reveal
+              from="right"
+              delay={100}
+              className="mx-auto w-full max-w-md rounded-[28px] border border-separator bg-surface p-6 shadow-3"
+            >
               <div className="mx-auto mb-5 h-[5px] w-9 rounded-full bg-fill-strong" aria-hidden />
               <p className="text-[20px] font-semibold tracking-[-0.01em]">Why are you skipping this?</p>
               <p className="mt-1 text-[15px] text-label-secondary">“Update LinkedIn profile” · postponed 3×</p>
@@ -264,22 +308,22 @@ export default function Landing() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
         {/* How it works */}
         <section id="how" className="scroll-mt-16">
           <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
-            <div className="mx-auto max-w-2xl text-center">
+            <Reveal className="mx-auto max-w-2xl text-center">
               <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">How it works</p>
               <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
                 One loop, every two weeks.
               </h2>
-            </div>
+            </Reveal>
             <ol className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {STEPS.map(({ art: Art, title, body }, i) => (
-                <li key={title}>
+                <Reveal as="li" key={title} delay={i * 90}>
                   <div className="flex aspect-[5/3] items-center justify-center rounded-[20px] bg-surface-sunken p-3">
                     <Art className="h-full w-full" />
                   </div>
@@ -288,7 +332,7 @@ export default function Landing() {
                     <h3 className="text-[19px] font-semibold tracking-[-0.01em]">{title}</h3>
                   </div>
                   <p className="mt-1.5 text-[15px] leading-[1.55] text-label-secondary">{body}</p>
-                </li>
+                </Reveal>
               ))}
             </ol>
           </div>
@@ -296,7 +340,10 @@ export default function Landing() {
 
         {/* Final CTA */}
         <section className="px-4 pb-24 sm:px-6">
-          <div className="mx-auto max-w-6xl overflow-hidden rounded-[32px] bg-[linear-gradient(135deg,var(--band-from),var(--band-to))] px-6 py-16 text-center text-white sm:py-20">
+          <Reveal
+            from="scale"
+            className="mx-auto max-w-6xl overflow-hidden rounded-[32px] bg-[linear-gradient(135deg,var(--band-from),var(--band-to))] px-6 py-16 text-center text-white sm:py-20"
+          >
             <OrbitMarkWhite />
             <h2 className="mx-auto mt-6 max-w-2xl text-[clamp(1.9rem,4.5vw,3rem)] leading-[1.08] font-bold tracking-[-0.03em]">
               The best version of you is a plan away.
@@ -307,7 +354,7 @@ export default function Landing() {
             <div className="mt-9 flex justify-center">
               <PrimaryCta tone="inverse" />
             </div>
-          </div>
+          </Reveal>
         </section>
       </main>
 

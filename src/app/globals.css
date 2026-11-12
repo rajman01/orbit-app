@@ -289,3 +289,512 @@
     animation: landing-fade 200ms ease-out both;
   }
 }
+
+/* Landing page: sections slide into place as they scroll into view (see Reveal). */
+.reveal {
+  opacity: 0;
+  transform: translate3d(var(--reveal-x, 0), var(--reveal-y, 28px), 0) scale(var(--reveal-scale, 1));
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform;
+}
+.reveal-scale {
+  --reveal-y: 16px;
+  --reveal-scale: 0.96;
+}
+@media (min-width: 1024px) {
+  .reveal-left {
+    --reveal-x: -56px;
+    --reveal-y: 0px;
+  }
+  .reveal-right {
+    --reveal-x: 56px;
+    --reveal-y: 0px;
+  }
+}
+.reveal[data-shown] {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    transform: none;
+    transition: opacity 200ms ease-out;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Landing illustrations: each one plays a small looping story.
+   Everything is visible and still when reduced motion is on.
+   ------------------------------------------------------------------ */
+.il-box {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+/* dashed lines that travel */
+@keyframes il-march {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.il-march {
+  animation: il-march 1.8s linear infinite;
+}
+.il-march-back {
+  animation: il-march 1.8s linear infinite reverse;
+}
+@keyframes il-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+.il-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: il-pulse 2.2s ease-in-out infinite;
+  animation-delay: var(--il-d, 0s);
+}
+@keyframes il-beat {
+  0%,
+  36%,
+  100% {
+    transform: scale(1);
+  }
+  9% {
+    transform: scale(1.25);
+  }
+  18% {
+    transform: scale(1);
+  }
+  27% {
+    transform: scale(1.16);
+  }
+}
+.il-beat {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: il-beat 1.9s ease-in-out infinite;
+}
+@keyframes il-twinkle {
+  0%,
+  100% {
+    transform: scale(0.55) rotate(0deg);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.15) rotate(45deg);
+    opacity: 1;
+  }
+}
+.il-twinkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: il-twinkle 2.6s ease-in-out infinite;
+  animation-delay: var(--il-d, 0s);
+}
+@keyframes il-wave {
+  0%,
+  100% {
+    transform: skewY(0deg) scaleX(1);
+  }
+  50% {
+    transform: skewY(7deg) scaleX(0.84);
+  }
+}
+.il-wave {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: il-wave 1.3s ease-in-out infinite;
+}
+@keyframes il-wobble {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+.il-wobble {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: il-wobble 3.4s ease-in-out infinite;
+  animation-delay: var(--il-d, 0s);
+}
+@keyframes il-jitter {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(var(--dx, 3px), calc(var(--dy, 3px) * -1));
+  }
+  50% {
+    transform: translate(calc(var(--dx, 3px) * -1), var(--dy, 3px));
+  }
+  75% {
+    transform: translate(var(--dy, 3px), var(--dx, 3px));
+  }
+}
+.il-jitter {
+  animation: il-jitter var(--il-t, 2.4s) ease-in-out infinite;
+  animation-delay: var(--il-d, 0s);
+}
+/* appear with a small overshoot, hold, leave — on a shared loop */
+@keyframes il-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  7% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+  11%,
+  86% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  96%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+.il-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: il-pop var(--il-t, 6s) cubic-bezier(0.2, 0.8, 0.2, 1) infinite backwards;
+  animation-delay: var(--il-d, 0s);
+}
+@keyframes il-grow-y {
+  0% {
+    transform: scaleY(0);
+  }
+  12% {
+    transform: scaleY(1.06);
+  }
+  17%,
+  88% {
+    transform: scaleY(1);
+  }
+  100% {
+    transform: scaleY(0);
+  }
+}
+.il-grow-y {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: il-grow-y var(--il-t, 6s) cubic-bezier(0.2, 0.8, 0.2, 1) infinite backwards;
+  animation-delay: var(--il-d, 0s);
+}
+@keyframes il-grow-x {
+  0% {
+    transform: scaleX(0);
+  }
+  14%,
+  88% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0);
+  }
+}
+.il-grow-x {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: il-grow-x var(--il-t, 6s) cubic-bezier(0.2, 0.8, 0.2, 1) infinite backwards;
+  animation-delay: var(--il-d, 0s);
+}
+/* a stroke that draws itself (element needs pathLength=1) */
+@keyframes il-draw {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  14%,
+  88% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 1;
+  }
+}
+.il-draw {
+  stroke-dasharray: 1;
+  animation: il-draw var(--il-t, 6s) ease-out infinite backwards;
+  animation-delay: var(--il-d, 0s);
+}
+/* progress arc (pathLength=100) that sweeps to --il-arc, with a knob that turns to --il-angle */
+@keyframes il-sweep {
+  0% {
+    stroke-dasharray: 0 100;
+  }
+  32%,
+  88% {
+    stroke-dasharray: var(--il-arc) 100;
+  }
+  100% {
+    stroke-dasharray: 0 100;
+  }
+}
+.il-sweep {
+  animation: il-sweep var(--il-t, 7s) cubic-bezier(0.3, 0.7, 0.2, 1) infinite;
+}
+@keyframes il-turn {
+  0% {
+    transform: rotate(0deg);
+  }
+  32%,
+  88% {
+    transform: rotate(var(--il-angle));
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+.il-turn {
+  transform-box: view-box;
+  transform: rotate(var(--il-angle));
+  animation: il-turn var(--il-t, 7s) cubic-bezier(0.3, 0.7, 0.2, 1) infinite;
+}
+@keyframes il-dot-on {
+  0% {
+    opacity: 0.2;
+  }
+  5%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+.il-dot-on {
+  animation: il-dot-on var(--il-t, 7s) ease-out infinite backwards;
+  animation-delay: var(--il-d, 0s);
+}
+/* a timer ring running down */
+@keyframes il-countdown {
+  from {
+    stroke-dasharray: 100 100;
+  }
+  to {
+    stroke-dasharray: 0 100;
+  }
+}
+.il-countdown {
+  animation: il-countdown 9s linear infinite;
+}
+/* notes dropping into the inbox */
+@keyframes il-drop {
+  0% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  10%,
+  40% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  62% {
+    transform: translateY(46px) scale(0.55);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(46px) scale(0.55);
+    opacity: 0;
+  }
+}
+.il-drop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: il-drop 5.4s cubic-bezier(0.4, 0, 0.6, 1) infinite backwards;
+  animation-delay: var(--il-d, 0s);
+}
+@keyframes il-pin {
+  0% {
+    transform: translateY(-18px);
+    opacity: 0;
+  }
+  8% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  11% {
+    transform: translateY(-4px);
+  }
+  14%,
+  88% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-18px);
+    opacity: 0;
+  }
+}
+.il-pin {
+  animation: il-pin 6s ease-out infinite backwards;
+  animation-delay: var(--il-d, 0s);
+}
+/* planets travelling along their orbit */
+@keyframes il-orbit {
+  from {
+    offset-distance: var(--il-start, 0%);
+  }
+  to {
+    offset-distance: calc(var(--il-start, 0%) + 100%);
+  }
+}
+.il-orbit {
+  offset-rotate: 0deg;
+  offset-distance: var(--il-start, 0%);
+  animation: il-orbit var(--il-t, 18s) linear infinite;
+}
+
+/* Hero mock-up: a Must-do gets ticked off, over and over. */
+@keyframes mock-check-fill {
+  0%,
+  38% {
+    background-color: transparent;
+    border-color: var(--label-tertiary);
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(0.85);
+  }
+  47% {
+    background-color: var(--success);
+    border-color: var(--success);
+    transform: scale(1.15);
+  }
+  52%,
+  92% {
+    background-color: var(--success);
+    border-color: var(--success);
+    transform: scale(1);
+  }
+  100% {
+    background-color: transparent;
+    border-color: var(--label-tertiary);
+  }
+}
+@keyframes mock-check-draw {
+  0%,
+  44% {
+    stroke-dashoffset: 1;
+  }
+  54%,
+  92% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 1;
+  }
+}
+@keyframes mock-title-done {
+  0%,
+  46% {
+    color: var(--label);
+    text-decoration-color: transparent;
+  }
+  56%,
+  92% {
+    color: var(--label-tertiary);
+    text-decoration-color: currentColor;
+  }
+  100% {
+    color: var(--label);
+    text-decoration-color: transparent;
+  }
+}
+.mock-check-fill {
+  animation: mock-check-fill 7s ease-out infinite;
+}
+.mock-check-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: mock-check-draw 7s ease-out infinite;
+}
+.mock-title-done {
+  text-decoration-line: line-through;
+  text-decoration-color: transparent;
+  animation: mock-title-done 7s ease-out infinite;
+}
+@keyframes mock-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+.mock-ring {
+  animation: mock-ring 2.2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .il *,
+  .mock-check-fill,
+  .mock-check-draw,
+  .mock-title-done,
+  .mock-ring {
+    animation: none !important;
+  }
+}
+
+/* Hero mock-up: the moon for the task being ticked fills in step with it. */
+@keyframes mock-moon {
+  0%,
+  44% {
+    fill: rgba(255, 255, 255, 0.12);
+  }
+  52%,
+  92% {
+    fill: #ffffff;
+  }
+  100% {
+    fill: rgba(255, 255, 255, 0.12);
+  }
+}
+.mock-moon {
+  animation: mock-moon 7s ease-out infinite;
+}
+/* Landing hero: an occasional shooting star. */
+@keyframes hero-shoot {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(24deg);
+    opacity: 0;
+  }
+  3% {
+    opacity: 1;
+  }
+  12% {
+    transform: translate3d(42vw, 19vw, 0) rotate(24deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(42vw, 19vw, 0) rotate(24deg);
+    opacity: 0;
+  }
+}
+.hero-shoot {
+  animation: hero-shoot var(--il-t, 11s) ease-out infinite backwards;
+  animation-delay: var(--il-d, 2s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mock-moon,
+  .hero-shoot {
+    animation: none !important;
+  }
+  .hero-shoot {
+    opacity: 0;
+  }
+}
