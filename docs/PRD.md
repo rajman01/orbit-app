@@ -137,6 +137,7 @@ Vision (values, 1/5/10-year vision, yearly theme)
            └── Task         a concrete action (can have subtasks)
                  └── Subtask
 
+Quarter    a 3-month horizon that goals are committed into (Q1–Q4)
 Cycle      a 2-week (configurable) time box that tasks are committed into
 Inbox      unprocessed captures
 Habit      recurring behaviour tracked by streak/consistency
@@ -153,12 +154,13 @@ Journal    daily reflection with mood/energy
 | **Milestone** | A dated checkpoint within a goal (e.g. "CV rewritten"). |
 | **Task** | The unit of work. Analogous to a Linear *Issue*. |
 | **Next step** | A ≤2-minute starter action attached to a task, to beat starting friction. |
+| **Quarter** | A 3-month horizon (calendar quarters, e.g. Q1 = January–March) into which 3–5 goals are committed. Sits between the yearly vision and cycles: vision → quarter → cycle → today. |
 | **Cycle** | A time box (default 14 days, starting Sunday) into which tasks are committed. Analogous to a Linear *Cycle*. |
 | **Must-do** | One of max 3 tasks flagged as non-negotiable for today. |
 | **Skip** | Moving a planned task out of today/cycle. Always requires a reason. |
 | **Stale task** | A task postponed ≥3 times or untouched for ≥14 days while planned. |
 | **XP / Level** | Progression earned through meaningful completion (see §9). |
-| **Ritual** | Guided routines: Daily Plan, Daily Shutdown, Cycle Review. |
+| **Ritual** | Guided routines: Daily Plan, Daily Shutdown, Cycle Review; later Quarterly Plan and Quarterly Review. |
 
 ---
 
@@ -226,7 +228,7 @@ Priority key: **P0** = required for MVP (Phase 1), **P1** = Phase 2, **P2** = Ph
 | INB-4 | Inbox badge count; Daily Plan ritual requires inbox zero or explicit "leave for later". | P0 |
 | INB-5 | Captures from external sources (share sheet, email, iOS Shortcut, AI chat) land here — see §13. | P1 |
 
-### 7.6 Cycles
+### 7.6 Cycles and quarters
 
 | ID | Requirement | Priority |
 |---|---|---|
@@ -237,6 +239,17 @@ Priority key: **P0** = required for MVP (Phase 1), **P1** = Phase 2, **P2** = Ph
 | CYC-5 | Cycle Review ritual on the cycle's final Sunday (see RIT-3). | P0 |
 | CYC-6 | Cycle history: past cycles with completion rate, points, focus hours, XP earned. | P1 |
 | CYC-7 | Cycle themes/focus: optional "what this cycle is about" + 1–3 focus goals highlighted all cycle. | P1 |
+
+**Quarters** (added 2026-11-12 at the owner's request): "these are the things I want to achieve in the next three months — let's plan it." A quarter is the layer between the yearly vision (VIS-1) and two-week cycles; it holds a few goals, and cycles carry out the work.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| QTR-1 | Quarters auto-generate as calendar quarters (Q1 = January–March). A Quarter page shows the quarter's theme, its committed goals with progress and health, overall progress against time elapsed ("on pace" / "behind"), the cycles inside it, and days left. | P1 |
+| QTR-2 | **Quarterly Plan** ritual (~30 min, guided like RIT-3): look at the yearly theme and vision → review goals carried over → choose **3–5 quarterly goals** (existing or new), each with a target date inside the quarter and at least one key result → break each into monthly milestones → a capacity check (warns past 5 goals, or when the goals' estimated work exceeds the quarter's cycle capacity) → explicit commitment ("I commit to these N goals this quarter"). | P1 |
+| QTR-3 | Quarters drive cycles: cycle planning shows the quarter's goals first and suggests their open tasks; a quarterly goal with no task in the upcoming cycle is flagged (like GOAL-6), and the cycle's focus goals (CYC-7) default to quarterly goals. | P1 |
+| QTR-4 | **Quarterly Review** ritual at quarter end, alongside the last cycle review of the quarter: results per goal and key result → a decision per unfinished goal (completed / carry into next quarter / drop with a reason) → wins → reflection → plan the next quarter (QTR-2). Strictness applies as for cycles (§8.5): an unreviewed quarter blocks planning the next one (Firm: override with a reason). | P1 |
+| QTR-5 | Year view: the yearly theme (VIS-1) and the four quarters with their goals and outcomes, linked to the goals timeline (GOAL-8). | P1 |
+| QTR-6 | Pace checks: a quarterly goal whose progress trails elapsed time by more than 20 points is marked "behind" and surfaced in the Cycle Review's goal check-in. | P1 |
 
 ### 7.7 Today (daily execution)
 
@@ -272,6 +285,7 @@ Priority key: **P0** = required for MVP (Phase 1), **P1** = Phase 2, **P2** = Ph
 | RIT-4 | Rituals are reminded via push notification at configured times; incomplete rituals stay pinned at top of Today. | P0 |
 | RIT-5 | Ritual streak tracked and XP-rewarded. | P0 |
 | RIT-6 | AI can run rituals conversationally ("plan my day with me"). | P1 |
+| RIT-7 | **Quarterly Plan** and **Quarterly Review** rituals (see QTR-2, QTR-4), with reminders and pinning like the other rituals. | P1 |
 
 ### 7.10 Habits & routines (light in v1)
 
@@ -729,9 +743,13 @@ vision           { userId, values: [{ id, name, description }], vision1y, vision
 
 areas            { userId, name, icon, color, description, order, archivedAt, xp, level }
 
-goals            { userId, areaId, title, description, status, health, priority,
+goals            { userId, areaId, quarterId, title, description, status, health, priority,
                    startDate, targetDate, valueIds[], progress, completedAt,
                    droppedReason, order }
+
+quarters         { userId, year, quarter /*1–4*/, startDate, endDate, theme,
+                   committedGoalIds[], committedAt, planningOverride,
+                   reviewCompletedAt, reflection }  /* deterministic id per year+quarter */
 
 keyResults       { userId, goalId, title, type /*'number'|'percent'|'boolean'*/,
                    start, target, current, unit, order }
@@ -763,8 +781,9 @@ focusSessions    { userId, taskId, mode, plannedMinutes, startedAt, endedAt,
                    actualMinutes, outcome /*'done'|'progress'|'stuck'|'abandoned'*/,
                    interruptions }
 
-rituals          { userId, type /*'daily_plan'|'daily_shutdown'|'cycle_review'*/,
-                   date, cycleId, startedAt, completedAt, data /*answers, mood, energy*/ }
+rituals          { userId, type /*'daily_plan'|'daily_shutdown'|'cycle_review'
+                   |'quarterly_plan'|'quarterly_review'*/,
+                   date, cycleId, quarterId, startedAt, completedAt, data /*answers, mood, energy*/ }
 
 people           { userId, name, photoUrl, relationshipType, howWeMet, notes,
                    interests[], importantDates: [{label, date, remind}],
@@ -978,7 +997,7 @@ The detailed plan for each phase — scope, data model changes, decisions, steps
 | [1B — Do the work, stop drifting](./phases/phase-1b.md) | TODAY-1–6, TASK-4, FOC-1–6, §8.1, §8.2, Upcoming, swipe gestures | A week run from Today; every postponement has a reason | ✅ Deployed (2026-11-12) |
 | [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | ✅ Built (2026-11-12) |
 | [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | 🔜 Next |
-| [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | Planned |
+| [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, QTR-1–6, RIT-7, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | Planned |
 | [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–4, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, email capture | Insights reflect four cycles of real data | Planned |
 | [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |
 
@@ -1013,6 +1032,7 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 7. **Notifications** — preferred default ritual times? *(Proposed: Daily Plan 07:30, Shutdown 21:00, Cycle Review Sunday 18:00; needed by Phase 1D.)*
 8. **Domain** — will Orbit have a custom domain? Currently `orbit-app-three-beta.vercel.app`; a change means updating `BETTER_AUTH_URL` and the Google OAuth client.
 9. **Reminder scheduler** — Vercel Pro or an external per-minute scheduler (see §22)? *(Needed by Phase 1D.)*
+10. **Quarter boundaries** — calendar quarters (Q1 = January–March), or 12-week blocks of 6 cycles so quarters and cycles line up exactly? *(Proposed: calendar quarters; the last cycle of a quarter can run a few days past its end. Needed by Phase 2.)*
 
 ---
 
@@ -1047,3 +1067,4 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 | D25 | Cycles and rituals are generated on the device with deterministic ids; a cycle's state is derived from its dates and review, not stored | Works offline; two devices can't create duplicates or disagree on status |
 | D26 | Strictness defaults to Firm (open question 5); ritual times default to 07:30 / 21:00 / 18:00 (part of open question 7) | The owner asked for real accountability; times are editable in Settings |
 | D27 | Planning the next cycle is allowed on the review day itself; after that, an unreviewed cycle blocks it (Firm: override with a reason) | Planning the next cycle is the last step of the review |
+| D28 | Add quarters (QTR-1–6, RIT-7) between the yearly vision and cycles, built in Phase 2 alongside the Vision page and goals timeline | Owner request: plan "the things I want to achieve in the next three months"; all three are about the long view |
