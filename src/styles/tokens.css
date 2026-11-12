@@ -1,0 +1,165 @@
+/*
+ * Orbit design tokens — see docs/DESIGN.md.
+ * Every colour, size, radius, shadow and material in the app comes from here.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 2.2 Neutrals */
+  --bg: #ffffff;
+  --bg-grouped: #f2f2f7;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f2f2f7;
+  --fill: rgb(120 120 128 / 0.12);
+  --fill-strong: rgb(120 120 128 / 0.2);
+  --separator: rgb(60 60 67 / 0.18);
+  --label: #000000;
+  --label-secondary: rgb(60 60 67 / 0.72);
+  --label-tertiary: rgb(60 60 67 / 0.45);
+
+  /* 2.3 Accent */
+  /* Teal, deepened from Apple's #30B0C7 so white text on it passes contrast (4.9:1). */
+  --accent: #0e7c8f;
+  --accent-text: #0b7285;
+  --accent-fill: rgb(48 176 199 / 0.14);
+  --on-accent: #ffffff;
+  --accent-on-white: #0b7285;
+
+  /* 2.4 Areas */
+  --area-blue: #007aff;
+  --area-pink: #ff2d55;
+  --area-green: #34c759;
+  --area-orange: #ff9500;
+  --area-indigo: #5856d6;
+  --area-purple: #af52de;
+  --area-mint: #00c7be;
+  --area-brown: #a2845e;
+  --area-cyan: #32ade6;
+  --area-yellow: #ffcc00;
+
+  /* 2.5 Semantic */
+  --success: #34c759;
+  --success-text: #248a3d;
+  --warning: #ff9500;
+  --warning-text: #c93400;
+  --danger: #ff3b30;
+  --danger-text: #d70015;
+  --info: #007aff;
+  --xp-from: #13867a;
+  --xp-to: #0e7c8f;
+  /* Brand band behind white text — deep in both themes. */
+  --band-from: #13867a;
+  --band-to: #0a6f7f;
+
+  /* 4.4 Elevation */
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.06);
+  --shadow-2: 0 4px 12px rgb(0 0 0 / 0.08), 0 1px 3px rgb(0 0 0 / 0.06);
+  --shadow-3: 0 12px 32px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.06);
+  --shadow-4: 0 24px 64px rgb(0 0 0 / 0.18);
+  --highlight-top: inset 0 0 0 0 transparent;
+
+  /* 6.1 Materials */
+  --material-chrome: rgb(255 255 255 / 0.72);
+  --material-thick: rgb(242 242 247 / 0.85);
+  --material-thin: rgb(255 255 255 / 0.55);
+  --material-popover: rgb(255 255 255 / 0.88);
+  --scrim: rgb(0 0 0 / 0.32);
+
+  /* 3.2 Type scale — Regular (touch) values; Compact overrides at lg below */
+  --fs-display: 2.125rem;  --lh-display: 2.5625rem;
+  --fs-title1: 1.75rem;    --lh-title1: 2.125rem;
+  --fs-title2: 1.375rem;   --lh-title2: 1.75rem;
+  --fs-title3: 1.25rem;    --lh-title3: 1.5625rem;
+  --fs-headline: 1.0625rem; --lh-headline: 1.375rem;
+  --fs-body: 1.0625rem;    --lh-body: 1.375rem;
+  --fs-callout: 1rem;      --lh-callout: 1.3125rem;
+  --fs-subhead: 0.9375rem; --lh-subhead: 1.25rem;
+  --fs-footnote: 0.8125rem; --lh-footnote: 1.125rem;
+  --fs-caption: 0.75rem;   --lh-caption: 1rem;
+  --fs-micro: 0.6875rem;   --lh-micro: 0.8125rem;
+
+  /* 4.2 Control sizes */
+  --row-h: 3.25rem;
+  --row-mustdo-h: 4rem;
+  --control-h: 2.75rem;
+  --control-lg-h: 3.125rem;
+  --icon-btn: 2.75rem;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --fs-display: 1.75rem;   --lh-display: 2.125rem;
+    --fs-title1: 1.375rem;   --lh-title1: 1.75rem;
+    --fs-title2: 1.125rem;   --lh-title2: 1.5rem;
+    --fs-title3: 1rem;       --lh-title3: 1.375rem;
+    --fs-headline: 0.875rem; --lh-headline: 1.25rem;
+    --fs-body: 0.875rem;     --lh-body: 1.25rem;
+    --fs-callout: 0.8125rem; --lh-callout: 1.125rem;
+    --fs-subhead: 0.8125rem; --lh-subhead: 1.125rem;
+    --fs-footnote: 0.75rem;  --lh-footnote: 1rem;
+    --fs-caption: 0.6875rem; --lh-caption: 0.875rem;
+    --fs-micro: 0.625rem;    --lh-micro: 0.75rem;
+
+    --row-h: 2.25rem;
+    --row-mustdo-h: 3rem;
+    --control-h: 2rem;
+    --control-lg-h: 2.5rem;
+    --icon-btn: 1.75rem;
+  }
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg: #000000;
+  --bg-grouped: #000000;
+  --surface: #1c1c1e;
+  --surface-raised: #2c2c2e;
+  --surface-sunken: #111113;
+  --fill: rgb(120 120 128 / 0.24);
+  --fill-strong: rgb(120 120 128 / 0.36);
+  --separator: rgb(84 84 88 / 0.6);
+  --label: #ffffff;
+  --label-secondary: rgb(235 235 245 / 0.7);
+  --label-tertiary: rgb(235 235 245 / 0.4);
+
+  --accent: #138496;
+  --accent-text: #5ed3e6;
+  --accent-fill: rgb(64 200 224 / 0.22);
+
+  --area-blue: #0a84ff;
+  --area-pink: #ff375f;
+  --area-green: #30d158;
+  --area-orange: #ff9f0a;
+  --area-indigo: #5e5ce6;
+  --area-purple: #bf5af2;
+  --area-mint: #63e6e2;
+  --area-brown: #ac8e68;
+  --area-cyan: #64d2ff;
+  --area-yellow: #ffd60a;
+
+  --success: #30d158;
+  --success-text: #30d158;
+  --warning: #ff9f0a;
+  --warning-text: #ffb340;
+  --danger: #ff453a;
+  --danger-text: #ff6961;
+  --info: #0a84ff;
+  --xp-from: #63e6e2;
+  --xp-to: #40c8e0;
+
+  --shadow-1: none;
+  --shadow-2: 0 4px 12px rgb(0 0 0 / 0.5);
+  --shadow-3: 0 12px 32px rgb(0 0 0 / 0.6);
+  --shadow-4: 0 24px 64px rgb(0 0 0 / 0.7);
+  --highlight-top: inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+
+  --material-chrome: rgb(28 28 30 / 0.72);
+  --material-thick: rgb(18 18 20 / 0.85);
+  --material-thin: rgb(44 44 46 / 0.55);
+  --material-popover: rgb(44 44 46 / 0.88);
+  --scrim: rgb(0 0 0 / 0.56);
+}
+

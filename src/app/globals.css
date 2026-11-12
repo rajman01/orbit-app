@@ -1,0 +1,191 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Map design tokens to Tailwind utilities (bg-surface, text-label, rounded-lg, ...). */
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-bg: var(--bg);
+  --color-bg-grouped: var(--bg-grouped);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-fill: var(--fill);
+  --color-fill-strong: var(--fill-strong);
+  --color-separator: var(--separator);
+  --color-label: var(--label);
+  --color-label-secondary: var(--label-secondary);
+  --color-label-tertiary: var(--label-tertiary);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-fill: var(--accent-fill);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-text: var(--danger-text);
+  --color-info: var(--info);
+  --color-area-blue: var(--area-blue);
+  --color-area-pink: var(--area-pink);
+  --color-area-green: var(--area-green);
+  --color-area-orange: var(--area-orange);
+  --color-area-indigo: var(--area-indigo);
+  --color-area-purple: var(--area-purple);
+  --color-area-mint: var(--area-mint);
+  --color-area-brown: var(--area-brown);
+  --color-area-cyan: var(--area-cyan);
+  --color-area-yellow: var(--area-yellow);
+
+  --text-display: var(--fs-display);
+  --text-display--line-height: var(--lh-display);
+  --text-display--letter-spacing: -0.022em;
+  --text-display--font-weight: 700;
+  --text-title1: var(--fs-title1);
+  --text-title1--line-height: var(--lh-title1);
+  --text-title1--letter-spacing: -0.018em;
+  --text-title1--font-weight: 700;
+  --text-title2: var(--fs-title2);
+  --text-title2--line-height: var(--lh-title2);
+  --text-title2--letter-spacing: -0.014em;
+  --text-title2--font-weight: 600;
+  --text-title3: var(--fs-title3);
+  --text-title3--line-height: var(--lh-title3);
+  --text-title3--letter-spacing: -0.01em;
+  --text-title3--font-weight: 600;
+  --text-headline: var(--fs-headline);
+  --text-headline--line-height: var(--lh-headline);
+  --text-headline--letter-spacing: -0.006em;
+  --text-headline--font-weight: 600;
+  --text-body: var(--fs-body);
+  --text-body--line-height: var(--lh-body);
+  --text-body--letter-spacing: -0.004em;
+  --text-callout: var(--fs-callout);
+  --text-callout--line-height: var(--lh-callout);
+  --text-callout--letter-spacing: -0.002em;
+  --text-subhead: var(--fs-subhead);
+  --text-subhead--line-height: var(--lh-subhead);
+  --text-footnote: var(--fs-footnote);
+  --text-footnote--line-height: var(--lh-footnote);
+  --text-caption: var(--fs-caption);
+  --text-caption--line-height: var(--lh-caption);
+  --text-caption--letter-spacing: 0.01em;
+  --text-caption--font-weight: 500;
+  --text-micro: var(--fs-micro);
+  --text-micro--line-height: var(--lh-micro);
+  --text-micro--letter-spacing: 0.03em;
+  --text-micro--font-weight: 600;
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+  --shadow-4: var(--shadow-4);
+
+  --spacing-row: var(--row-h);
+  --spacing-row-mustdo: var(--row-mustdo-h);
+  --spacing-control: var(--control-h);
+  --spacing-control-lg: var(--control-lg-h);
+  --spacing-icon-btn: var(--icon-btn);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+    background: var(--bg);
+    color: var(--label);
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+    transition: background-color 300ms ease, color 300ms ease;
+  }
+  .dark {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100dvh;
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    letter-spacing: -0.004em;
+    overscroll-behavior-y: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--accent-fill);
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 6.1 Materials */
+@utility material-chrome {
+  background: var(--material-chrome);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+@utility material-thick {
+  background: var(--material-thick);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+}
+@utility material-thin {
+  background: var(--material-thin);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+@utility material-popover {
+  background: var(--material-popover);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--highlight-top), var(--shadow-3);
+}
+
+/* 6.3 / 12 Accessibility overrides */
+@media (prefers-reduced-transparency: reduce) {
+  .material-chrome, .material-thin, .material-popover { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .material-thick { background: var(--surface-sunken); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  :root { --separator: var(--label-secondary); }
+  .material-chrome, .material-thin, .material-popover, .material-thick { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; border: 1px solid var(--label-secondary); }
+  :focus-visible { outline-width: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { transition: none; }
+}
+
+@keyframes menu-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Landing page entrance: rise + fade, once. */
+@keyframes landing-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.landing-rise {
+  animation: landing-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise { animation: landing-fade 200ms ease-out both; }
+}
+@keyframes landing-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
