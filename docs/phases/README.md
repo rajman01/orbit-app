@@ -13,6 +13,12 @@ Each phase has its own plan so the [PRD](../PRD.md) stays the product spec, not 
 | 3 — Insight and growth | [phase-3.md](./phase-3.md) | Planned (outline) |
 | 4 — Opening up | [phase-4.md](./phase-4.md) | Optional (outline) |
 
+**Side track** (doesn't block any phase):
+
+| Track | Doc | Status |
+|---|---|---|
+| Landing page — next round | [landing-page.md](./landing-page.md) | Planned — after Phase 1D |
+
 ## How we use these docs
 
 - **Before a phase:** review its plan, settle the listed decisions, and add detail (Phase 2+ docs are outlines until then).
