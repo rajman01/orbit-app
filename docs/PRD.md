@@ -6,7 +6,7 @@
 | **Version** | PRD v1.1 |
 | **Date** | 2026-11-12 |
 | **Owner** | Alameen (product owner, sole user for v1) |
-| **Status** | Approved — Phase 1D built; Phase 1 trial next ([phase plans](./phases/README.md)) |
+| **Status** | Approved — Phase 1 built and deployed; two-cycle trial running ([phase plans](./phases/README.md)) |
 | **Platforms** | Web app + installable PWA (iOS, Android, desktop) |
 | **Repo** | Single Next.js repo at `orbit/orbit-app/` (the `orbit/` root folder is not a repo) |
 
@@ -996,7 +996,7 @@ The detailed plan for each phase — scope, data model changes, decisions, steps
 | [1A — Plan the work](./phases/phase-1a.md) | ONB-2/3, AREA-1/2, GOAL-1–6, GOAL-9, TASK-1–6, TASK-10, INB-1–4, CMD-1–3, VIEW-1/2, SET-1 | Real areas, goals, milestones and tasks set up; inbox capture and triage, all offline | ✅ Deployed (2026-11-12) |
 | [1B — Do the work, stop drifting](./phases/phase-1b.md) | TODAY-1–6, TASK-4, FOC-1–6, §8.1, §8.2, Upcoming, swipe gestures | A week run from Today; every postponement has a reason | ✅ Deployed (2026-11-12) |
 | [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | ✅ Deployed (2026-11-12) |
-| [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | ✅ Built (2026-11-12) |
+| [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | ✅ Deployed (2026-11-12) — trial running |
 | [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, QTR-1–6, RIT-7, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | Planned |
 | [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–4, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, email capture | Insights reflect four cycles of real data | Planned |
 | [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |

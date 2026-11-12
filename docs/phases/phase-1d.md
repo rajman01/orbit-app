@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | ✅ Built — 2026-11-12 (not yet deployed; reminders need the one-time setup below) |
+| **Status** | ✅ Deployed — 2026-11-12 (commit `381d712`); push set up and confirmed on a real device |
 | **Depends on** | 1C |
 | **PRD** | §7.10, §8.3, §9, §12 |
 | **Design** | [DESIGN.md](../DESIGN.md) §9, §11.14 |
@@ -67,8 +67,9 @@ Close the Phase 1 loop with the motivation and nudging layer: light habit tracki
 - [x] Reminders entity + dispatch job + quiet hours
 - [x] Notification settings + iOS install guidance
 - [x] Tests
-- [ ] Owner setup: Vercel environment variables and cron-job.org (below)
-- [ ] Deploy and start the two-cycle trial (Phase 1 exit criterion)
+- [x] Owner setup: Vercel environment variables and cron-job.org (below)
+- [x] Deploy (`381d712`); test notification and a real reminder confirmed on the owner's phone
+- [ ] Two-cycle trial (Phase 1 exit criterion), in progress
 
 ## Tests
 
@@ -113,7 +114,7 @@ The keys are already in `.env.local` (generated locally, never committed). Produ
 ## Known gaps
 
 - XP isn't backdated: things finished before this phase earn nothing.
-- Reminders arrive only once the owner setup above is done, and only on devices that turned notifications on. Push can't be tested on the dev server (its service worker is off).
+- Reminders arrive only on devices that turned notifications on. Push can't be tested on the dev server (its service worker is off).
 - The weekly report is in-app only; email comes later (NOT-7).
 
 ## Build log
@@ -125,3 +126,4 @@ The keys are already in `.env.local` (generated locally, never committed). Produ
 | 2026-11-12 | Habits with "never miss twice" streaks; XP engine and awards; levels with level-up; accountability score and weekly report; Web Push, reminder dispatch, notification settings and the Today prompt |
 | 2026-11-12 | Tests: 19 unit tests (`tests/unit/phase1d.test.ts`: streaks, XP rules and anti-gaming, levels, score, quiet hours, due reminders, XP on a local database, dispatch on an in-memory MongoDB) and 4 browser tests (`tests/e2e/habits.spec.ts`: offline habit check-in, XP once across two devices, reminder job secret, report and levels pages) |
 | 2026-11-12 | Full browser suite: 2 of 3 runs clean (39 passed, 5 skipped). In the other, the phone browser crashed once ("Target crashed") opening a task on Upcoming in `today.spec.ts`; that spec then passed 20 of 20 on its own. Treated as a test-browser crash, worth watching |
+| 2026-11-12 | Owner set up the Vercel variables and cron-job.org; the live push key, the reminder job, a test notification and a real ritual reminder all confirmed working on the owner's phone |
