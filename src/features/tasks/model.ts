@@ -75,11 +75,20 @@ export function compareTasks(a: Task, b: Task): number {
 
 /**
  * The next due day of a recurring task.
- * fixed: continues the schedule from the previous due day (or today if none).
+ * fixed: continues the schedule from the previous due day (or today if none). Completed late,
+ * it jumps to the first scheduled day after the completion day, so the next one is never
+ * already overdue (owner decision, 2026-11-12).
  * after_completion: counts from the day it was completed.
  */
 export function nextOccurrence(rule: Recurrence, previousDue: Day | null, completedOn: Day): Day {
-  const base = rule.mode === "fixed" && previousDue ? previousDue : completedOn;
+  if (rule.mode !== "fixed" || !previousDue) return stepOccurrence(rule, completedOn);
+  let next = stepOccurrence(rule, previousDue);
+  for (let i = 0; next <= completedOn && i < 5000; i++) next = stepOccurrence(rule, next);
+  return next;
+}
+
+/** One step along the schedule from `base`. */
+function stepOccurrence(rule: Recurrence, base: Day): Day {
   if (rule.freq === "daily") return addDays(base, rule.interval);
   if (rule.freq === "monthly") return addMonths(base, rule.interval);
 

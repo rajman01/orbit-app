@@ -49,9 +49,21 @@ describe("dates", () => {
 
 describe("recurrence", () => {
   it("daily, monthly and after-completion", () => {
+    // Fixed and completed late: jumps to the first scheduled day after completion, never already overdue.
     expect(nextOccurrence({ freq: "daily", interval: 1, mode: "fixed" }, "2026-11-12", "2026-11-14")).toBe(
+      "2026-11-15",
+    );
+    expect(nextOccurrence({ freq: "daily", interval: 1, mode: "fixed" }, "2026-11-12", "2026-11-12")).toBe(
       "2026-11-13",
     );
+    // Completed early: the schedule carries on from the due day.
+    expect(nextOccurrence({ freq: "daily", interval: 1, mode: "fixed" }, "2026-11-12", "2026-11-10")).toBe(
+      "2026-11-13",
+    );
+    // Weekly on Mondays, done the following Wednesday: next Monday, not the one just missed.
+    expect(
+      nextOccurrence({ freq: "weekly", interval: 1, byWeekday: [1], mode: "fixed" }, "2026-11-09", "2026-11-18"),
+    ).toBe("2026-11-23");
     expect(nextOccurrence({ freq: "daily", interval: 2, mode: "after_completion" }, "2026-11-12", "2026-11-14")).toBe(
       "2026-11-16",
     );

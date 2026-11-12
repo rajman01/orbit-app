@@ -11,7 +11,7 @@ import { SectionLabel, TaskList, useTaskLookups } from "@/components/tasks/task-
 import { TaskRow } from "@/components/tasks/task-row";
 import { Input } from "@/components/ui/input";
 import { useActions } from "@/features/actions";
-import { useAllTasks, useGoals, useSettings } from "@/features/data";
+import { useAllTasks, useFocusSessions, useGoals, useSettings } from "@/features/data";
 import { needsNextStep, type Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
 import {
@@ -40,6 +40,7 @@ export function TodayView() {
   const actions = useActions();
   const skip = useSkipFlow();
   const all = useAllTasks();
+  const focusSessions = useFocusSessions();
   const goals = useGoals();
   const settings = useSettings();
   const todayDay = useToday();
@@ -56,8 +57,9 @@ export function TodayView() {
         now,
         timezone: settings.timezone,
         capacity: settings.dailyCapacityPts,
+        focusSessions,
       }),
-    [all, todayDay, now, settings.timezone, settings.dailyCapacityPts],
+    [all, focusSessions, todayDay, now, settings.timezone, settings.dailyCapacityPts],
   );
   const stuckGoals = (goals ?? []).filter((g) => needsNextStep(g, all ?? []));
 
@@ -123,7 +125,12 @@ export function TodayView() {
             <ul className="flex flex-col">
               {plan.stale.map((t) => (
                 <li key={t.id}>
-                  <StaleRow task={t} now={now} onAction={(a) => void stale.run(t, a)} />
+                  <StaleRow
+                    task={t}
+                    now={now}
+                    touchedAt={plan.touched.get(t.id)}
+                    onAction={(a) => void stale.run(t, a)}
+                  />
                 </li>
               ))}
             </ul>
@@ -237,10 +244,12 @@ function CapacityBar({ capacity: c }: { capacity: Capacity }) {
 function StaleRow({
   task,
   now,
+  touchedAt,
   onAction,
 }: {
   task: Task;
   now: number;
+  touchedAt?: number;
   onAction: (a: (typeof STALE_ACTIONS)[number]["id"]) => void;
 }) {
   const { areaById, goalById, subtasks } = useTaskLookups();
@@ -251,7 +260,7 @@ function StaleRow({
         area={task.areaId ? areaById.get(task.areaId) : undefined}
         goal={task.goalId ? goalById.get(task.goalId) : undefined}
         subtaskCount={subtasks.get(task.id)}
-        staleLabel={`${staleReason(task, now)}. What's getting in the way?`}
+        staleLabel={`${staleReason(task, now, touchedAt)}. What's getting in the way?`}
         swipe={false}
       />
       <div className="flex flex-wrap gap-1.5 pr-1 pl-11 lg:pl-9" role="group" aria-label={`Resolve ${task.title}`}>

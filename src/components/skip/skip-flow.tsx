@@ -59,10 +59,12 @@ function SkipFlow({ task, initialTo, onClose }: { task: Task; initialTo?: Day | 
   const settings = useSettings();
   const todayDay = useToday();
   const planned = isSkip(task, todayDay, null);
+  // A task due today or earlier can't be moved to "No date": that would drop its deadline.
+  const dueNow = task.dueDate != null && task.dueDate <= todayDay;
   const [reason, setReason] = useState<SkipReason | null>(null);
   const [step, setStep] = useState<"reason" | "move">(planned ? "reason" : "move");
   const [to, setTo] = useState<Day | typeof SOMEDAY>(
-    initialTo === undefined ? addDays(todayDay, 1) : (initialTo ?? SOMEDAY),
+    initialTo === undefined || (initialTo === null && dueNow) ? addDays(todayDay, 1) : (initialTo ?? SOMEDAY),
   );
   const [reasonText, setReasonText] = useState("");
   const [nextStep, setNextStep] = useState(task.nextStep ?? "");
@@ -74,7 +76,7 @@ function SkipFlow({ task, initialTo, onClose }: { task: Task; initialTo?: Day | 
     ["Tomorrow", addDays(todayDay, 1)],
     ["In 2 days", addDays(todayDay, 2)],
     ["Next week", nextMonday],
-    ["No date", SOMEDAY],
+    ...(dueNow ? [] : ([["No date", SOMEDAY]] as [string, typeof SOMEDAY][])),
   ];
   const toDay = to === SOMEDAY ? null : to;
 

@@ -132,3 +132,34 @@ test("a focus session started offline syncs when back online", async ({ page, co
     page.getByRole("list", { name: "Done today" }).getByRole("button", { name: `Open ${title}` }),
   ).toBeVisible();
 });
+
+test("a task due today can't be moved to 'No date' (its deadline would be lost)", async ({ page }) => {
+  const r = run();
+  const due = `Pay rent ${r}`;
+  const planned = `Tidy desk ${r}`;
+  await page.goto("/today");
+  await addToday(page, due);
+  await addToday(page, planned);
+
+  // Give the first one a due date of today.
+  await page.getByRole("button", { name: `Open ${due}` }).click();
+  await page.getByRole("button", { name: "Due date" }).click();
+  await page.getByRole("button", { name: "Today", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Due date" })).toHaveText(/Today/);
+  await page.getByRole("button", { name: "Close" }).first().click();
+
+  await openSkip(page, due);
+  let dialog = page.getByRole("dialog", { name: `Move “${due}”` });
+  await dialog.getByRole("button", { name: "No time" }).click();
+  await expect(dialog.getByRole("radio", { name: "Tomorrow" })).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByRole("radio", { name: "No date" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+
+  // A task that's only planned for today (no deadline) still offers it.
+  await openSkip(page, planned);
+  dialog = page.getByRole("dialog", { name: `Move “${planned}”` });
+  await dialog.getByRole("button", { name: "No time" }).click();
+  await expect(dialog.getByRole("radio", { name: "No date" })).toBeVisible();
+  await page.keyboard.press("Escape");
+});

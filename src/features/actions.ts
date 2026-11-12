@@ -184,6 +184,31 @@ export function createActions(engine: SyncEngine, userId: string) {
       const s = await settings();
       const due = nextOccurrence(task.recurrence, task.dueDate, today(s.timezone));
       const rootId = task.recurrenceParentId ?? task.id;
+      // Only ever one open next copy: completing again (after an undo) moves it instead of adding another.
+      const pending = await db.tasks
+        .filter(
+          (t) =>
+            t.recurrenceParentId === rootId &&
+            t.id !== task.id &&
+            t.deletedAt == null &&
+            t.status !== "done" &&
+            t.status !== "cancelled",
+        )
+        .first();
+      if (pending) {
+        if (pending.dueDate !== due) {
+          await engine.update("tasks", pending.id, { dueDate: due });
+          await logTaskEvent({
+            taskId: pending.id,
+            type: "reschedule",
+            from: pending.dueDate ?? null,
+            to: due,
+            reason: "dueDate",
+            reasonText: null,
+          });
+        }
+        return;
+      }
       const id = nextInstanceId(rootId, due);
       if (await db.tasks.get(id)) return;
       const { id: _id, createdAt: _c, updatedAt: _u, deletedAt: _d, serverVersion: _v, number: _n, ...fields } = task;

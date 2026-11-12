@@ -459,6 +459,45 @@ describe("stale tasks across days", () => {
     expect((await w.plan()).also).toEqual(["Read the book"]);
   });
 
+  it("focus sessions and subtask changes count as working on a task", async () => {
+    goto(MON);
+    const w = await world();
+    const focused = await w.add("Write the essay", { scheduledDate: MON });
+    const broken = await w.add("Plan the trip", { scheduledDate: MON });
+    await w.add("Fix the tap", { scheduledDate: MON });
+    goto(MON);
+    const sub = await w.actions.createTask({ title: "Book flights", parentTaskId: broken, status: "todo" });
+
+    goto("2026-11-24"); // day 9: a focus session on one, a subtask ticked on the other
+    const sessionId = await w.actions.startFocusSession(await w.get(focused), "five", 5, Date.now());
+    await w.actions.endFocusSession(sessionId, {
+      endedAt: Date.now() + 5 * MIN,
+      actualMinutes: 5,
+      outcome: "progress",
+      interruptions: 0,
+      mode: "five",
+      plannedMinutes: 5,
+    });
+    await w.done(sub);
+    // Starting focus also moved the task to in progress; put it back to measure the session alone.
+    await w.db.tasks.update(focused, { status: "todo", updatedAt: Date.parse(`${MON}T09:00:00Z`) });
+    await w.db.tasks.update(broken, { updatedAt: Date.parse(`${MON}T09:00:00Z`) });
+
+    goto("2026-11-30", "09:05"); // 14 days after Monday
+    const sessions = await w.db.focusSessions.toArray();
+    const p = buildToday(await w.all(), {
+      today: w.day(),
+      now: Date.now(),
+      timezone: "UTC",
+      capacity: 8,
+      focusSessions: sessions,
+    });
+    expect(p.stale.map((t) => t.title)).toEqual(["Fix the tap"]);
+    expect(p.overdue.map((t) => t.title).sort()).toEqual(["Plan the trip", "Write the essay"]);
+    // The focus session on the 24th is the last time it was worked on.
+    expect(staleReason(await w.get(focused), Date.now(), p.touched.get(focused))).toBe("Untouched for 6 days");
+  });
+
   it("a task planned two weeks ahead is not stale on the day it comes up", async () => {
     goto(MON);
     const w = await world();
@@ -518,7 +557,7 @@ describe("recurring tasks across days", () => {
     expect((await open(w, "Stretch")).map((t) => [t.dueDate, t.recurrenceParentId])).toEqual([[WED, root]]);
   });
 
-  it("daily, completed two days late: one next task, due after the one just done", async () => {
+  it("daily, completed two days late: one next task, due the day after it was done", async () => {
     goto(MON);
     const w = await world();
     const root = await w.add("Stretch", { dueDate: MON, recurrence: daily });
@@ -528,7 +567,8 @@ describe("recurring tasks across days", () => {
     await w.done(root);
     const next = await open(w, "Stretch");
     expect(next).toHaveLength(1);
-    expect(next[0].dueDate! > MON).toBe(true);
+    expect(next[0].dueDate).toBe(THU);
+    expect((await w.plan()).overdue).toEqual([]);
     expect((await w.plan()).doneToday).toEqual(["Stretch"]);
   });
 
@@ -566,6 +606,26 @@ describe("recurring tasks across days", () => {
     expect(await count(w, "Clean the flat")).toBe(2);
   });
 
+  it("after completion, done again after an undo: one next task, moved to the new date", async () => {
+    goto(MON);
+    const w = await world();
+    const root = await w.add("Water plants", {
+      dueDate: MON,
+      recurrence: { freq: "daily", interval: 2, mode: "after_completion" },
+    });
+    await w.done(root);
+    expect((await open(w, "Water plants")).map((t) => t.dueDate)).toEqual([WED]);
+    await w.done(root, false);
+    goto(TUE);
+    await w.done(root);
+    const next = await open(w, "Water plants");
+    expect(next.map((t) => t.dueDate)).toEqual([THU]);
+    expect(await count(w, "Water plants")).toBe(2);
+    // The move is in the next task's history.
+    const events = await w.db.taskEvents.where("taskId").equals(next[0].id).toArray();
+    expect(events.map((e) => [e.type, e.from, e.to])).toContainEqual(["reschedule", WED, THU]);
+  });
+
   it("the next task starts clean: not a Must-do, no postpone count", async () => {
     goto(MON);
     const w = await world();
@@ -585,7 +645,8 @@ describe("recurring tasks across days", () => {
     expect((await w.plan()).stale).toEqual(["Journal"]);
     await w.done(moved);
     const next = (await open(w, "Journal"))[0];
-    expect(next).toMatchObject({ dueDate: TUE, postponeCount: 0, mustDoDate: null });
+    // Done on Wednesday, so the next daily one is Thursday: missed days are skipped.
+    expect(next).toMatchObject({ dueDate: THU, postponeCount: 0, mustDoDate: null });
     expect((await w.plan()).stale).toEqual([]);
   });
 });
@@ -701,7 +762,7 @@ describe("focus sessions across midnight", () => {
     expect(await w.plan()).toMatchObject({ also: [], overdue: ["Study"] });
   });
 
-  it("left running over a weekend: the session can still be saved and synced", async () => {
+  it("left running over a weekend: only the planned time counts, and it still syncs", async () => {
     goto(FRI, "18:00");
     const w = await world();
     const id = await w.add("Study", { scheduledDate: FRI });
@@ -721,8 +782,10 @@ describe("focus sessions across midnight", () => {
       mode: state.mode,
       plannedMinutes: plannedMinutes(state),
     };
-    expect(end.actualMinutes).toBe(MAX_SESSION_MINUTES);
-    expect(end.plannedMinutes).toBe(MAX_SESSION_MINUTES);
+    // The weekend between "Time's up" and "Keep going" isn't work time: 25 + 25 minutes.
+    expect(end.actualMinutes).toBe(50);
+    expect(end.plannedMinutes).toBe(50);
+    expect(end.actualMinutes).toBeLessThanOrEqual(MAX_SESSION_MINUTES);
     // The server rejects anything its schema doesn't accept, and a rejected write is dropped.
     expect(entitySchemas.focusSessions.partial().strict().safeParse(end).success).toBe(true);
   });

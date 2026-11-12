@@ -23,19 +23,37 @@ export function isMustDoOn(t: Pick<Task, "mustDoDate">, day: Day): boolean {
  * its day, so one planned weeks ahead isn't stale the day it comes up; an undated task counts
  * while it is in progress. Resolving it resets the postpone count and touches the task.
  */
-export function isStale(t: Task, todayDay: Day, now: number): boolean {
+/**
+ * When a task was last worked on: an edit to it, a change to one of its subtasks, or a focus
+ * session on it (owner decision, 2026-11-12). Keyed by task id.
+ */
+export function lastTouched(
+  tasks: Task[],
+  focusSessions: { taskId: string; startedAt: number; endedAt: number | null; deletedAt?: number | null }[] = [],
+): Map<string, number> {
+  const touched = new Map<string, number>();
+  const bump = (id: string, at: number) => touched.set(id, Math.max(touched.get(id) ?? 0, at));
+  for (const t of tasks) {
+    bump(t.id, t.updatedAt);
+    if (t.parentTaskId) bump(t.parentTaskId, t.updatedAt);
+  }
+  for (const s of focusSessions) if (s.deletedAt == null) bump(s.taskId, s.endedAt ?? s.startedAt);
+  return touched;
+}
+
+export function isStale(t: Task, todayDay: Day, now: number, touchedAt: number = t.updatedAt): boolean {
   if (!isOpen(t) || t.parentTaskId || t.status === "inbox") return false;
   if ((t.postponeCount ?? 0) >= STALE_POSTPONES) return true;
   const day = planDay(t);
   const waiting = day != null ? daysBetween(day, todayDay) >= STALE_UNTOUCHED_DAYS : t.status === "in_progress";
-  return waiting && now - t.updatedAt >= STALE_UNTOUCHED_DAYS * 86_400_000;
+  return waiting && now - Math.max(touchedAt, t.updatedAt) >= STALE_UNTOUCHED_DAYS * 86_400_000;
 }
 
 /** Why a task is stale, in Orbit's voice (DESIGN.md §13). */
-export function staleReason(t: Task, now: number): string {
+export function staleReason(t: Task, now: number, touchedAt: number = t.updatedAt): string {
   const n = t.postponeCount ?? 0;
   if (n >= STALE_POSTPONES) return `Postponed ${n}×`;
-  return `Untouched for ${Math.floor((now - t.updatedAt) / 86_400_000)} days`;
+  return `Untouched for ${Math.floor((now - Math.max(touchedAt, t.updatedAt)) / 86_400_000)} days`;
 }
 
 export function needsNextStepPrompt(t: Pick<Task, "effort" | "nextStep" | "status">): boolean {
@@ -57,6 +75,8 @@ export interface TodayPlan {
   overdue: Task[];
   doneToday: Task[];
   capacity: Capacity;
+  /** When each task was last worked on (see lastTouched). */
+  touched: Map<string, number>;
 }
 
 const byOrder = (a: Task, b: Task) => a.order - b.order;
@@ -64,14 +84,21 @@ const byOrder = (a: Task, b: Task) => a.order - b.order;
 /** Splits tasks into the Today sections (PRD TODAY-1, §8.1). Pure, so it can be unit tested. */
 export function buildToday(
   tasks: Task[],
-  opts: { today: Day; now: number; timezone: string; capacity: number },
+  opts: {
+    today: Day;
+    now: number;
+    timezone: string;
+    capacity: number;
+    focusSessions?: Parameters<typeof lastTouched>[1];
+  },
 ): TodayPlan {
   const { today, now, timezone } = opts;
   const top = tasks.filter((t) => !t.parentTaskId && t.deletedAt == null);
   const completedToday = (t: Task) =>
     t.status === "done" && t.completedAt != null && dayOf(t.completedAt, timezone) === today;
 
-  const stale = top.filter((t) => isStale(t, today, now) && !isMustDoOn(t, today)).sort(byOrder);
+  const touched = lastTouched(tasks, opts.focusSessions);
+  const stale = top.filter((t) => isStale(t, today, now, touched.get(t.id)) && !isMustDoOn(t, today)).sort(byOrder);
   const staleIds = new Set(stale.map((t) => t.id));
 
   const mustDos = top
@@ -104,6 +131,7 @@ export function buildToday(
     also,
     overdue: overdue.sort((a, b) => (planDay(a) ?? "").localeCompare(planDay(b) ?? "") || byOrder(a, b)),
     doneToday,
+    touched,
     capacity: {
       planned: plannedPts,
       done: pts(planned.filter((t) => t.status === "done")),

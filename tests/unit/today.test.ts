@@ -191,13 +191,32 @@ describe("focus timer", () => {
     let s = startFocus("s1", "t1", "five", 5, t0);
     s = addMinutes(s, 5, t0 + MIN);
     expect(s.plannedMs).toBe(10 * MIN);
-    // Time's up after 10 min; keep going adds a full block from where we are.
+    // Time's up at 10 min; the minute before "Keep going" isn't work time, so the block starts from 10.
+    expect(elapsedMs(s, t0 + 11 * MIN)).toBe(10 * MIN);
     s = keepGoing(s, 25, t0 + 11 * MIN);
-    expect(s.plannedMs).toBe(36 * MIN);
+    expect(s.plannedMs).toBe(35 * MIN);
     expect(s.mode).toBe("pomodoro");
     s = changePlan(s, "open", null, t0 + 12 * MIN);
     expect(remainingMs(s, t0 + 12 * MIN)).toBeNull();
-    expect(workedMinutes(s, t0 + 12 * MIN)).toBe(12);
+    expect(workedMinutes(s, t0 + 12 * MIN)).toBe(11);
+  });
+
+  it("stops counting at Time's up, however long it's left", () => {
+    let s = startFocus("s1", "t1", "pomodoro", 25, t0);
+    expect(isTimeUp(s, t0 + 25 * MIN)).toBe(true);
+    expect(workedMinutes(s, t0 + 8 * 60 * MIN)).toBe(25);
+    // +5 min after the overrun gives 5 more minutes from now, not from the start.
+    s = addMinutes(s, 5, t0 + 8 * 60 * MIN);
+    expect(remainingMs(s, t0 + 8 * 60 * MIN)).toBe(5 * MIN);
+    expect(workedMinutes(s, t0 + 8 * 60 * MIN + 2 * MIN)).toBe(27);
+    // A break taken after an overrun doesn't count the overrun either.
+    s = startBreak(s, 5, t0 + 9 * 60 * MIN);
+    expect(workedMinutes(s, t0 + 9 * 60 * MIN)).toBe(30);
+    s = keepGoing(s, 25, t0 + 9 * 60 * MIN + 5 * MIN);
+    expect(remainingMs(s, t0 + 9 * 60 * MIN + 5 * MIN)).toBe(25 * MIN);
+    // Open-ended sessions have no "Time's up", so they keep counting.
+    const open = startFocus("s2", "t1", "open", null, t0);
+    expect(workedMinutes(open, t0 + 90 * MIN)).toBe(90);
   });
 
   it("a break pauses work time without counting as an interruption", () => {

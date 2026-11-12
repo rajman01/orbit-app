@@ -99,12 +99,12 @@ Make starting easy and drifting visible. Today becomes the home screen: three Mu
 - ~~Long-press reorder and swipe gestures haven't been tried on a real phone.~~ Checked by the owner on a real phone on 2026-11-12: swipe and long-press reorder both work.
 - In-progress tasks with no date show on Today; once dated they follow their date.
 - Swiping and long-press reorder share the same row; a long-press followed by a sideways drag can start both.
-- Found by the week simulation, waiting for a decision (behaviour unchanged):
-  - A recurring task on a fixed schedule that is completed late gets a next task dated straight after the old one, so it can already be overdue (daily task done 2 days late → next one is 1 day late). Catch up one by one, or jump to the next date from today?
-  - "No date" in the skip flow on a task whose due date is today or earlier clears only the planned day: the task stays on Today (or Overdue), the toast says "Moved off your plan", and it counts as a postponement.
-  - The 14-day "untouched" rule looks at edits to the task only. Focus sessions and subtask changes don't count as touching it.
-  - A timed focus session keeps counting work time after "Time's up" until someone answers, so one left overnight logs the whole night (now capped at 24 hours).
-  - A recurring task set to "after completion" that is completed, un-completed, and completed again on a later day gets two next tasks.
+- Found by the week simulation, decided by the owner and **built** on 2026-11-12:
+  1. **Late repeating tasks jump ahead.** A fixed-schedule task completed late gets its next copy on the first scheduled day after the completion day (missed ones are skipped).
+  2. **No "No date" for due tasks.** The skip flow offers only real dates (or cancelling) for a task due today or earlier, and starts on Tomorrow.
+  3. **Focus and subtasks count as touching a task.** A focus session on the task, or a change to one of its subtasks, resets the 14-day stale clock.
+  4. **The focus timer stops at "Time's up".** Time before Keep going, +5 min or a break isn't counted as work. Open-ended sessions still count until ended (capped at 24 hours).
+  5. **One open next copy for repeating tasks.** Completing again after an undo moves the existing next copy (logged in its history) instead of creating a second one.
 - A device whose clock is 14 or more days ahead of the server shows undated in-progress tasks as stale after a sync (synced copies carry server time). Dated tasks are not affected.
 - Day changes are covered for a full week at the logic level (`tests/unit/week.test.ts`); the browser tests cover two day changes (`tests/e2e/week.spec.ts`). They move only the browser's date: fast-forwarding Playwright's whole clock leaves desktop dialogs stuck mid-close (a test-only effect of the animation clock jumping), and the roll-over test waits up to a minute for the app's own tick.
 
@@ -126,3 +126,4 @@ Make starting easy and drifting visible. Today becomes the home screen: three Mu
 | 2026-11-12 | Fixed (simulation): a task planned 14 or more days ahead showed as stale ("Untouched for 14 days") on the day it came up instead of in Also today. A dated task now counts 14 days from its day |
 | 2026-11-12 | Fixed (simulation): a focus session left running for more than 24 hours could not be saved to the server (its length was rejected, so other devices saw it as never ended). Logged length is capped at 24 hours |
 | 2026-11-12 | Fixed (simulation): after a laptop slept or a phone had the app in the background past midnight, Today could show yesterday for up to a minute, and tasks added then were planned for yesterday. The date is now checked as soon as the app is back in view |
+| 2026-11-12 | Built the owner's five decisions from the week simulation: late repeats jump ahead, no "No date" for due tasks, focus and subtask changes count as touching, the focus timer stops at Time's up, one open next copy. 71 unit tests and 27 browser tests pass |

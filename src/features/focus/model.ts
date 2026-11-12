@@ -47,9 +47,25 @@ export function startFocus(
   };
 }
 
-/** Work time so far. */
-export function elapsedMs(s: FocusState, now: number): number {
+/** Time on the clock since the start, minus pauses and breaks. */
+function rawElapsedMs(s: FocusState, now: number): number {
   return Math.max(0, (s.pausedAt ?? now) - s.startedAt - s.pausedMs);
+}
+
+/**
+ * Work time so far. A timed session stops counting at "Time's up" (owner decision, 2026-11-12):
+ * time spent before answering "Keep going?" isn't work time.
+ */
+export function elapsedMs(s: FocusState, now: number): number {
+  const raw = rawElapsedMs(s, now);
+  return s.plannedMs == null ? raw : Math.min(raw, s.plannedMs);
+}
+
+/** Moves any time past "Time's up" into paused time, so continuing picks up from the planned end. */
+function settle(s: FocusState, now: number): FocusState {
+  if (s.plannedMs == null || s.pausedAt != null || s.breakEndsAt != null) return s;
+  const over = rawElapsedMs(s, now) - s.plannedMs;
+  return over > 0 ? { ...s, pausedMs: s.pausedMs + over } : s;
 }
 
 /** Work time left, or null for an open-ended session. Never negative. */
@@ -67,7 +83,7 @@ export function isPaused(s: FocusState): boolean {
 
 export function pause(s: FocusState, now: number): FocusState {
   if (s.pausedAt != null) return s;
-  return { ...s, pausedAt: now, interruptions: s.interruptions + 1 };
+  return { ...settle(s, now), pausedAt: now, interruptions: s.interruptions + 1 };
 }
 
 export function resume(s: FocusState, now: number): FocusState {
@@ -78,23 +94,29 @@ export function resume(s: FocusState, now: number): FocusState {
 /** +5 min: extends the plan (from now, if time was already up). */
 export function addMinutes(s: FocusState, minutes: number, now: number): FocusState {
   if (s.plannedMs == null) return s;
-  const base = Math.max(s.plannedMs, elapsedMs(s, now));
-  return { ...s, plannedMs: base + minutes * MIN };
+  const settled = settle(s, now);
+  return { ...settled, plannedMs: Math.max(settled.plannedMs!, elapsedMs(settled, now)) + minutes * MIN };
 }
 
 /** "Keep going": another block of work from where the session is now. */
 export function keepGoing(s: FocusState, minutes: number, now: number): FocusState {
-  const resumed = resume(s, now);
+  const resumed = settle(resume(s, now), now);
   return { ...resumed, mode: "pomodoro", plannedMs: elapsedMs(resumed, now) + minutes * MIN };
 }
 
 export function changePlan(s: FocusState, mode: FocusMode, minutes: number | null, now: number): FocusState {
-  return { ...s, mode, plannedMs: minutes == null ? null : Math.max(minutes * MIN, elapsedMs(s, now) + MIN) };
+  const settled = settle(s, now);
+  return {
+    ...settled,
+    mode,
+    plannedMs: minutes == null ? null : Math.max(minutes * MIN, elapsedMs(settled, now) + MIN),
+  };
 }
 
 /** A Pomodoro break pauses work time without counting as an interruption. */
 export function startBreak(s: FocusState, minutes: number, now: number): FocusState {
-  return { ...s, pausedAt: s.pausedAt ?? now, breakEndsAt: now + minutes * MIN };
+  const settled = settle(s, now);
+  return { ...settled, pausedAt: settled.pausedAt ?? now, breakEndsAt: now + minutes * MIN };
 }
 
 export function breakRemainingMs(s: FocusState, now: number): number | null {
