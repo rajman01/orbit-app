@@ -89,15 +89,16 @@ Give the work a rhythm: two-week cycles you explicitly commit to, and three shor
 |---|---|---|
 | `status` field on cycles | Derived from dates and `reviewCompletedAt` | A stored status could disagree between devices |
 | Daily Plan includes calendar review and optional time-blocking (RIT-1) | Left out | Calendars arrive in Phase 2 |
-| Capacity "later suggested from the last three cycles" | Fixed setting (default 30 pts) | Needs a few completed cycles first; revisit in Phase 3 insights |
+| Capacity "later suggested from the last three cycles" | Built: a suggestion in the planner once a cycle has been reviewed (default stays 30 pts) | — |
 | Ritual streaks with XP (RIT-5) | Streaks shown on the ritual cards; no XP yet | XP arrives in 1D |
 
 ## Known gaps
 
-- The review is due from 18:00 on the cycle's last day, and that day is also day N of the cycle: planning the next cycle is allowed on that day without a review.
-- Tasks rolled over keep their old scheduled date, so they can show as overdue on Today until rescheduled.
-- Strict mode's XP penalty for unresolved stale items comes with XP in 1D.
-- The offline goal test (`planning.spec.ts`) failed again in 1 of 2 full runs during this phase (opening a page offline took over 15 seconds). It's the same flake seen in 1B; worth a proper look.
+- By design, not a gap: the next cycle can be planned on the review day itself without finishing the review, because planning it is the review's last step (D27).
+- ~~Tasks rolled over keep their old scheduled date, so they can show as overdue on Today until rescheduled.~~ **Fixed on 2026-11-12:** rolling a task over clears a planned day that falls before the next cycle and its Must-do star. A due date is kept, because a missed deadline is real.
+- ~~Capacity is a fixed setting (CYC-2 says "learned over time").~~ **Fixed on 2026-11-12:** the planner suggests the average points finished in the last three reviewed cycles, with a button to use it. It appears after the first review.
+- Waits for later phases: Strict mode's XP penalty for unresolved stale items (XP comes in 1D); calendar review and time-blocking in the Daily Plan (calendars come in Phase 2).
+- ~~The offline goal test (`planning.spec.ts`) failed again in 1 of 2 full runs during this phase (opening a page offline took over 15 seconds). It's the same flake seen in 1B; worth a proper look.~~ **Fixed on 2026-11-12; it was a real app bug, not slow offline pages.** Opening pages offline was fast (about 150 ms). The test failed afterwards: when a device's very first sync finished, the app could send an already-onboarded user to `/welcome`. The onboarding check read the new sync status straight away, but its own settings query still held the old "no settings" result. In a full run the shared test account has a lot of data, so the first pull was slow and the test's offline reload cut it off. That made the next sync the first one, and the race could hit. Run on its own, the account was small and the first pull finished in time. On top of that, Serwist reloaded the whole page as soon as the browser came back online (`reloadOnOnline` is on by default), which aborted the sync push that was in flight. Fixes: the onboarding check re-reads settings from the database before redirecting (`app-shell.tsx`), and the reload on reconnect is off (`providers.tsx`), because the sync engine already catches up on its own. The test now holds back the first pull every time and checks that reconnecting neither reloads the page nor leaves the goal page. Against the old build it failed 4 of 4 times, on both phone and desktop. Its 15-second wait is back to the default.
 - On the dev server, opening and closing any dialog on Today blocks the page for about a second (closing a ritual for about three). A production build doesn't: a ritual opens in about 60 ms and closes in about 400 ms.
 
 ## Build log
@@ -108,3 +109,4 @@ Give the work a rhythm: two-week cycles you explicitly commit to, and three shor
 | 2026-11-12 | Cycle generation, Cycle page with burn-up, planner and commitment, cycle picker on tasks |
 | 2026-11-12 | Ritual framework; Daily Plan, Daily Shutdown and Cycle Review; ritual cards on Today with streaks; strictness and ritual times in Settings; Gentle and Strict behaviours |
 | 2026-11-12 | Tests: 19 new unit tests (`tests/unit/cycles.test.ts`: dates, DST, ids, planning gate by strictness, points, burn-up, due rituals, carry-over, streaks, actions on a local database) and 3 browser tests (`tests/e2e/cycle.spec.ts`: plan and commit; Daily Plan offline with close and resume, then a skipped shutdown picked up next morning; full cycle review on desktop). 90 unit tests and 32 browser tests pass |
+| 2026-11-12 | Gaps closed: rolled-over tasks lose a stale planned day and Must-do star; the planner suggests capacity from the last three reviewed cycles. The flaky offline goal test was traced to two real bugs and fixed (see Known gaps) |

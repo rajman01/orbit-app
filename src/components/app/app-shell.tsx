@@ -15,6 +15,7 @@ import { Kbd } from "@/components/ui/pill";
 import { Sheet } from "@/components/ui/sheet";
 import { useActions } from "@/features/actions";
 import { useAreas, useCycles, useSettings } from "@/features/data";
+import { settingsId } from "@/features/settings/model";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
@@ -57,17 +58,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 /**
  * New users set up their areas and rhythm first (PRD ONB-2). On a new device we wait for
  * the first sync, so an existing user isn't sent to onboarding before their settings arrive.
+ *
+ * The sync status changes the moment a sync finishes, but this component's live query of the
+ * settings can still hold the value from before it, so "synced, no settings" is checked against
+ * the database itself before redirecting.
  */
 function OnboardingRedirect() {
   const settings = useSettings();
   const { lastSyncedAt } = useSyncStatus();
+  const { db } = useSync();
+  const user = useCurrentUser();
   const pathname = usePathname();
   const router = useRouter();
   useEffect(() => {
     if (!settings.loaded || settings.onboardingCompletedAt || pathname === "/welcome") return;
     if (!settings.exists && lastSyncedAt == null) return;
-    router.replace("/welcome");
-  }, [settings.loaded, settings.exists, settings.onboardingCompletedAt, lastSyncedAt, pathname, router]);
+    let cancelled = false;
+    void db.settings.get(settingsId(user.id)).then((doc) => {
+      if (cancelled || (doc && !doc.deletedAt && doc.onboardingCompletedAt)) return;
+      router.replace("/welcome");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.loaded, settings.exists, settings.onboardingCompletedAt, lastSyncedAt, pathname, router, db, user.id]);
   return null;
 }
 

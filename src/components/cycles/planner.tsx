@@ -9,7 +9,7 @@ import { useTaskPanel } from "@/components/tasks/task-panel";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
-import { planningCandidates, planningGate, type Cycle } from "@/features/cycles/model";
+import { planningCandidates, planningGate, suggestedCapacity, type Cycle } from "@/features/cycles/model";
 import { useAllTasks, useCycles, useGoals, useSettings } from "@/features/data";
 import { compareTasks, type Task } from "@/features/tasks/model";
 import { useToday } from "@/features/use-today";
@@ -65,6 +65,7 @@ export function CyclePlanner({
   const points = open.reduce((s, t) => s + (t.effort ?? 0), 0);
   const unestimated = open.filter((t) => !t.effort).length;
   const capacity = settings.cycleCapacityPts;
+  const suggestion = suggestedCapacity(cycles, all, cycle.number);
   const over = points > capacity;
   const canCommit = open.length > 0 && committed && (!over || overCapacityOk);
 
@@ -134,6 +135,19 @@ export function CyclePlanner({
         {over ? (
           <p className="mt-2 text-footnote font-medium text-warning-text">
             {points - capacity} pts over your capacity. Plans that don&rsquo;t fit tend not to happen.
+          </p>
+        ) : null}
+        {suggestion && suggestion.points > 0 && suggestion.points !== capacity ? (
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 text-footnote text-label-secondary">
+            You&rsquo;ve finished about {suggestion.points} pts per cycle lately
+            {suggestion.cycles > 1 ? ` (last ${suggestion.cycles} cycles)` : " (last cycle)"}.
+            <button
+              type="button"
+              onClick={() => void actions.saveSettings({ cycleCapacityPts: suggestion.points })}
+              className="font-semibold text-accent-text hover:underline"
+            >
+              Use {suggestion.points} pts
+            </button>
           </p>
         ) : null}
       </section>

@@ -77,6 +77,11 @@ test("command palette finds a goal and opens it", async ({ page, isMobile }) => 
 
 test("goals created offline sync to another device", async ({ page, context, browser }) => {
   const r = run();
+  // A new device goes offline before its first sync finishes. In a full run this happened by
+  // chance (the shared account's first pull is big and the offline reload cut it off); hold the
+  // first pull back so it happens every time.
+  let holdPull = true;
+  await page.route("**/api/sync/pull*", (route) => (holdPull ? undefined : route.fallback()));
   await page.goto("/goals");
   await page.waitForFunction(async () =>
     Boolean((await navigator.serviceWorker.ready).active && navigator.serviceWorker.controller),
@@ -85,16 +90,22 @@ test("goals created offline sync to another device", async ({ page, context, bro
 
   await context.setOffline(true);
   await page.reload();
+  holdPull = false;
   await page.getByRole("button", { name: "New goal" }).click();
   await page.getByRole("textbox", { name: "Goal", exact: true }).fill(`Offline goal ${r}`);
   await page.getByRole("button", { name: "Create goal" }).click();
-  // Offline navigation is served by the service worker; give it room when the machine is busy.
-  await expect(page.getByRole("textbox", { name: "Goal title" })).toHaveValue(`Offline goal ${r}`, {
-    timeout: 15_000,
-  });
+  await expect(page.getByRole("textbox", { name: "Goal title" })).toHaveValue(`Offline goal ${r}`);
 
+  // Coming back online syncs in place: no page reload, and no detour to onboarding once the
+  // first sync brings the (already onboarded) settings down.
+  await page.evaluate(() => ((window as unknown as { orbitSamePage: boolean }).orbitSamePage = true));
   await context.setOffline(false);
   await waitForSynced(page);
+  // The bad redirect came within ~100ms of the first sync finishing; give it time to show.
+  await page.waitForTimeout(1_000);
+  await expect(page).toHaveURL(/\/goal\?id=/);
+  await expect(page.getByRole("textbox", { name: "Goal title" })).toHaveValue(`Offline goal ${r}`);
+  expect(await page.evaluate(() => (window as unknown as { orbitSamePage?: boolean }).orbitSamePage)).toBe(true);
 
   const other = await browser.newContext();
   await other.addCookies(await context.cookies());

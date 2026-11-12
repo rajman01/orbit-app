@@ -106,6 +106,7 @@ Make starting easy and drifting visible. Today becomes the home screen: three Mu
   4. **The focus timer stops at "Time's up".** Time before Keep going, +5 min or a break isn't counted as work. Open-ended sessions still count until ended (capped at 24 hours).
   5. **One open next copy for repeating tasks.** Completing again after an undo moves the existing next copy (logged in its history) instead of creating a second one.
 - A device whose clock is 14 or more days ahead of the server shows undated in-progress tasks as stale after a sync (synced copies carry server time). Dated tasks are not affected.
+- ~~The offline goal test (`planning.spec.ts`) fails now and then in full runs (see the build log); its wait was raised from 5 to 15 seconds.~~ **Fixed on 2026-11-12.** Slow offline pages were never the cause. When a new device's first sync finished, the app could send an already-onboarded user to onboarding, and Serwist reloaded the page on reconnect. Details are in the Phase 1C Known gaps. The wait is back to the default.
 - Day changes are covered for a full week at the logic level (`tests/unit/week.test.ts`); the browser tests cover two day changes (`tests/e2e/week.spec.ts`). They move only the browser's date: fast-forwarding Playwright's whole clock leaves desktop dialogs stuck mid-close (a test-only effect of the animation clock jumping), and the roll-over test waits up to a minute for the app's own tick.
 
 ## Build log

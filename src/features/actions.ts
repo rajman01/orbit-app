@@ -431,10 +431,13 @@ export function createActions(engine: SyncEngine, userId: string) {
     async decideRollover(
       task: Task,
       decision: "rollover" | "backlog" | "cancel",
-      opts: { next?: Pick<Cycle, "id"> | null; reason?: string | null } = {},
+      opts: { next?: Pick<Cycle, "id" | "startDate"> | null; reason?: string | null } = {},
     ) {
       if (decision === "rollover" && opts.next) {
-        await engine.update("tasks", task.id, { cycleId: opts.next.id });
+        // A day planned in the old cycle no longer means anything: it would only show as overdue.
+        const patch: Partial<TaskFields> = { cycleId: opts.next.id, mustDoDate: null };
+        if (task.scheduledDate && task.scheduledDate < opts.next.startDate) patch.scheduledDate = null;
+        await engine.update("tasks", task.id, patch);
       } else if (decision === "backlog") {
         await actions.updateTask(task, { cycleId: null, status: "backlog", scheduledDate: null, mustDoDate: null });
       } else if (decision === "cancel") {

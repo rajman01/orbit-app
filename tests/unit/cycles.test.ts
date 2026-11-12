@@ -18,6 +18,7 @@ import {
   ritualStreak,
   startOfWeek,
   timeOfDay,
+  suggestedCapacity,
   unfinishedInCycle,
   type Cycle,
 } from "@/features/cycles/model";
@@ -167,6 +168,33 @@ describe("planning", () => {
     expect(unfinishedInCycle([a, b, added, cancelled, other], c1.id).map((t) => t.id)).toEqual([b.id, added.id]);
   });
 
+  it("suggests capacity from what the last three reviewed cycles actually finished", () => {
+    // Finished tasks adding up to `points` (efforts are 1, 2, 3, 5 or 8).
+    const done = (cycleIdValue: string, points: number) => {
+      const out: Task[] = [];
+      for (const e of [8, 5, 3, 2, 1] as const) {
+        while (points >= e) {
+          out.push(task({ cycleId: cycleIdValue, effort: e, status: "done", completedAt: Date.UTC(2026, 10, 10) }));
+          points -= e;
+        }
+      }
+      return out;
+    };
+    const reviewed = [1, 2, 3, 4].map((number) => cycle({ number, reviewCompletedAt: 1 }));
+    const tasks = [
+      ...done(reviewed[0].id, 40), // cycle 1: too old to count
+      ...done(reviewed[1].id, 12),
+      ...done(reviewed[2].id, 18),
+      ...done(reviewed[3].id, 15),
+      task({ cycleId: reviewed[3].id, effort: 8 }), // unfinished: doesn't count
+    ];
+    expect(suggestedCapacity(reviewed, tasks, 5)).toEqual({ points: 15, cycles: 3 });
+    // Nothing reviewed yet: no suggestion.
+    expect(suggestedCapacity([cycle({ number: 1 })], tasks, 2)).toBeNull();
+    // Only cycles before the one being planned count.
+    expect(suggestedCapacity(reviewed, tasks, 3)).toEqual({ points: 26, cycles: 2 });
+  });
+
   it("burn-up: scope grows on the day work is added, done grows on completion days, none in the future", () => {
     const a = task({ cycleId: c1.id, effort: 3, status: "done", completedAt: Date.UTC(2026, 10, 10, 15) });
     const b = task({ cycleId: c1.id, effort: 5 });
@@ -286,11 +314,14 @@ describe("cycle and ritual actions on the local database", () => {
     await actions.setTaskDone((await db.tasks.get(ids[3]))!, true);
 
     const get = async (i: number) => (await db.tasks.get(ids[i]))!;
+    // The task to roll over was planned for a day in cycle 1 and starred: neither carries over.
+    await actions.updateTask(await get(0), { scheduledDate: "2026-11-12" });
+    await actions.setMustDo(await get(0), "2026-11-12", true);
     await actions.decideRollover(await get(0), "rollover", { next: c2, reason: "Ran out of time" });
     await actions.decideRollover(await get(1), "backlog", {});
     await actions.decideRollover(await get(2), "cancel", { reason: "Not needed" });
     expect(unfinishedInCycle(await db.tasks.toArray(), c1.id)).toEqual([]);
-    expect(await get(0)).toMatchObject({ cycleId: c2.id, status: "todo" });
+    expect(await get(0)).toMatchObject({ cycleId: c2.id, status: "todo", scheduledDate: null, mustDoDate: null });
     expect(await get(1)).toMatchObject({ cycleId: null, status: "backlog" });
     expect((await get(2)).status).toBe("cancelled");
     const events = (await db.taskEvents.toArray()).filter((e) => e.reason?.startsWith("rollover_"));

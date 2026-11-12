@@ -205,6 +205,24 @@ export function burnUp(
   return out;
 }
 
+/**
+ * PRD CYC-2 "learned over time": the average points finished in the last three reviewed cycles
+ * before `beforeNumber`. Null until there is at least one to learn from.
+ */
+export function suggestedCapacity(
+  cycles: Pick<Cycle, "id" | "number" | "committedTaskIds" | "committedPts" | "reviewCompletedAt">[],
+  tasks: Task[],
+  beforeNumber: number,
+): { points: number; cycles: number } | null {
+  const recent = cycles
+    .filter((c) => c.reviewCompletedAt != null && c.number < beforeNumber)
+    .sort((a, b) => b.number - a.number)
+    .slice(0, 3);
+  if (!recent.length) return null;
+  const done = recent.map((c) => cyclePoints(tasks, c).done);
+  return { points: Math.round(done.reduce((s, d) => s + d, 0) / done.length), cycles: recent.length };
+}
+
 /** Open tasks of a cycle that still need a rollover decision at review time (PRD CYC-4). */
 export function unfinishedInCycle(tasks: Task[], cycleIdValue: string): Task[] {
   return tasks.filter((t) => t.cycleId === cycleIdValue && !t.parentTaskId && isOpen(t) && t.deletedAt == null);
