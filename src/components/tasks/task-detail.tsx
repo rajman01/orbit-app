@@ -1,6 +1,7 @@
 "use client";
 
-import { Flag, MoreHorizontal, Play, Plus, Repeat, Timer, Trash2, X } from "lucide-react";
+import { CalendarSync, Flag, MoreHorizontal, Play, Plus, Repeat, Timer, Trash2, X } from "lucide-react";
+import { currentCycle } from "@/features/cycles/model";
 import { useFocus } from "@/components/focus/focus-mode";
 import { useSkipFlow } from "@/components/skip/skip-flow";
 import { useState } from "react";
@@ -10,7 +11,15 @@ import { Menu, MenuItem } from "@/components/ui/menu";
 import { ChipButton, Picker } from "@/components/ui/picker";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
-import { useAllTasks, useFocusSessions, useMilestones, useTask, useTaskEvents, type TaskEvent } from "@/features/data";
+import {
+  useAllTasks,
+  useCycles,
+  useFocusSessions,
+  useMilestones,
+  useTask,
+  useTaskEvents,
+  type TaskEvent,
+} from "@/features/data";
 import { isSkip, skipReasonLabel } from "@/features/today/model";
 import { isOpen, recurrenceLabel, STATUS_META, taskCode, type Task, type TaskStatus } from "@/features/tasks/model";
 import { useToday } from "@/features/use-today";
@@ -150,6 +159,11 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
             }}
           />
         </Prop>
+        {!task.parentTaskId ? (
+          <Prop label="Cycle">
+            <CyclePicker task={task} />
+          </Prop>
+        ) : null}
         <Prop label="Repeat">
           <RecurrencePicker
             value={task.recurrence}
@@ -189,6 +203,38 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
       <FocusSummary taskId={task.id} />
       <History taskId={task.id} todayDay={todayDay} />
     </div>
+  );
+}
+
+/** Puts a task into the current or next cycle (PRD §7.6). */
+function CyclePicker({ task }: { task: Task }) {
+  const actions = useActions();
+  const todayDay = useToday();
+  const cycles = useCycles() ?? [];
+  const current = currentCycle(cycles, todayDay);
+  const options = cycles.filter(
+    (c) => c.id === task.cycleId || (current && (c.number === current.number || c.number === current.number + 1)),
+  );
+  const value = task.cycleId ?? null;
+  const label = (n: number) => (current && n === current.number ? `Cycle ${n} (now)` : `Cycle ${n}`);
+  const selected = cycles.find((c) => c.id === value);
+  return (
+    <Picker
+      label="Cycle"
+      value={value}
+      options={[{ value: null, label: "No cycle" }, ...options.map((c) => ({ value: c.id, label: label(c.number) }))]}
+      onChange={(id) => {
+        const c = cycles.find((x) => x.id === id);
+        if (c) void actions.addToCycle(task, c);
+        else void actions.removeFromCycle(task);
+      }}
+      trigger={
+        <ChipButton aria-label="Cycle">
+          <CalendarSync className="size-4 text-label-secondary" strokeWidth={1.75} />
+          {selected ? label(selected.number) : <span className="text-label-tertiary">No cycle</span>}
+        </ChipButton>
+      }
+    />
   );
 }
 

@@ -28,3 +28,10 @@ export function useToday(): string {
     () => today(timezone),
   );
 }
+
+const minuteNow = () => Math.floor(Date.now() / 60_000) * 60_000;
+
+/** The current time, rounded to the minute and refreshed like useToday (for stale checks). */
+export function useMinuteNow(): number {
+  return useSyncExternalStore(subscribeMinute, minuteNow, minuteNow);
+}

@@ -111,3 +111,28 @@ export function useFocusSessions(taskId?: string | null): FocusSession[] | undef
     return live(rows).sort((a, b) => b.startedAt - a.startedAt);
   }, [db, taskId]);
 }
+
+export type CycleDoc = SyncedDoc<"cycles">;
+export type RitualDoc = SyncedDoc<"rituals">;
+
+export function useCycles(): CycleDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.cycles.toArray()).sort((a, b) => a.number - b.number), [db]);
+}
+
+export function useRituals(): RitualDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.rituals.toArray()).sort((a, b) => a.date.localeCompare(b.date)), [db]);
+}
+
+/** When each task was added to a cycle (for the burn-up's added scope). */
+export function useCycleAddedAt(cycleId: string | null | undefined): Map<string, number> | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => {
+    const map = new Map<string, number>();
+    if (!cycleId) return map;
+    const events = live(await db.taskEvents.toArray()).filter((e) => e.reason === "cycle_add" && e.to === cycleId);
+    for (const e of events.sort((a, b) => a.at - b.at)) map.set(e.taskId, e.at);
+    return map;
+  }, [db, cycleId]);
+}

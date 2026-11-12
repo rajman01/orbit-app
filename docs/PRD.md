@@ -6,7 +6,7 @@
 | **Version** | PRD v1.1 |
 | **Date** | 2026-11-12 |
 | **Owner** | Alameen (product owner, sole user for v1) |
-| **Status** | Approved — Phase 1B built, Phase 1C next ([phase plans](./phases/README.md)) |
+| **Status** | Approved — Phase 1C built, Phase 1D next ([phase plans](./phases/README.md)) |
 | **Platforms** | Web app + installable PWA (iOS, Android, desktop) |
 | **Repo** | Single Next.js repo at `orbit/orbit-app/` (the `orbit/` root folder is not a repo) |
 
@@ -975,9 +975,9 @@ The detailed plan for each phase — scope, data model changes, decisions, steps
 |---|---|---|---|
 | [0 — Foundation](./phases/phase-0.md) | Project, design system, auth, MongoDB, PWA, local-first sync, tests, deploy | Sign in on desktop and phone, install the PWA, offline changes sync | ✅ Complete (2026-11-12) |
 | [1A — Plan the work](./phases/phase-1a.md) | ONB-2/3, AREA-1/2, GOAL-1–6, GOAL-9, TASK-1–6, TASK-10, INB-1–4, CMD-1–3, VIEW-1/2, SET-1 | Real areas, goals, milestones and tasks set up; inbox capture and triage, all offline | ✅ Deployed (2026-11-12) |
-| [1B — Do the work, stop drifting](./phases/phase-1b.md) | TODAY-1–6, TASK-4, FOC-1–6, §8.1, §8.2, Upcoming, swipe gestures | A week run from Today; every postponement has a reason | ✅ Built (2026-11-12) |
-| [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | 🔜 Next |
-| [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | Planned |
+| [1B — Do the work, stop drifting](./phases/phase-1b.md) | TODAY-1–6, TASK-4, FOC-1–6, §8.1, §8.2, Upcoming, swipe gestures | A week run from Today; every postponement has a reason | ✅ Deployed (2026-11-12) |
+| [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | ✅ Built (2026-11-12) |
+| [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | 🔜 Next |
 | [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | Planned |
 | [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–4, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, email capture | Insights reflect four cycles of real data | Planned |
 | [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |
@@ -1008,7 +1008,7 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 2. **Other life areas** — Health, Mind, Home etc. can be added anytime; should any be pre-created but hidden?
 3. **Habit ideas** — no existing habits to import; do you want a starter habit library during onboarding?
 4. **AI autonomy default** — PRD assumes `Act and tell me`; confirm.
-5. **Strictness default** — PRD assumes `Firm`; confirm. *(Proposed default; needed by Phase 1C.)*
+5. ~~**Strictness default**~~ — built with `Firm` as the default (D26); changeable in Settings → Accountability.
 6. **Level titles** — keep the space-themed titles (Spark → Constellation) or plain numbers? *(Proposed: space-themed; needed by Phase 1D.)*
 7. **Notifications** — preferred default ritual times? *(Proposed: Daily Plan 07:30, Shutdown 21:00, Cycle Review Sunday 18:00; needed by Phase 1D.)*
 8. **Domain** — will Orbit have a custom domain? Currently `orbit-app-three-beta.vercel.app`; a change means updating `BETTER_AUTH_URL` and the Google OAuth client.
@@ -1044,3 +1044,6 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 | D22 | Must-dos are stored per day (`mustDoDate`); an unfinished Must-do lands in Overdue the next day | Keeps the cap of 3 meaningful and forces a decision instead of silent carry-over (PRD §8.1) |
 | D23 | Stale detection and the focus timer run on the device | Both work offline; the timer is derived from timestamps in local storage, so reloads don't stop it |
 | D24 | A move counts as a skip (reason required at Firm strictness) only when the task was planned for today or earlier | Scheduling future or unplanned work stays friction-free |
+| D25 | Cycles and rituals are generated on the device with deterministic ids; a cycle's state is derived from its dates and review, not stored | Works offline; two devices can't create duplicates or disagree on status |
+| D26 | Strictness defaults to Firm (open question 5); ritual times default to 07:30 / 21:00 / 18:00 (part of open question 7) | The owner asked for real accountability; times are editable in Settings |
+| D27 | Planning the next cycle is allowed on the review day itself; after that, an unreviewed cycle blocks it (Firm: override with a reason) | Planning the next cycle is the last step of the review |

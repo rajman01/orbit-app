@@ -55,6 +55,8 @@ export const entitySchemas = {
     /** Focus mode: Pomodoro work and break lengths (Phase 1B, optional for older documents). */
     focusMinutes: z.number().int().min(5).max(180).optional(),
     breakMinutes: z.number().int().min(1).max(60).optional(),
+    /** Phase 1C: when each ritual becomes due (local time). The review is on the cycle's last day. */
+    ritualTimes: z.object({ plan: time, shutdown: time, review: time }).optional(),
     strictness: z.enum(["gentle", "firm", "strict"]),
     onboardingCompletedAt: ms.nullable(),
   }),
@@ -128,6 +130,8 @@ export const entitySchemas = {
     mustDoDate: day.nullable().optional(),
     /** How many times it was moved through the skip flow; reset when a stale task is resolved. */
     postponeCount: z.number().int().min(0).max(100000).optional(),
+    /** Phase 1C: the cycle this task is planned into. */
+    cycleId: ref.optional(),
   }),
   taskEvents: z.object({
     taskId: id,
@@ -138,6 +142,31 @@ export const entitySchemas = {
     reasonText: z.string().max(2000).nullable(),
     actor: z.enum(["user", "ai", "system"]),
     at: ms,
+  }),
+  /** Phase 1C. Generated on the device with deterministic ids (see features/cycles/model.ts). */
+  cycles: z.object({
+    number: z.number().int().min(1).max(100000),
+    startDate: day,
+    endDate: day,
+    theme: z.string().trim().max(200).nullable(),
+    focusGoalIds: z.array(id).max(3),
+    committedTaskIds: z.array(id).max(500),
+    committedPts: z.number().min(0).max(100000),
+    committedAt: ms.nullable(),
+    /** Set when the previous cycle's review was skipped and planning went ahead anyway. */
+    planningOverride: z.string().trim().max(500).nullable(),
+    reviewCompletedAt: ms.nullable(),
+    reflection: z.string().max(5000).nullable(),
+  }),
+  rituals: z.object({
+    type: z.enum(["daily_plan", "daily_shutdown", "cycle_review"]),
+    /** The day it belongs to, in the user's timezone. */
+    date: day,
+    cycleId: ref,
+    startedAt: ms,
+    completedAt: ms.nullable(),
+    /** Answers and progress (current step, mood, energy, wins…). Kept small. */
+    data: z.record(z.string(), z.any()).refine((v) => JSON.stringify(v).length <= 20_000, "too large"),
   }),
   focusSessions: z.object({
     taskId: id,
@@ -193,7 +222,9 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
     milestoneId: "milestones",
     parentTaskId: "tasks",
     recurrenceParentId: "tasks",
+    cycleId: "cycles",
   },
   taskEvents: { taskId: "tasks" },
   focusSessions: { taskId: "tasks" },
+  rituals: { cycleId: "cycles" },
 };

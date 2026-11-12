@@ -12,6 +12,7 @@ import { defaultSettings, settingsId, type Settings } from "./settings/model";
 import { newTaskFields, nextInstanceId, nextOccurrence, type Task, type TaskFields } from "./tasks/model";
 import { isSkip, planDay, type SkipReason } from "./today/model";
 import type { FocusMode } from "./focus/model";
+import { cycleId, cyclesToCreate, ritualId, type Cycle, type RitualType } from "./cycles/model";
 
 const now = () => Date.now();
 
@@ -350,6 +351,134 @@ export function createActions(engine: SyncEngine, userId: string) {
         reason: `stale_${how}`,
         reasonText: how === "help" ? (opts.note?.trim() ?? null) : null,
       });
+    },
+
+    // ------------------------------------------------------------ cycles (Phase 1C)
+
+    /** Makes sure the current cycle and the next one exist (generated here, so it works offline). */
+    async ensureCycles(todayDay: string) {
+      const s = await settings();
+      const existing = (await db.cycles.toArray()).filter((c) => !c.deletedAt);
+      for (const c of cyclesToCreate(existing, todayDay, s.weekStartDay, s.cycleLengthDays)) {
+        const id = cycleId(userId, c.number);
+        if (await db.cycles.get(id)) continue;
+        await engine.create(
+          "cycles",
+          {
+            ...c,
+            theme: null,
+            focusGoalIds: [],
+            committedTaskIds: [],
+            committedPts: 0,
+            committedAt: null,
+            planningOverride: null,
+            reviewCompletedAt: null,
+            reflection: null,
+          },
+          id,
+        );
+      }
+    },
+
+    /** Puts a task in a cycle. The time is logged so the burn-up can show scope added mid-cycle. */
+    async addToCycle(task: Task, cycle: Pick<Cycle, "id">) {
+      if (task.cycleId === cycle.id) return;
+      const patch: Partial<TaskFields> = { cycleId: cycle.id };
+      if (task.status === "inbox" || task.status === "backlog") patch.status = "todo";
+      await actions.updateTask(task, patch);
+      await logTaskEvent({
+        taskId: task.id,
+        type: "edit",
+        from: task.cycleId ?? null,
+        to: cycle.id,
+        reason: "cycle_add",
+        reasonText: null,
+      });
+    },
+
+    async removeFromCycle(task: Task) {
+      if (!task.cycleId) return;
+      await engine.update("tasks", task.id, { cycleId: null });
+      await logTaskEvent({
+        taskId: task.id,
+        type: "edit",
+        from: task.cycleId,
+        to: null,
+        reason: "cycle_remove",
+        reasonText: null,
+      });
+    },
+
+    /** "I commit to these tasks" (PRD CYC-2, §8.1 commitments). */
+    async commitCycle(
+      cycle: Cycle,
+      opts: { taskIds: string[]; points: number; theme: string | null; focusGoalIds: string[] },
+    ) {
+      await engine.update("cycles", cycle.id, {
+        committedTaskIds: opts.taskIds,
+        committedPts: opts.points,
+        committedAt: now(),
+        theme: opts.theme?.trim() || null,
+        focusGoalIds: opts.focusGoalIds.slice(0, 3),
+      });
+    },
+
+    /** Plan anyway although the last cycle wasn't reviewed (Firm strictness only, §8.5). */
+    overridePlanning: (cycle: Pick<Cycle, "id">, reason: string) =>
+      engine.update("cycles", cycle.id, { planningOverride: reason.trim() }),
+
+    /** Review decision for an unfinished task (PRD CYC-4): roll over, back to the backlog, or cancel. */
+    async decideRollover(
+      task: Task,
+      decision: "rollover" | "backlog" | "cancel",
+      opts: { next?: Pick<Cycle, "id"> | null; reason?: string | null } = {},
+    ) {
+      if (decision === "rollover" && opts.next) {
+        await engine.update("tasks", task.id, { cycleId: opts.next.id });
+      } else if (decision === "backlog") {
+        await actions.updateTask(task, { cycleId: null, status: "backlog", scheduledDate: null, mustDoDate: null });
+      } else if (decision === "cancel") {
+        await actions.updateTask(task, { status: "cancelled", mustDoDate: null });
+      }
+      await logTaskEvent({
+        taskId: task.id,
+        type: "edit",
+        from: task.cycleId ?? null,
+        to: decision === "rollover" ? (opts.next?.id ?? null) : null,
+        reason: `rollover_${decision}`,
+        reasonText: opts.reason?.trim() || null,
+      });
+    },
+
+    completeReview: (cycle: Pick<Cycle, "id">, reflection: string | null) =>
+      engine.update("cycles", cycle.id, { reviewCompletedAt: now(), reflection: reflection?.trim() || null }),
+
+    // ------------------------------------------------------------ rituals (Phase 1C)
+
+    /** Starts (or resumes) a ritual. One per type per day, the same id on every device. */
+    async startRitual(type: RitualType, date: string, cycle: Pick<Cycle, "id"> | null = null) {
+      const id = ritualId(userId, type, date);
+      const existing = await db.rituals.get(id);
+      if (existing && !existing.deletedAt) return id;
+      await engine.create(
+        "rituals",
+        { type, date, cycleId: cycle?.id ?? null, startedAt: now(), completedAt: null, data: { step: 0 } },
+        id,
+      );
+      return id;
+    },
+
+    /** Saves progress as you go, so a ritual resumes after a reload or on another device. */
+    async saveRitual(id: string, patch: Record<string, unknown>) {
+      const r = await db.rituals.get(id);
+      if (!r) return;
+      await engine.update("rituals", id, { data: { ...r.data, ...patch } });
+    },
+
+    async completeRitual(id: string, patch: Record<string, unknown> = {}) {
+      const r = await db.rituals.get(id);
+      if (!r) return;
+      await engine.update("rituals", id, { data: { ...r.data, ...patch }, completedAt: now() });
     },
 
     // ------------------------------------------------------------ focus (Phase 1B)

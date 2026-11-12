@@ -90,6 +90,8 @@ export function buildToday(
     timezone: string;
     capacity: number;
     focusSessions?: Parameters<typeof lastTouched>[1];
+    /** False at Gentle strictness: stale tasks stay in their normal sections. */
+    pinStale?: boolean;
   },
 ): TodayPlan {
   const { today, now, timezone } = opts;
@@ -98,7 +100,10 @@ export function buildToday(
     t.status === "done" && t.completedAt != null && dayOf(t.completedAt, timezone) === today;
 
   const touched = lastTouched(tasks, opts.focusSessions);
-  const stale = top.filter((t) => isStale(t, today, now, touched.get(t.id)) && !isMustDoOn(t, today)).sort(byOrder);
+  const stale =
+    opts.pinStale === false
+      ? []
+      : top.filter((t) => isStale(t, today, now, touched.get(t.id)) && !isMustDoOn(t, today)).sort(byOrder);
   const staleIds = new Set(stale.map((t) => t.id));
 
   const mustDos = top

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { useActions } from "@/features/actions";
 import { useSettings } from "@/features/data";
-import { WEEKDAYS } from "@/features/settings/model";
+import { defaultSettings, WEEKDAYS } from "@/features/settings/model";
 import { authClient } from "@/lib/auth/client";
 import { deviceTimezone } from "@/lib/dates";
 import Link from "next/link";
@@ -26,6 +26,7 @@ export function SettingsView() {
   const settings = useSettings();
   const actions = useActions();
   const save = (patch: Parameters<typeof actions.saveSettings>[0]) => void actions.saveSettings(patch);
+  const times = settings.ritualTimes ?? defaultSettings().ritualTimes!;
   const deviceTz = mounted ? deviceTimezone() : settings.timezone;
 
   async function signOut() {
@@ -165,6 +166,43 @@ export function SettingsView() {
           </Row>
         </Group>
 
+        <Group title="Accountability">
+          <div className="flex flex-col gap-2 px-4 py-3">
+            <Segmented
+              label="Strictness"
+              value={settings.strictness}
+              onChange={(v) => save({ strictness: v })}
+              options={[
+                { value: "gentle", label: "Gentle" },
+                { value: "firm", label: "Firm" },
+                { value: "strict", label: "Strict" },
+              ]}
+            />
+            <p className="text-footnote text-label-secondary">{STRICTNESS_HELP[settings.strictness]}</p>
+          </div>
+          <Row label="Plan your day">
+            <TimeField
+              label="Daily Plan time"
+              value={times.plan}
+              onChange={(v) => save({ ritualTimes: { ...times, plan: v } })}
+            />
+          </Row>
+          <Row label="Shut down">
+            <TimeField
+              label="Daily Shutdown time"
+              value={times.shutdown}
+              onChange={(v) => save({ ritualTimes: { ...times, shutdown: v } })}
+            />
+          </Row>
+          <Row label="Cycle review">
+            <TimeField
+              label="Cycle Review time on the cycle's last day"
+              value={times.review}
+              onChange={(v) => save({ ritualTimes: { ...times, review: v } })}
+            />
+          </Row>
+        </Group>
+
         <Group title="Sync">
           <Row label="Status">
             <SyncIndicator withLabel />
@@ -240,5 +278,25 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <span className="text-body">{label}</span>
       <span className="min-w-0 truncate text-body text-label-secondary">{children}</span>
     </div>
+  );
+}
+
+/** PRD §8.5 */
+const STRICTNESS_HELP = {
+  gentle: "Reasons are optional, nothing is pinned, and a missed review never blocks planning.",
+  firm: "Skips need a reason, stale and overdue tasks are pinned, and a missed review blocks planning unless you give a reason.",
+  strict:
+    "Firm, plus a missed review always blocks planning, and tomorrow stays hidden until today's shutdown is done.",
+} as const;
+
+function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <input
+      aria-label={label}
+      type="time"
+      value={value}
+      onChange={(e) => e.target.value && onChange(e.target.value)}
+      className="rounded-md bg-fill px-2 py-1 text-body text-label"
+    />
   );
 }

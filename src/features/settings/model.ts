@@ -18,6 +18,7 @@ export function defaultSettings(): Settings {
     workingHours: { start: "09:00", end: "17:00" },
     focusMinutes: 25,
     breakMinutes: 5,
+    ritualTimes: { plan: "07:30", shutdown: "21:00", review: "18:00" },
     strictness: "firm",
     onboardingCompletedAt: null,
   };

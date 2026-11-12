@@ -29,6 +29,7 @@ export function newTaskFields(partial: Partial<TaskFields> & { title: string }):
     order: Date.now(),
     mustDoDate: null,
     postponeCount: 0,
+    cycleId: null,
     ...partial,
   };
 }

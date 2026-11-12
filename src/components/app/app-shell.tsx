@@ -8,11 +8,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { FocusProvider } from "@/components/focus/focus-mode";
+import { RitualProvider } from "@/components/rituals/ritual-flow";
 import { SkipFlowProvider } from "@/components/skip/skip-flow";
 import { TaskPanelProvider } from "@/components/tasks/task-panel";
 import { Kbd } from "@/components/ui/pill";
 import { Sheet } from "@/components/ui/sheet";
-import { useAreas, useSettings } from "@/features/data";
+import { useActions } from "@/features/actions";
+import { useAreas, useCycles, useSettings } from "@/features/data";
+import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
 import { useCurrentUser } from "./auth-gate";
@@ -31,14 +34,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {pathname === "/welcome" ? (
             children
           ) : (
-            <CommandsProvider>
-              <OnboardingRedirect />
-              <div className="flex min-h-dvh bg-bg">
-                <Sidebar />
-                <main className="min-w-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] lg:pb-0">{children}</main>
-                <TabBar />
-              </div>
-            </CommandsProvider>
+            <RitualProvider>
+              <CommandsProvider>
+                <OnboardingRedirect />
+                <CycleKeeper />
+                <div className="flex min-h-dvh bg-bg">
+                  <Sidebar />
+                  <main className="min-w-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] lg:pb-0">
+                    {children}
+                  </main>
+                  <TabBar />
+                </div>
+              </CommandsProvider>
+            </RitualProvider>
           )}
         </TaskPanelProvider>
       </SkipFlowProvider>
@@ -60,6 +68,24 @@ function OnboardingRedirect() {
     if (!settings.exists && lastSyncedAt == null) return;
     router.replace("/welcome");
   }, [settings.loaded, settings.exists, settings.onboardingCompletedAt, lastSyncedAt, pathname, router]);
+  return null;
+}
+
+/**
+ * Keeps the current cycle and the next one in existence (PRD CYC-1). On a new device it waits
+ * for the first sync, so cycles already made on another device are used rather than recreated.
+ */
+function CycleKeeper() {
+  const settings = useSettings();
+  const actions = useActions();
+  const todayDay = useToday();
+  const { lastSyncedAt } = useSyncStatus();
+  const cycles = useCycles();
+  const ready = settings.loaded && settings.exists && Boolean(settings.onboardingCompletedAt) && cycles !== undefined;
+  const synced = lastSyncedAt != null || (cycles?.length ?? 0) > 0;
+  useEffect(() => {
+    if (ready && synced) void actions.ensureCycles(todayDay);
+  }, [ready, synced, todayDay, settings.cycleLengthDays, settings.weekStartDay, actions]);
   return null;
 }
 

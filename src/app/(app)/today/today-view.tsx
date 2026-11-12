@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Sun, Target } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { EmptyState } from "@/components/app/empty-state";
 import { ClearSkyScene } from "@/components/app/scenes";
@@ -22,15 +22,13 @@ import {
   staleReason,
   type Capacity,
 } from "@/features/today/model";
-import { subscribeMinute, useToday } from "@/features/use-today";
+import { useMinuteNow, useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { longDayLabel } from "@/lib/dates";
 import { DayOrbit } from "./day-orbit";
+import { RitualCards } from "./ritual-cards";
 import { SortableTasks } from "./sortable-tasks";
 import { NextStepDialog, STALE_ACTIONS, SwapMustDoDialog, useStaleResolver } from "./today-dialogs";
-
-// The clock for stale checks; refreshed each minute and on return to the app (as useToday is).
-const minuteNow = () => Math.floor(Date.now() / 60_000) * 60_000;
 
 /**
  * Today (PRD §7.7, §8.1): stale tasks that need a decision, up to 3 Must-dos, Also today,
@@ -44,7 +42,7 @@ export function TodayView() {
   const goals = useGoals();
   const settings = useSettings();
   const todayDay = useToday();
-  const now = useSyncExternalStore(subscribeMinute, minuteNow, minuteNow);
+  const now = useMinuteNow();
   const [title, setTitle] = useState("");
   const [promptFor, setPromptFor] = useState<Task | null>(null);
   const [swapIn, setSwapIn] = useState<Task | null>(null);
@@ -58,8 +56,10 @@ export function TodayView() {
         timezone: settings.timezone,
         capacity: settings.dailyCapacityPts,
         focusSessions,
+        // Gentle strictness: stale tasks aren't pinned (PRD §8.5).
+        pinStale: settings.strictness !== "gentle",
       }),
-    [all, focusSessions, todayDay, now, settings.timezone, settings.dailyCapacityPts],
+    [all, focusSessions, todayDay, now, settings.timezone, settings.dailyCapacityPts, settings.strictness],
   );
   const stuckGoals = (goals ?? []).filter((g) => needsNextStep(g, all ?? []));
 
@@ -90,6 +90,7 @@ export function TodayView() {
     <>
       <PageHeader title="Today" subtitle={longDayLabel(todayDay)} />
       <PageBody>
+        <RitualCards />
         <DayOrbit plan={plan} now={now} timezone={settings.timezone} ready={all !== undefined} />
         <CapacityBar capacity={plan.capacity} />
 
