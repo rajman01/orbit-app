@@ -139,6 +139,35 @@ describe("server sync", () => {
     expect((await pullChanges(db, "u2", 0)).changes[0].doc.number).toBe(1);
   });
 
+  it("accepts tasks created by older clients without the Phase 1B fields", async () => {
+    const { mustDoDate: _m, postponeCount: _p, ...old } = newTask("From an old PWA");
+    const res = await applyMutations(db, "u1", [upsert(id(), old, 1000)]);
+    expect(res.rejected).toEqual([]);
+  });
+
+  it("syncs focus sessions and checks their task belongs to the user", async () => {
+    const t = id();
+    await applyMutations(db, "u1", [upsert(t, newTask("Deep work"), 1000)]);
+    const session = {
+      taskId: t,
+      mode: "five",
+      plannedMinutes: 5,
+      startedAt: 1000,
+      endedAt: null,
+      actualMinutes: 0,
+      outcome: null,
+      interruptions: 0,
+    };
+    const mine = await applyMutations(db, "u1", [
+      { mutationId: id(), entity: "focusSessions", entityId: id(), op: "upsert", fields: session, clientTime: 1001 },
+    ]);
+    expect(mine.applied).toHaveLength(1);
+    const theirs = await applyMutations(db, "u2", [
+      { mutationId: id(), entity: "focusSessions", entityId: id(), op: "upsert", fields: session, clientTime: 1001 },
+    ]);
+    expect(theirs.rejected[0].reason).toMatch(/forbidden reference/);
+  });
+
   it("rejects references to another user's documents but allows unknown ones", async () => {
     const goal = id();
     await applyMutations(db, "u1", [

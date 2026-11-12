@@ -233,3 +233,59 @@
     opacity: 1;
   }
 }
+
+/* In-app illustrations: slow orbits and twinkling stars. Still when motion is reduced. */
+@keyframes orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.orbit-spin {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: orbit-spin var(--orbit-duration, 90s) linear infinite;
+}
+.orbit-spin-reverse {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: orbit-spin var(--orbit-duration, 140s) linear infinite reverse;
+}
+.twinkle {
+  animation: twinkle var(--twinkle-duration, 3.2s) ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbit-spin,
+  .orbit-spin-reverse,
+  .twinkle {
+    animation: none;
+  }
+}
+
+/* Pages rise in gently on navigation. */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.page-enter {
+  animation: page-enter 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: landing-fade 200ms ease-out both;
+  }
+}

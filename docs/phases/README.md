@@ -5,9 +5,9 @@ Each phase has its own plan so the [PRD](../PRD.md) stays the product spec, not 
 | Phase | Doc | Status |
 |---|---|---|
 | 0 — Foundation | [phase-0.md](./phase-0.md) | ✅ Complete (2026-11-12) |
-| 1A — Plan the work | [phase-1a.md](./phase-1a.md) | ✅ Built (2026-11-12) — deploy and use next |
-| 1B — Do the work, stop drifting | [phase-1b.md](./phase-1b.md) | 🔜 Next |
-| 1C — Cycles and rituals | [phase-1c.md](./phase-1c.md) | Planned |
+| 1A — Plan the work | [phase-1a.md](./phase-1a.md) | ✅ Deployed (2026-11-12) |
+| 1B — Do the work, stop drifting | [phase-1b.md](./phase-1b.md) | ✅ Built (2026-11-12) — deploy and use next |
+| 1C — Cycles and rituals | [phase-1c.md](./phase-1c.md) | 🔜 Next |
 | 1D — Habits, levels and reminders | [phase-1d.md](./phase-1d.md) | Planned |
 | 2 — Coach, calendar, people | [phase-2.md](./phase-2.md) | Planned (outline) |
 | 3 — Insight and growth | [phase-3.md](./phase-3.md) | Planned (outline) |

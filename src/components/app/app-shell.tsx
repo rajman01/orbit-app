@@ -2,15 +2,19 @@
 
 import { Ellipsis, Inbox, Plus, Search, Settings, Sun, Target } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { animate, motion, useMotionValue } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AreaIcon } from "@/components/areas/area-icon";
+import { FocusProvider } from "@/components/focus/focus-mode";
+import { SkipFlowProvider } from "@/components/skip/skip-flow";
 import { TaskPanelProvider } from "@/components/tasks/task-panel";
 import { Kbd } from "@/components/ui/pill";
 import { Sheet } from "@/components/ui/sheet";
 import { useAreas, useSettings } from "@/features/data";
 import { cn } from "@/lib/cn";
+import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
 import { useCurrentUser } from "./auth-gate";
 import { CommandsProvider, useCommands } from "./commands";
 import { NAV_MAIN, NAV_MORE } from "./nav";
@@ -20,18 +24,25 @@ import { useSync, useSyncStatus } from "./sync-provider";
 /** DESIGN.md §5.2 / §5.3 — sidebar on desktop, translucent tab bar on phone. */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (pathname === "/welcome") return <TaskPanelProvider>{children}</TaskPanelProvider>;
   return (
-    <TaskPanelProvider>
-      <CommandsProvider>
-        <OnboardingRedirect />
-        <div className="flex min-h-dvh bg-bg">
-          <Sidebar />
-          <main className="min-w-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] lg:pb-0">{children}</main>
-          <TabBar />
-        </div>
-      </CommandsProvider>
-    </TaskPanelProvider>
+    <FocusProvider>
+      <SkipFlowProvider>
+        <TaskPanelProvider>
+          {pathname === "/welcome" ? (
+            children
+          ) : (
+            <CommandsProvider>
+              <OnboardingRedirect />
+              <div className="flex min-h-dvh bg-bg">
+                <Sidebar />
+                <main className="min-w-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] lg:pb-0">{children}</main>
+                <TabBar />
+              </div>
+            </CommandsProvider>
+          )}
+        </TaskPanelProvider>
+      </SkipFlowProvider>
+    </FocusProvider>
   );
 }
 
@@ -79,19 +90,29 @@ function NavLink({
   badge?: number;
 }) {
   const pathname = usePathname();
+  const { transition } = useOrbitMotion();
   const active = pathname === href || pathname.startsWith(`${href}/`);
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-8 items-center gap-2.5 rounded-md px-2 text-body transition-colors duration-150",
-        active ? "bg-accent-fill font-medium text-accent-text" : "text-label-secondary hover:bg-fill hover:text-label",
+        "relative flex h-8 items-center gap-2.5 rounded-md px-2 text-body transition-colors duration-150",
+        active ? "font-medium text-accent-text" : "text-label-secondary hover:bg-fill hover:text-label",
       )}
     >
-      <Icon className="size-4" strokeWidth={1.75} aria-hidden />
-      <span className="flex-1">{label}</span>
-      {badge ? <span className="text-caption text-label-tertiary tabular">{badge}</span> : null}
+      {/* The highlight glides between items instead of jumping. */}
+      {active ? (
+        <motion.span
+          layoutId="nav-active"
+          className="absolute inset-0 rounded-md bg-accent-fill"
+          transition={transition("snappy")}
+          aria-hidden
+        />
+      ) : null}
+      <Icon className="relative size-4" strokeWidth={1.75} aria-hidden />
+      <span className="relative flex-1">{label}</span>
+      {badge ? <span className="relative text-caption text-label-tertiary tabular">{badge}</span> : null}
     </Link>
   );
 }
@@ -104,7 +125,7 @@ function Sidebar() {
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r border-separator px-3 pt-4 pb-3 material-thick lg:flex">
       <div className="flex items-center gap-2 px-2">
-        <OrbitMark />
+        <LiveOrbitMark />
         <span className="text-headline">Orbit</span>
       </div>
       <div className="flex gap-1.5">
@@ -276,7 +297,7 @@ export function PageHeader({
 
 /** Page body width used across the app. */
 export function PageBody({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("mx-auto w-full max-w-[880px] px-4 pb-16 lg:px-6", className)}>{children}</div>;
+  return <div className={cn("page-enter mx-auto w-full max-w-[880px] px-4 pb-16 lg:px-6", className)}>{children}</div>;
 }
 
 export function OrbitMark({ size = 22 }: { size?: number }) {
@@ -284,6 +305,27 @@ export function OrbitMark({ size = 22 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
       <circle cx="16" cy="16" r="10.5" fill="none" stroke="var(--accent)" strokeWidth="3" />
       <circle cx="24.5" cy="9" r="4" fill="var(--accent)" stroke="var(--bg)" strokeWidth="2" />
+    </svg>
+  );
+}
+
+/** The logo's moon makes one orbit each time Orbit syncs. */
+function LiveOrbitMark({ size = 22 }: { size?: number }) {
+  const { state } = useSyncStatus();
+  const { reduced } = useOrbitMotion();
+  const rotate = useMotionValue(0);
+  useEffect(() => {
+    if (state !== "syncing" || reduced) return;
+    const target = Math.ceil((rotate.get() + 1) / 360) * 360;
+    const controls = animate(rotate, target, { type: "spring", bounce: 0, duration: 1.2 });
+    return () => controls.stop();
+  }, [state, reduced, rotate]);
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
+      <circle cx="16" cy="16" r="10.5" fill="none" stroke="var(--accent)" strokeWidth="3" />
+      <motion.g style={{ rotate, transformOrigin: "16px 16px", transformBox: "view-box" }}>
+        <circle cx="24.5" cy="9" r="4" fill="var(--accent)" stroke="var(--bg)" strokeWidth="2" />
+      </motion.g>
     </svg>
   );
 }

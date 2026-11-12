@@ -52,6 +52,9 @@ export const entitySchemas = {
     dailyCapacityPts: z.number().int().min(1).max(100),
     cycleCapacityPts: z.number().int().min(1).max(500),
     workingHours: z.object({ start: time, end: time }),
+    /** Focus mode: Pomodoro work and break lengths (Phase 1B, optional for older documents). */
+    focusMinutes: z.number().int().min(5).max(180).optional(),
+    breakMinutes: z.number().int().min(1).max(60).optional(),
     strictness: z.enum(["gentle", "firm", "strict"]),
     onboardingCompletedAt: ms.nullable(),
   }),
@@ -120,6 +123,11 @@ export const entitySchemas = {
     cancelledAt: ms.nullable(),
     createdBy: z.enum(["user", "ai", "capture"]),
     order: z.number(),
+    // Phase 1B. Optional so documents and clients from earlier versions stay valid.
+    /** The day this task is one of the (max 3) Must-dos. Must-dos are per day. */
+    mustDoDate: day.nullable().optional(),
+    /** How many times it was moved through the skip flow; reset when a stale task is resolved. */
+    postponeCount: z.number().int().min(0).max(100000).optional(),
   }),
   taskEvents: z.object({
     taskId: id,
@@ -130,6 +138,23 @@ export const entitySchemas = {
     reasonText: z.string().max(2000).nullable(),
     actor: z.enum(["user", "ai", "system"]),
     at: ms,
+  }),
+  focusSessions: z.object({
+    taskId: id,
+    mode: z.enum(["five", "pomodoro", "fixed", "open"]),
+    plannedMinutes: z
+      .number()
+      .min(0)
+      .max(24 * 60)
+      .nullable(),
+    startedAt: ms,
+    endedAt: ms.nullable(),
+    actualMinutes: z
+      .number()
+      .min(0)
+      .max(24 * 60),
+    outcome: z.enum(["done", "progress", "stuck", "abandoned"]).nullable(),
+    interruptions: z.number().int().min(0).max(10000),
   }),
 } as const;
 
@@ -170,4 +195,5 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
     recurrenceParentId: "tasks",
   },
   taskEvents: { taskId: "tasks" },
+  focusSessions: { taskId: "tasks" },
 };

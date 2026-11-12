@@ -98,3 +98,16 @@ export function useTaskEvents(taskId: string | null | undefined): TaskEvent[] | 
     [db, taskId],
   );
 }
+
+export type FocusSession = SyncedDoc<"focusSessions">;
+
+/** Focus sessions, newest first; for one task when `taskId` is given. */
+export function useFocusSessions(taskId?: string | null): FocusSession[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => {
+    const rows = taskId
+      ? await db.focusSessions.where("taskId").equals(taskId).toArray()
+      : await db.focusSessions.toArray();
+    return live(rows).sort((a, b) => b.startedAt - a.startedAt);
+  }, [db, taskId]);
+}

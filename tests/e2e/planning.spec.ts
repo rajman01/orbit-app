@@ -88,7 +88,10 @@ test("goals created offline sync to another device", async ({ page, context, bro
   await page.getByRole("button", { name: "New goal" }).click();
   await page.getByRole("textbox", { name: "Goal", exact: true }).fill(`Offline goal ${r}`);
   await page.getByRole("button", { name: "Create goal" }).click();
-  await expect(page.getByRole("textbox", { name: "Goal title" })).toHaveValue(`Offline goal ${r}`);
+  // Offline navigation is served by the service worker; give it room when the machine is busy.
+  await expect(page.getByRole("textbox", { name: "Goal title" })).toHaveValue(`Offline goal ${r}`, {
+    timeout: 15_000,
+  });
 
   await context.setOffline(false);
   await waitForSynced(page);

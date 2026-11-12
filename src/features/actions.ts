@@ -10,6 +10,8 @@ import { AREA_PRESETS, presetAreaId, type AreaFields } from "./areas/model";
 import { newGoalFields, type Goal, type GoalFields, type KeyResult } from "./goals/model";
 import { defaultSettings, settingsId, type Settings } from "./settings/model";
 import { newTaskFields, nextInstanceId, nextOccurrence, type Task, type TaskFields } from "./tasks/model";
+import { isSkip, planDay, type SkipReason } from "./today/model";
+import type { FocusMode } from "./focus/model";
 
 const now = () => Date.now();
 
@@ -208,6 +210,146 @@ export function createActions(engine: SyncEngine, userId: string) {
         reasonText: null,
       });
     },
+
+    // ------------------------------------------------------------ today (Phase 1B)
+
+    /** Plans a task for today; tasks still in the inbox or backlog become todo. */
+    async planForToday(task: Task, todayDay: string) {
+      const patch: Partial<TaskFields> = {};
+      if (task.scheduledDate !== todayDay) patch.scheduledDate = todayDay;
+      if (task.status === "inbox" || task.status === "backlog") patch.status = "todo";
+      if (Object.keys(patch).length) await actions.updateTask(task, patch);
+    },
+
+    /** Makes a task one of today's Must-dos. The caller enforces the cap of 3 (it offers a swap). */
+    async setMustDo(task: Task, todayDay: string, on: boolean) {
+      if (!on) return engine.update("tasks", task.id, { mustDoDate: null });
+      await actions.planForToday(task, todayDay);
+      await engine.update("tasks", task.id, { mustDoDate: todayDay });
+    },
+
+    async swapMustDo(out: Task, into: Task, todayDay: string) {
+      await engine.update("tasks", out.id, { mustDoDate: null });
+      await actions.setMustDo(into, todayDay, true);
+    },
+
+    setTaskOrder: (task: Task, order: number) => engine.update("tasks", task.id, { order }),
+
+    /**
+     * The skip flow (PRD §8.2): moves a planned task with a reason. Every skip is recorded;
+     * moving a task that was planned for today or earlier counts toward going stale.
+     */
+    async skipTask(
+      task: Task,
+      opts: {
+        reason: SkipReason | null;
+        reasonText?: string | null;
+        to: string | null;
+        todayDay: string;
+        cancel?: boolean;
+      },
+    ) {
+      const from = planDay(task);
+      const counts = !opts.cancel && isSkip(task, opts.todayDay, opts.to);
+      if (opts.cancel) {
+        await actions.updateTask(task, { status: "cancelled", mustDoDate: null });
+      } else {
+        const patch: Partial<TaskFields> = { scheduledDate: opts.to, mustDoDate: null };
+        if (counts) patch.postponeCount = (task.postponeCount ?? 0) + 1;
+        if (opts.to && (task.status === "inbox" || task.status === "backlog")) patch.status = "todo";
+        await engine.update("tasks", task.id, patch);
+        if (patch.status) {
+          await logTaskEvent({
+            taskId: task.id,
+            type: "status",
+            from: task.status,
+            to: "todo",
+            reason: null,
+            reasonText: null,
+          });
+        }
+      }
+      if (opts.reason || counts) {
+        await logTaskEvent({
+          taskId: task.id,
+          type: "skip",
+          from,
+          to: opts.cancel ? "cancelled" : opts.to,
+          reason: opts.reason,
+          reasonText: opts.reasonText?.trim() || null,
+        });
+      } else if (!opts.cancel && from !== opts.to) {
+        await logTaskEvent({
+          taskId: task.id,
+          type: "reschedule",
+          from,
+          to: opts.to,
+          reason: "scheduledDate",
+          reasonText: null,
+        });
+      }
+    },
+
+    /** Resolves a stale task (PRD §8.1): resets its postpone count and records how. */
+    async resolveStale(
+      task: Task,
+      how: "break_down" | "five_minutes" | "commit" | "help" | "drop",
+      opts: { to?: string | null; note?: string; subtasks?: string[] } = {},
+    ) {
+      const patch: Partial<TaskFields> = { postponeCount: 0 };
+      if (how === "commit") patch.scheduledDate = opts.to ?? null;
+      if (how === "help" && opts.note?.trim()) {
+        patch.description = `${task.description ? `${task.description}\n\n` : ""}Help: ${opts.note.trim()}`;
+      }
+      if (how === "drop") await actions.updateTask(task, { status: "cancelled", mustDoDate: null });
+      await engine.update("tasks", task.id, patch);
+      for (const title of opts.subtasks ?? []) {
+        if (title.trim()) {
+          await actions.createTask({
+            title: title.trim(),
+            parentTaskId: task.id,
+            status: "todo",
+            areaId: task.areaId,
+            goalId: task.goalId,
+          });
+        }
+      }
+      await logTaskEvent({
+        taskId: task.id,
+        type: "edit",
+        from: null,
+        to: how === "commit" ? (opts.to ?? null) : null,
+        reason: `stale_${how}`,
+        reasonText: how === "help" ? (opts.note?.trim() ?? null) : null,
+      });
+    },
+
+    // ------------------------------------------------------------ focus (Phase 1B)
+
+    /** Logs the start of a focus session; the task moves to in progress. */
+    async startFocusSession(task: Task, mode: FocusMode, plannedMinutes: number | null, startedAt: number) {
+      const id = await engine.create("focusSessions", {
+        taskId: task.id,
+        mode,
+        plannedMinutes,
+        startedAt,
+        endedAt: null,
+        actualMinutes: 0,
+        outcome: null,
+        interruptions: 0,
+      });
+      if (task.status !== "in_progress" && task.status !== "done")
+        await actions.updateTask(task, { status: "in_progress" });
+      return id;
+    },
+
+    endFocusSession: (
+      id: string,
+      fields: Pick<
+        EntityFields<"focusSessions">,
+        "endedAt" | "actualMinutes" | "outcome" | "interruptions" | "mode" | "plannedMinutes"
+      >,
+    ) => engine.update("focusSessions", id, fields),
 
     async deleteTask(task: Task) {
       for (const sub of await db.tasks.where("parentTaskId").equals(task.id).toArray()) {

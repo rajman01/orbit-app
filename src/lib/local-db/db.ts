@@ -41,5 +41,7 @@ export function openLocalDb(userId: string): OrbitDB {
     outbox: "++seq, entityId",
     meta: "key",
   });
+  // Phase 1B: focus sessions.
+  db.version(3).stores({ focusSessions: "id, taskId, startedAt" });
   return db;
 }

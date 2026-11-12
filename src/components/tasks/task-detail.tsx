@@ -1,6 +1,8 @@
 "use client";
 
-import { Flag, MoreHorizontal, Plus, Repeat, Trash2, X } from "lucide-react";
+import { Flag, MoreHorizontal, Play, Plus, Repeat, Timer, Trash2, X } from "lucide-react";
+import { useFocus } from "@/components/focus/focus-mode";
+import { useSkipFlow } from "@/components/skip/skip-flow";
 import { useState } from "react";
 import { IconButton } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,7 +10,8 @@ import { Menu, MenuItem } from "@/components/ui/menu";
 import { ChipButton, Picker } from "@/components/ui/picker";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
-import { useAllTasks, useMilestones, useTask, useTaskEvents, type TaskEvent } from "@/features/data";
+import { useAllTasks, useFocusSessions, useMilestones, useTask, useTaskEvents, type TaskEvent } from "@/features/data";
+import { isSkip, skipReasonLabel } from "@/features/today/model";
 import { isOpen, recurrenceLabel, STATUS_META, taskCode, type Task, type TaskStatus } from "@/features/tasks/model";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
@@ -37,6 +40,8 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
   const actions = useActions();
   const toast = useToast();
   const todayDay = useToday();
+  const focus = useFocus();
+  const skip = useSkipFlow();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [nextStep, setNextStep] = useState(task.nextStep ?? "");
@@ -54,6 +59,18 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
       <header className="flex items-center justify-between gap-2">
         <span className="font-mono text-caption text-label-tertiary">{code ?? "New task · syncing"}</span>
         <div className="flex items-center gap-1">
+          {isOpen(task) && !task.parentTaskId ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                void focus.start(task);
+              }}
+              className="mr-1 flex h-8 items-center gap-1 rounded-full bg-accent-fill px-3 text-footnote font-semibold text-accent-text hover:brightness-95"
+            >
+              <Play className="size-3.5" fill="currentColor" aria-hidden /> Start focus
+            </button>
+          ) : null}
           <Menu trigger={<IconButton label="More actions" icon={<MoreHorizontal className="size-4" />} />} align="end">
             <MenuItem
               icon={<Trash2 />}
@@ -126,7 +143,11 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
             placeholder="Not scheduled"
             value={task.scheduledDate}
             todayDay={todayDay}
-            onChange={(d) => void update({ scheduledDate: d })}
+            onChange={(d) => {
+              // No silent skipping (PRD §8.1): moving a planned task off today asks why.
+              if (isOpen(task) && isSkip(task, todayDay, d)) skip.open(task, { to: d });
+              else void update({ scheduledDate: d });
+            }}
           />
         </Prop>
         <Prop label="Repeat">
@@ -165,6 +186,7 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
       </label>
 
       {!task.parentTaskId ? <Subtasks task={task} /> : null}
+      <FocusSummary taskId={task.id} />
       <History taskId={task.id} todayDay={todayDay} />
     </div>
   );
@@ -319,6 +341,27 @@ function Subtasks({ task }: { task: Task }) {
   );
 }
 
+const STALE_LABELS: Record<string, string> = {
+  stale_break_down: "broke it down",
+  stale_five_minutes: "did 5 minutes",
+  stale_commit: "committed to a new date",
+  stale_help: "asked for help",
+  stale_drop: "dropped it",
+};
+
+function FocusSummary({ taskId }: { taskId: string }) {
+  const sessions = (useFocusSessions(taskId) ?? []).filter((s) => s.endedAt != null);
+  if (!sessions.length) return null;
+  const minutes = Math.round(sessions.reduce((sum, s) => sum + s.actualMinutes, 0));
+  return (
+    <p className="flex items-center gap-1.5 text-footnote text-label-secondary">
+      <Timer className="size-3.5" strokeWidth={1.75} aria-hidden />
+      Focused {minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`} across{" "}
+      {sessions.length === 1 ? "1 session" : `${sessions.length} sessions`}
+    </p>
+  );
+}
+
 function describeEvent(e: TaskEvent, todayDay: string): string {
   const s = (v: string | null) => (v ? (STATUS_META[v as TaskStatus]?.label ?? v) : "none");
   const d = (v: string | null) => (v ? dayLabel(v, todayDay) : "none");
@@ -330,8 +373,9 @@ function describeEvent(e: TaskEvent, todayDay: string): string {
     case "reschedule":
       return `${e.reason === "dueDate" ? "Due date" : "Scheduled"}: ${d(e.from)} → ${d(e.to)}`;
     case "skip":
-      return `Skipped${e.reason ? ` — ${e.reason}` : ""}`;
+      return `${e.to === "cancelled" ? "Cancelled" : `Moved ${d(e.from)} → ${d(e.to)}`}${e.reason ? ` — ${skipReasonLabel(e.reason)}` : ""}${e.reasonText ? `: ${e.reasonText}` : ""}`;
     default:
+      if (e.reason?.startsWith("stale_")) return `Stale resolved — ${STALE_LABELS[e.reason] ?? "resolved"}`;
       return "Edited";
   }
 }

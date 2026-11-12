@@ -29,7 +29,7 @@ import { Field, Input } from "@/components/ui/input";
 import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { Picker } from "@/components/ui/picker";
 import { Pill } from "@/components/ui/pill";
-import { ProgressRing } from "@/components/ui/progress-ring";
+import { GoalPlanet } from "@/components/goals/goal-planet";
 import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
@@ -210,7 +210,13 @@ function GoalDetail({ goal }: { goal: Goal }) {
             </div>
           </div>
           <div className="flex flex-col items-center gap-1">
-            <ProgressRing value={progress} size={64} color={color} label={`${Math.round(progress * 100)}% complete`} />
+            <GoalPlanet
+              progress={progress}
+              color={color}
+              size={104}
+              milestones={milestones.map((m) => ({ id: m.id, done: m.doneAt != null }))}
+              label={`${Math.round(progress * 100)}% complete`}
+            />
             <span className="text-footnote font-semibold tabular">{Math.round(progress * 100)}%</span>
           </div>
         </div>

@@ -1,7 +1,19 @@
 "use client";
 
 import { Command } from "cmdk";
-import { CalendarSync, Inbox, LayoutList, Moon, Plus, Settings, Shapes, Sun, Target, X } from "lucide-react";
+import {
+  CalendarDays,
+  CalendarSync,
+  Inbox,
+  LayoutList,
+  Moon,
+  Plus,
+  Settings,
+  Shapes,
+  Sun,
+  Target,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
@@ -42,6 +54,7 @@ const isTyping = (el: EventTarget | null) =>
 
 const GO: Record<string, string> = {
   t: "/today",
+  u: "/upcoming",
   i: "/inbox",
   k: "/tasks",
   g: "/goals",
@@ -387,6 +400,7 @@ function Palette({
                     <Command.Group heading="Go to" className={group}>
                       {[
                         ["Today", "/today", Sun, "G T"],
+                        ["Upcoming", "/upcoming", CalendarDays, "G U"],
                         ["Inbox", "/inbox", Inbox, "G I"],
                         ["Tasks", "/tasks", LayoutList, "G K"],
                         ["Goals", "/goals", Target, "G G"],
@@ -467,6 +481,7 @@ const SHORTCUTS: [string, string[]][] = [
   ["Command palette", ["⌘", "K"]],
   ["New task", ["C"]],
   ["Go to Today", ["G", "T"]],
+  ["Go to Upcoming", ["G", "U"]],
   ["Go to Inbox", ["G", "I"]],
   ["Go to Tasks", ["G", "K"]],
   ["Go to Goals", ["G", "G"]],
@@ -475,6 +490,8 @@ const SHORTCUTS: [string, string[]][] = [
   ["Next / previous task", ["J", "K"]],
   ["Open task", ["Enter"]],
   ["Complete task", ["⌘", "Enter"]],
+  ["Start focus on task", ["F"]],
+  ["Move task (skip)", ["S"]],
   ["Close panel", ["Esc"]],
   ["This list", ["?"]],
 ];

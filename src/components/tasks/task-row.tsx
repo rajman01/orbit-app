@@ -1,6 +1,6 @@
 "use client";
 
-import { Repeat, Target } from "lucide-react";
+import { AlertTriangle, Play, Repeat, Star, Target } from "lucide-react";
 import { AreaDot } from "@/components/areas/area-icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useActions } from "@/features/actions";
@@ -12,6 +12,9 @@ import { cn } from "@/lib/cn";
 import { dayLabel } from "@/lib/dates";
 import { PriorityIcon } from "./icons";
 import { useTaskPanel } from "./task-panel";
+import { SwipeRow } from "./swipe-row";
+import { useSkipFlow } from "@/components/skip/skip-flow";
+import { useFocus } from "@/components/focus/focus-mode";
 
 /** DESIGN.md §11.2 — the task row used everywhere. */
 export function TaskRow({
@@ -21,6 +24,13 @@ export function TaskRow({
   subtaskCount,
   showGoal = true,
   className,
+  mustDo = false,
+  showStart = false,
+  staleLabel,
+  onToggleMustDo,
+  onPromptNextStep,
+  handle,
+  swipe = true,
 }: {
   task: Task;
   area?: Area;
@@ -28,15 +38,28 @@ export function TaskRow({
   subtaskCount?: { done: number; total: number };
   showGoal?: boolean;
   className?: string;
+  /** Today (DESIGN.md §11.2): Must-dos are taller, bolder and starred. */
+  mustDo?: boolean;
+  /** Shows the Start button (always on phones for Must-dos, on hover otherwise). */
+  showStart?: boolean;
+  staleLabel?: string;
+  onToggleMustDo?: () => void;
+  /** TASK-4: shown instead of the next step when a big task has none. */
+  onPromptNextStep?: () => void;
+  /** Drag handle for reorderable lists. */
+  handle?: React.ReactNode;
+  swipe?: boolean;
 }) {
   const actions = useActions();
   const panel = useTaskPanel();
+  const skip = useSkipFlow();
+  const focus = useFocus();
   const todayDay = useToday();
   const done = task.status === "done";
   const overdue = isOpen(task) && task.dueDate != null && task.dueDate < todayDay;
   const code = taskCode(task);
 
-  return (
+  const row = (
     <div
       role="button"
       tabIndex={0}
@@ -47,14 +70,19 @@ export function TaskRow({
         if (e.target !== e.currentTarget) return;
         if (e.key === "Enter") panel.open(task.id);
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void actions.setTaskDone(task, !done);
+        if (e.metaKey || e.ctrlKey || e.altKey || done) return;
+        if (e.key === "f" && !task.parentTaskId) void focus.start(task);
+        if (e.key === "s") skip.open(task);
       }}
       className={cn(
         "group flex min-h-row cursor-default items-center gap-1 rounded-md pr-2 pl-1 outline-none select-none",
+        mustDo && "min-h-16 lg:min-h-12",
         "hover:bg-fill focus-visible:bg-fill focus-visible:ring-2 focus-visible:ring-accent",
         panel.taskId === task.id && "bg-accent-fill",
         className,
       )}
     >
+      {handle}
       <span onClick={(e) => e.stopPropagation()}>
         <Checkbox checked={done} onChange={(d) => void actions.setTaskDone(task, d)} label={`Complete ${task.title}`} />
       </span>
@@ -63,9 +91,26 @@ export function TaskRow({
         <span className="hidden w-14 shrink-0 font-mono text-caption text-label-tertiary lg:inline">{code}</span>
       ) : null}
       <div className="min-w-0 flex-1 py-1.5">
-        <p className={cn("truncate", done && "text-label-tertiary line-through")}>{task.title}</p>
-        {task.nextStep && !done ? (
+        <p className={cn("truncate", mustDo && "text-headline", done && "text-label-tertiary line-through")}>
+          {task.title}
+        </p>
+        {staleLabel ? (
+          <p className="flex items-center gap-1 text-footnote font-medium text-warning-text">
+            <AlertTriangle className="size-3.5" strokeWidth={2} aria-hidden /> {staleLabel}
+          </p>
+        ) : task.nextStep && !done ? (
           <p className="truncate text-footnote text-label-secondary">↳ {task.nextStep}</p>
+        ) : onPromptNextStep && !done ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPromptNextStep();
+            }}
+            className="text-footnote font-medium text-accent-text hover:underline"
+          >
+            ↳ Add a 2-minute next step
+          </button>
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2.5 text-footnote text-label-secondary">
@@ -89,6 +134,56 @@ export function TaskRow({
         ) : null}
         {area ? <AreaDot color={area.color} /> : null}
       </div>
+      {showStart && !done ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            void focus.start(task);
+          }}
+          aria-label={`Start ${task.title}`}
+          className={cn(
+            "ml-1 flex h-8 shrink-0 items-center gap-1 rounded-full bg-accent-fill px-3 text-footnote font-semibold text-accent-text hover:brightness-95",
+            mustDo
+              ? "flex"
+              : "hidden lg:flex lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100",
+          )}
+        >
+          <Play className="size-3.5" fill="currentColor" aria-hidden /> Start
+        </button>
+      ) : null}
+      {onToggleMustDo ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleMustDo();
+          }}
+          aria-label={mustDo ? `Remove ${task.title} from Must-dos` : `Make ${task.title} a Must-do`}
+          aria-pressed={mustDo}
+          className={cn(
+            "grid size-9 shrink-0 place-items-center rounded-full hover:bg-fill",
+            !mustDo && "lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100",
+          )}
+        >
+          <Star
+            className={cn("size-4", mustDo ? "text-warning" : "text-label-tertiary")}
+            fill={mustDo ? "currentColor" : "none"}
+            strokeWidth={1.75}
+          />
+        </button>
+      ) : null}
     </div>
+  );
+
+  if (!swipe || task.parentTaskId) return row;
+  return (
+    <SwipeRow
+      done={done}
+      onSwipeRight={() => void actions.setTaskDone(task, !done)}
+      onSwipeLeft={done ? undefined : () => skip.open(task)}
+    >
+      {row}
+    </SwipeRow>
   );
 }

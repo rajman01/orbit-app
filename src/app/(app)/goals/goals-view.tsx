@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { EmptyState } from "@/components/app/empty-state";
+import { GoalScene } from "@/components/app/scenes";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { GoalCard } from "@/components/goals/goal-card";
 import { NewGoalDialog } from "@/components/goals/goal-form";
@@ -83,6 +84,7 @@ export function GoalsView() {
         {goals && !shown.length ? (
           <EmptyState
             icon={Target}
+            illustration={tab === "active" ? <GoalScene /> : undefined}
             title={tab === "active" ? "No active goals" : `No ${tab} goals`}
             body={
               tab === "active"

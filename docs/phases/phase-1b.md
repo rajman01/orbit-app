@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Planned |
+| **Status** | ✅ Built — 2026-11-12 (not yet deployed) |
 | **Depends on** | 1A |
 | **PRD** | §7.7, §7.8, §8.1, §8.2 |
 | **Design** | [DESIGN.md](../DESIGN.md) §8 (gestures), §11.2, §11.15, §13 |
@@ -31,9 +31,10 @@ Make starting easy and drifting visible. Today becomes the home screen: three Mu
 
 | Entity | Fields | Notes |
 |---|---|---|
-| `tasks` (extend) | isMustDo, mustDoDate, postponeCount, staleSince, lastTouchedAt | `postponeCount` increments through the skip flow only |
+| `tasks` (extend) | mustDoDate, postponeCount | Built: `mustDoDate` alone marks a Must-do (per day). Stale "untouched" uses `updatedAt`, so `staleSince` / `lastTouchedAt` weren't needed. Both fields are optional so older clients stay valid |
 | `taskEvents` | type `skip` with reason / reasonText / from / to | Already created in 1A |
 | `focusSessions` | taskId, mode, plannedMinutes, startedAt, endedAt, actualMinutes, outcome, interruptions | Timer state also kept in local storage so it survives reloads |
+| `settings` (extend) | focusMinutes, breakMinutes | Pomodoro lengths (FOC-2 "configurable"), default 25 / 5 |
 
 **Decisions**
 
@@ -54,23 +55,59 @@ Make starting easy and drifting visible. Today becomes the home screen: three Mu
 
 ## Implementation steps
 
-- [ ] Today data queries (local date, Must-dos, overdue, capacity)
-- [ ] Today screen + reorder + Must-do cap
-- [ ] Next-step prompt
-- [ ] Skip flow + `taskEvents` recording + `postponeCount`
-- [ ] Stale detection + resolution actions; "goal needs a next step" surfacing
-- [ ] Focus mode + `focusSessions` + timer persistence + notification at end (in-app; push in 1D)
-- [ ] Swipe gestures on mobile rows
-- [ ] Upcoming view
-- [ ] Tests, deploy
+- [x] Today data queries (local date, Must-dos, overdue, capacity)
+- [x] Today screen + reorder + Must-do cap
+- [x] Next-step prompt
+- [x] Skip flow + `taskEvents` recording + `postponeCount`
+- [x] Stale detection + resolution actions; "goal needs a next step" surfacing
+- [x] Focus mode + `focusSessions` + timer persistence + notification at end (in-app; push in 1D)
+- [x] Swipe gestures on mobile rows
+- [x] Upcoming view
+- [x] Tests
+- [ ] Deploy and run a week from Today (exit criterion)
 
 ## Tests
 
 - **Unit:** local-date boundaries (timezone, DST), stale rules, capacity maths, skip → postponeCount, timer persistence.
 - **E2E:** plan 3 Must-dos and try a 4th (forced swap); postpone a task → reason required → recorded; postpone 3× → stale prompt; start focus → reload mid-session → timer continues; offline focus session syncs.
 
+## What shipped
+
+| Area | Delivered | Where |
+|---|---|---|
+| Today | Stale tasks pinned under "Needs a decision" with the five ways out; Must-dos (cap 3, swap dialog for a 4th); Also today; goals without a next step (add one inline); Overdue with **Today** / **Move** per task; Done today; capacity bar with unestimated count and over-capacity warning | `src/app/(app)/today/`, `src/features/today/model.ts` |
+| Reorder | Drag by the handle on desktop, long-press on phones, arrow keys from the handle; a drop writes only the moved task's `order` | `today/sortable-tasks.tsx` |
+| Next step (TASK-4) | "Add a 2-minute next step" link on big tasks (effort ≥ 3) in Today; prompt when one becomes a Must-do | `today/today-dialogs.tsx` |
+| Skip flow (§8.2) | Reason first (required at Firm), then per-reason follow-ups: smaller steps (too big), next step (unclear), 5-minute start (avoiding / low energy), follow-up date (waiting), cancel (not important), text (other); then a new date. Opened by swipe left, **Move**, the `S` key, or moving a planned task's date in the task panel | `src/components/skip/skip-flow.tsx` |
+| Stale (§8.1) | Postponed 3× or planned and untouched 14 days; break it down, 5 minutes now, reschedule with an explicit commitment, ask for help (saved to notes), drop (with Undo); resolving resets the count | `today/today-dialogs.tsx` |
+| Focus mode (FOC-1–6) | Start from Today, the task panel or `F`; opens on a 5-minute first session; 5 / 25 / 50 min / open; pause, +5 min, done, end; "Keep going?" and Pomodoro breaks; outcome on end (done / progress + next step / stuck + smaller steps); minimise to a pill; timer in the tab title; survives reload and offline; vibration and (if already allowed) a system notification when time's up | `src/components/focus/focus-mode.tsx`, `src/features/focus/model.ts` |
+| Swipe | Right = complete (or undo), left = reschedule into the skip flow; touch only, 1:1 tracking, momentum projection, rubber-band, velocity handed to the settle spring, haptic on commit | `src/components/tasks/swipe-row.tsx` |
+| Upcoming | Next 14 days grouped by day, with points per day; `G U`, sidebar and More | `src/app/(app)/upcoming/` |
+| Settings | Focus session and break length | Settings → Planning |
+
+## Changes from the plan
+
+| Planned | Actual | Why |
+|---|---|---|
+| "Habits due" placeholder on Today | Left out | An empty section is noise; habits arrive in 1D |
+| Waiting → status `blocked` with follow-up date | Waiting → follow-up date | No `blocked` status yet; adding one touches every status UI. Revisit with cycles (1C) |
+| Notification at end of focus | In-app prompt + vibration; system notification only if permission was already granted | Asking for permission belongs with push reminders (1D) |
+| `staleSince`, `lastTouchedAt`, `isMustDo` fields | Not added | Derived from `updatedAt` and `mustDoDate` |
+
+## Known gaps
+
+- Long-press reorder and swipe gestures are built for touch but haven't been tried on a real phone yet.
+- In-progress tasks with no date show on Today; once dated they follow their date.
+- Swiping and long-press reorder share the same row; a long-press followed by a sideways drag can start both.
+
 ## Build log
 
 | Date | What |
 |---|---|
-| | |
+| 2026-11-12 | Data model: `mustDoDate`, `postponeCount`, `focusSessions`, focus settings; Dexie v3; older clients' task creates still accepted |
+| 2026-11-12 | Today rebuilt; skip flow; stale resolution; next-step prompt; goals without a next step; focus mode; swipe rows; Upcoming |
+| 2026-11-12 | Fixed during testing: an in-progress task moved to tomorrow still showed on Today |
+| 2026-11-12 | Tests: 20 new unit tests (sections, stale rules, skip rules, timezone, timer maths, sync of the new fields) and 4 browser tests (Must-do cap, skip → stale, focus reload, offline focus) |
+| 2026-11-12 | Visual pass (on request): Today header as a small solar system (tasks are moons, next task with Start), illustrated empty states (Today, Inbox, Upcoming, Goals, Areas), completion burst on checkboxes, stars and a moon on the focus timer, logo moon orbits on sync. All still when reduced motion is on |
+| 2026-11-12 | Visual pass, part 2: shooting star and burst when the last Must-do is done; goal pages show the goal as a planet that grows with progress, with milestones as moons; pages rise in on navigation; the sidebar highlight glides between items |
+| 2026-11-12 | Test: the offline goal test on phone size failed in 2 full runs (offline navigation took over 5s); its wait is now 15s and 3 full runs pass. Worth watching |

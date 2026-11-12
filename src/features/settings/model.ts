@@ -16,6 +16,8 @@ export function defaultSettings(): Settings {
     dailyCapacityPts: 8,
     cycleCapacityPts: 30,
     workingHours: { start: "09:00", end: "17:00" },
+    focusMinutes: 25,
+    breakMinutes: 5,
     strictness: "firm",
     onboardingCompletedAt: null,
   };

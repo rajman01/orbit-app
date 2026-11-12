@@ -9,6 +9,7 @@ const shells = [
   "/",
   "/~offline",
   "/today",
+  "/upcoming",
   "/inbox",
   "/tasks",
   "/goals",

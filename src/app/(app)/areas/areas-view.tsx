@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { EmptyState } from "@/components/app/empty-state";
+import { AreasScene } from "@/components/app/scenes";
 import { AreaDialog } from "@/components/areas/area-form";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { Button, IconButton } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export function AreasView() {
         {areas && !live.length ? (
           <EmptyState
             icon={Shapes}
+            illustration={<AreasScene />}
             title="No areas yet"
             body="Areas are the parts of life you want to grow — career, relationships, health…"
           />

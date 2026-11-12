@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { useCommands } from "@/components/app/commands";
 import { EmptyState } from "@/components/app/empty-state";
+import { InboxZeroScene } from "@/components/app/scenes";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { AreaPicker, DatePicker, GoalPicker, PriorityPicker } from "@/components/tasks/pickers";
 import { TaskList } from "@/components/tasks/task-list";
@@ -47,6 +48,7 @@ export function InboxView() {
         ) : tasks && !inbox.length ? (
           <EmptyState
             icon={Inbox}
+            illustration={<InboxZeroScene />}
             title="Inbox zero"
             body="Capture anything with C or the + button. Sort it later."
             action={

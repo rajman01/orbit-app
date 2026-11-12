@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | ✅ Built — 2026-11-12 (not yet deployed) |
+| **Status** | ✅ Deployed — 2026-11-12 (commit `3e20434`) |
 | **Depends on** | Phase 0 |
 | **PRD** | §6, §7.1–7.5, §7.15–7.17, §15, §16 |
 | **Design** | [DESIGN.md](../DESIGN.md) §11.2, §11.7, §11.10, §11.12 |
@@ -86,7 +86,7 @@ New synced entities go into `src/lib/sync/entities.ts` (Zod) and `src/lib/local-
 - [x] Command palette, search, keyboard shortcuts, `?` cheat sheet
 - [x] Update the PWA precache list with the new pages
 - [x] Tests (below)
-- [ ] Deploy and use with real goals (exit criterion)
+- [x] Deploy (`3e20434`) — use with real goals is the exit criterion, in progress
 
 ## Tests
 

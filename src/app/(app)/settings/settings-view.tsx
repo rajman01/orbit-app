@@ -115,6 +115,26 @@ export function SettingsView() {
               onCommit={(v) => save({ cycleCapacityPts: v })}
             />
           </Row>
+          <Row label="Focus session">
+            <NumberField
+              label="Focus session length in minutes"
+              value={settings.focusMinutes ?? 25}
+              min={5}
+              max={180}
+              suffix="min"
+              onCommit={(v) => save({ focusMinutes: v })}
+            />
+          </Row>
+          <Row label="Break">
+            <NumberField
+              label="Break length in minutes"
+              value={settings.breakMinutes ?? 5}
+              min={1}
+              max={60}
+              suffix="min"
+              onCommit={(v) => save({ breakMinutes: v })}
+            />
+          </Row>
           <Row label="Working hours">
             <span className="flex items-center gap-1.5">
               <input
