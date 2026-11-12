@@ -16,10 +16,7 @@ export function GoalPlanet({
   milestones = [],
   label,
   size = 112,
-  follow = false,
 }: {
-  /** Track `progress` directly (no easing) — for when something continuous like scrolling drives it. */
-  follow?: boolean;
   progress: number; // 0..1
   color: string;
   milestones?: { id: string; done: boolean }[];
@@ -29,7 +26,6 @@ export function GoalPlanet({
   const { transition } = useOrbitMotion();
   const id = useId();
   const p = Math.max(0, Math.min(1, progress));
-  const smooth = follow ? { duration: 0 } : transition("gentle");
   const C = 60;
   const complete = p >= 1;
   const moons = milestones.slice(0, 8);
@@ -57,7 +53,7 @@ export function GoalPlanet({
         transform={`rotate(-90 ${C} ${C})`}
         initial={false}
         animate={{ pathLength: p }}
-        transition={smooth}
+        transition={transition("gentle")}
       />
 
       {/* milestone moons */}
@@ -90,7 +86,7 @@ export function GoalPlanet({
       <motion.g
         initial={false}
         animate={{ scale: 0.45 + 0.55 * p }}
-        transition={smooth}
+        transition={transition("gentle")}
         style={{ transformOrigin: `${C}px ${C}px`, transformBox: "view-box" }}
       >
         <circle cx={C} cy={C} r={28} fill={`url(#${id}-body)`} />

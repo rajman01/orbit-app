@@ -1,8 +1,8 @@
 "use client";
 
 import { Check, Pause, Plus, Square, Target } from "lucide-react";
-import { useMotionValueEvent, useReducedMotion, useScroll } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "motion/react";
+import { useEffect, useState } from "react";
 import { GoalPlanet } from "@/components/goals/goal-planet";
 import { formatClock } from "@/features/focus/model";
 import { Starfield } from "./illustrations";
@@ -87,28 +87,22 @@ export function FocusDemo() {
   );
 }
 
-const MILESTONES = ["Portfolio refreshed", "5 referrals asked", "First interview", "Offer signed"];
+const STAGES = [0.2, 0.45, 0.7, 1];
 
-/**
- * A goal page in miniature, driven by scrolling: the goal completes as the card travels up the
- * screen and runs backwards when you scroll back up. The planet grows, the key result fills and
- * the milestone moons light up along the way.
- */
+/** A goal page in miniature: the planet grows and its milestone moons fill as progress rises. */
 export function GoalDemo() {
-  const ref = useRef<HTMLDivElement>(null);
-  // 0 when the card's top enters near the bottom of the screen, 1 once its middle is a little above centre.
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.92", "center 0.42"] });
-  const [progress, setProgress] = useState(0);
-  useMotionValueEvent(scrollYProgress, "change", (v) => {
-    const next = Math.round(Math.max(0, Math.min(1, v)) * 100) / 100;
-    setProgress((p) => (p === next ? p : next));
-  });
+  const reduced = useReducedMotion();
+  const [stage, setStage] = useState(2);
+  useEffect(() => {
+    if (reduced) return;
+    const t = setInterval(() => setStage((s) => (s + 1) % STAGES.length), 2600);
+    return () => clearInterval(t);
+  }, [reduced]);
+  const progress = STAGES[stage];
   const sent = Math.round(progress * 20);
-  const reached = (i: number) => progress >= (i + 1) / MILESTONES.length;
 
   return (
     <div
-      ref={ref}
       className="flex h-full flex-col rounded-[28px] border border-separator bg-surface px-6 pt-6 pb-6 shadow-2"
       aria-hidden
     >
@@ -120,7 +114,7 @@ export function GoalDemo() {
         <div className="min-w-0">
           <p className="text-[22px] leading-tight font-bold tracking-[-0.02em]">Land a senior engineering role</p>
           <p className="mt-2 inline-flex h-6 items-center rounded-full bg-[color-mix(in_srgb,var(--success)_16%,transparent)] px-2.5 text-[12px] font-semibold text-success-text">
-            {progress >= 1 ? "Completed" : "On track"}
+            On track
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-center">
@@ -128,9 +122,8 @@ export function GoalDemo() {
             progress={progress}
             color="var(--area-blue)"
             size={120}
-            milestones={MILESTONES.map((m, i) => ({ id: m, done: reached(i) }))}
+            milestones={[0, 1, 2, 3].map((i) => ({ id: String(i), done: i <= stage }))}
             label=""
-            follow
           />
           <span className="text-[13px] font-semibold tabular-nums">{Math.round(progress * 100)}%</span>
         </div>
@@ -143,23 +136,26 @@ export function GoalDemo() {
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-fill">
           <div
             className="h-full origin-left rounded-full bg-[var(--area-blue)]"
-            style={{ transform: `scaleX(${progress})` }}
+            style={{
+              transform: `scaleX(${progress})`,
+              transition: reduced ? undefined : "transform 800ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+            }}
           />
         </div>
       </div>
       <ul className="mt-5 flex flex-col gap-2 text-[14px]">
-        {MILESTONES.map((m, i) => (
+        {["Portfolio refreshed", "5 referrals asked", "First interview", "Offer signed"].map((m, i) => (
           <li key={m} className="flex items-center gap-2.5">
             <span
-              className="grid size-[18px] place-items-center rounded-full border-[1.5px] transition-colors duration-200"
+              className="grid size-[18px] place-items-center rounded-full border-[1.5px] transition-colors duration-300"
               style={{
-                borderColor: reached(i) ? "var(--area-blue)" : "var(--label-tertiary)",
-                background: reached(i) ? "var(--area-blue)" : "transparent",
+                borderColor: i <= stage ? "var(--area-blue)" : "var(--label-tertiary)",
+                background: i <= stage ? "var(--area-blue)" : "transparent",
               }}
             >
-              {reached(i) ? <Check className="size-3 text-white" strokeWidth={3} /> : null}
+              {i <= stage ? <Check className="size-3 text-white" strokeWidth={3} /> : null}
             </span>
-            <span className={reached(i) ? "text-label-secondary" : ""}>{m}</span>
+            <span className={i <= stage ? "text-label-secondary" : ""}>{m}</span>
           </li>
         ))}
       </ul>
