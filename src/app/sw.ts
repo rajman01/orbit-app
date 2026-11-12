@@ -41,3 +41,53 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// ---------------------------------------------------------------- push (PRD §12, Phase 1D)
+
+interface PushPayload {
+  title: string;
+  body: string;
+  url: string;
+  tag: string;
+}
+
+self.addEventListener("push", (event) => {
+  let payload: PushPayload;
+  try {
+    payload = event.data?.json() as PushPayload;
+  } catch {
+    return;
+  }
+  if (!payload?.title) return;
+  event.waitUntil(
+    (async () => {
+      // Orbit open and in front: the app already shows what's due, so don't double up.
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      if (windows.some((c) => (c as WindowClient).focused && (c as WindowClient).visibilityState === "visible")) return;
+      await self.registration.showNotification(payload.title, {
+        body: payload.body,
+        tag: payload.tag,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        data: { url: payload.url },
+      });
+    })(),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data as { url?: string } | undefined)?.url ?? "/today", self.location.origin);
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const existing = windows.find((c) => new URL(c.url).origin === url.origin) as WindowClient | undefined;
+      if (existing) {
+        await existing.focus();
+        await existing.navigate(url.href).catch(() => {});
+      } else {
+        await self.clients.openWindow(url.href);
+      }
+    })(),
+  );
+});

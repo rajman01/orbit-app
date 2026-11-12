@@ -7,6 +7,12 @@ const schema = z.object({
   BETTER_AUTH_URL: z.url().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // Web Push (Phase 1D). Optional: without them, push is simply off.
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().optional(),
+  // Shared secret for the per-minute reminder job.
+  CRON_SECRET: z.string().min(16).optional(),
 });
 
 let cached: z.infer<typeof schema> | undefined;
@@ -25,4 +31,8 @@ export function env() {
 
 export function googleEnabled(): boolean {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+export function pushEnabled(): boolean {
+  return Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 }

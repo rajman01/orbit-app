@@ -57,6 +57,12 @@ export const entitySchemas = {
     breakMinutes: z.number().int().min(1).max(60).optional(),
     /** Phase 1C: when each ritual becomes due (local time). The review is on the cycle's last day. */
     ritualTimes: z.object({ plan: time, shutdown: time, review: time }).optional(),
+    /** Phase 1D: no reminders between these times (local), except a focus session ending. */
+    quietHours: z.object({ start: time, end: time }).optional(),
+    /** Phase 1D: which reminders to send. */
+    notify: z
+      .object({ plan: z.boolean(), shutdown: z.boolean(), review: z.boolean(), habits: z.boolean(), focus: z.boolean() })
+      .optional(),
     strictness: z.enum(["gentle", "firm", "strict"]),
     onboardingCompletedAt: ms.nullable(),
   }),
@@ -168,6 +174,51 @@ export const entitySchemas = {
     /** Answers and progress (current step, mood, energy, wins…). Kept small. */
     data: z.record(z.string(), z.any()).refine((v) => JSON.stringify(v).length <= 20_000, "too large"),
   }),
+  /** Phase 1D (PRD §7.10). Streaks are computed from the logs, never stored. */
+  habits: z.object({
+    name: z.string().trim().min(1).max(120),
+    areaId: ref,
+    goalId: ref,
+    schedule: z.discriminatedUnion("type", [
+      z.object({ type: z.literal("daily") }),
+      z.object({ type: z.literal("days"), days: z.array(z.number().int().min(0).max(6)).min(1).max(7) }),
+      z.object({ type: z.literal("weekly"), timesPerWeek: z.number().int().min(1).max(7) }),
+    ]),
+    targetType: z.enum(["boolean", "count"]),
+    targetCount: z.number().int().min(1).max(100000),
+    unit: z.string().trim().max(30).nullable(),
+    reminderTime: time.nullable(),
+    archivedAt: ms.nullable(),
+    order: z.number(),
+  }),
+  /** One per habit per local day (deterministic id). */
+  habitLogs: z.object({
+    habitId: id,
+    date: day,
+    value: z.number().min(0).max(100000),
+    note: z.string().max(500).nullable(),
+  }),
+  /**
+   * Phase 1D (PRD §9): an append-only XP ledger with one entry per source (deterministic id),
+   * so the same completion on two devices is awarded once. Undoing deletes the entry.
+   */
+  xpEvents: z.object({
+    source: z.enum(["task", "focus", "ritual", "habit", "milestone", "goal", "checkin", "win", "penalty"]),
+    sourceId: z.string().max(80),
+    areaId: ref,
+    amount: z.number().int().min(-1000).max(100000),
+    reason: z.string().max(200),
+    at: ms,
+  }),
+  /** One-off reminders the device schedules (e.g. a focus session ending); the server delivers them. */
+  reminders: z.object({
+    kind: z.enum(["focus_end", "custom"]),
+    title: z.string().max(120),
+    body: z.string().max(300),
+    url: z.string().max(200),
+    fireAt: ms,
+    status: z.enum(["pending", "cancelled"]),
+  }),
   focusSessions: z.object({
     taskId: id,
     mode: z.enum(["five", "pomodoro", "fixed", "open"]),
@@ -227,4 +278,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   taskEvents: { taskId: "tasks" },
   focusSessions: { taskId: "tasks" },
   rituals: { cycleId: "cycles" },
+  habits: { areaId: "areas", goalId: "goals" },
+  habitLogs: { habitId: "habits" },
+  xpEvents: { areaId: "areas" },
 };

@@ -45,5 +45,12 @@ export function openLocalDb(userId: string): OrbitDB {
   db.version(3).stores({ focusSessions: "id, taskId, startedAt" });
   // Phase 1C: cycles and rituals.
   db.version(4).stores({ cycles: "id, number, startDate", rituals: "id, type, date, cycleId" });
+  // Phase 1D: habits, XP and reminders.
+  db.version(5).stores({
+    habits: "id, order",
+    habitLogs: "id, habitId, date",
+    xpEvents: "id, source, at",
+    reminders: "id, fireAt",
+  });
   return db;
 }

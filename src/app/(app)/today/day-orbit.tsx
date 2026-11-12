@@ -1,6 +1,9 @@
 "use client";
 
 import { Play } from "lucide-react";
+import Link from "next/link";
+import { useXpEvents } from "@/features/data";
+import { levelFromXp, totalXp } from "@/features/xp/model";
 import { AnimatePresence, motion } from "motion/react";
 import { useCurrentUser } from "@/components/app/auth-gate";
 import { useFocus } from "@/components/focus/focus-mode";
@@ -58,6 +61,8 @@ export function DayOrbit({
   const next = open[0];
   const allDone = total > 0 && open.length === 0;
   const firstName = user.name?.trim().split(/\s+/)[0];
+  const xp = useXpEvents();
+  const level = xp ? levelFromXp(totalXp(xp)) : null;
 
   const headline = !total
     ? "A clear sky. What matters today?"
@@ -108,9 +113,20 @@ export function DayOrbit({
       ) : null}
 
       <div className="relative min-w-0 flex-1">
-        <p className="text-footnote font-medium text-white/75">
-          {greeting(now, timezone)}
-          {firstName ? `, ${firstName}` : ""}
+        <p className="flex items-center gap-2 text-footnote font-medium text-white/75">
+          <span className="truncate">
+            {greeting(now, timezone)}
+            {firstName ? `, ${firstName}` : ""}
+          </span>
+          {level ? (
+            <Link
+              href="/levels"
+              aria-label={`Level ${level.level}, ${level.title}`}
+              className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-caption font-semibold text-white lg:hidden"
+            >
+              Lv {level.level} · {level.title}
+            </Link>
+          ) : null}
         </p>
         <p className="mt-0.5 text-title3 text-balance">{headline}</p>
         {next ? (

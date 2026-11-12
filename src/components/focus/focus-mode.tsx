@@ -174,6 +174,7 @@ function FocusSession({
         ? "timeUp"
         : "work";
 
+  const reminderId = `rf${state.sessionId}`.slice(0, 40);
   const finish = useCallback(
     async (
       outcome: "done" | "progress" | "stuck" | "abandoned",
@@ -204,10 +205,36 @@ function FocusSession({
           }
         }
       }
+      await actions.cancelReminder(reminderId);
       setState(null);
     },
-    [actions, state, task, setState],
+    [actions, state, task, setState, reminderId],
   );
+
+  // Push "time's up" (PRD §12) even if Orbit is in the background or the phone is locked.
+  const { plannedMs, pausedAt, pausedMs, breakEndsAt, startedAt } = state;
+  const taskTitle = task?.title;
+  useEffect(() => {
+    if (breakEndsAt != null) {
+      void actions.scheduleReminder(reminderId, {
+        kind: "focus_end",
+        title: "Break's over",
+        body: taskTitle ? `Back to “${taskTitle}”?` : "Ready for the next block?",
+        url: "/today",
+        fireAt: breakEndsAt,
+      });
+    } else if (plannedMs != null && pausedAt == null) {
+      void actions.scheduleReminder(reminderId, {
+        kind: "focus_end",
+        title: "Time's up",
+        body: taskTitle ? `“${taskTitle}”: keep going, or call it done?` : "Keep going, or call it done?",
+        url: "/today",
+        fireAt: startedAt + pausedMs + plannedMs,
+      });
+    } else {
+      void actions.cancelReminder(reminderId);
+    }
+  }, [actions, reminderId, plannedMs, pausedAt, pausedMs, breakEndsAt, startedAt, taskTitle]);
 
   // A deleted task ends its session.
   useEffect(() => {

@@ -14,6 +14,7 @@ import { useActions } from "@/features/actions";
 import { useSettings } from "@/features/data";
 import { defaultSettings, WEEKDAYS } from "@/features/settings/model";
 import { authClient } from "@/lib/auth/client";
+import { usePush } from "@/lib/push/client";
 import { deviceTimezone } from "@/lib/dates";
 import Link from "next/link";
 
@@ -27,6 +28,8 @@ export function SettingsView() {
   const actions = useActions();
   const save = (patch: Parameters<typeof actions.saveSettings>[0]) => void actions.saveSettings(patch);
   const times = settings.ritualTimes ?? defaultSettings().ritualTimes!;
+  const notify = settings.notify ?? defaultSettings().notify!;
+  const quiet = settings.quietHours ?? defaultSettings().quietHours!;
   const deviceTz = mounted ? deviceTimezone() : settings.timezone;
 
   async function signOut() {
@@ -203,6 +206,36 @@ export function SettingsView() {
           </Row>
         </Group>
 
+        <Group title="Notifications">
+          <PushRow />
+          {(["plan", "shutdown", "review", "habits", "focus"] as const).map((k) => (
+            <Row key={k} label={NOTIFY_LABELS[k]}>
+              <input
+                type="checkbox"
+                aria-label={`${NOTIFY_LABELS[k]} reminders`}
+                checked={notify[k]}
+                onChange={(e) => save({ notify: { ...notify, [k]: e.target.checked } })}
+                className="size-5 accent-[var(--accent)]"
+              />
+            </Row>
+          ))}
+          <Row label="Quiet hours">
+            <span className="flex items-center gap-1.5">
+              <TimeField
+                label="Quiet hours start"
+                value={quiet.start}
+                onChange={(v) => save({ quietHours: { ...quiet, start: v } })}
+              />
+              –
+              <TimeField
+                label="Quiet hours end"
+                value={quiet.end}
+                onChange={(v) => save({ quietHours: { ...quiet, end: v } })}
+              />
+            </span>
+          </Row>
+        </Group>
+
         <Group title="Sync">
           <Row label="Status">
             <SyncIndicator withLabel />
@@ -298,5 +331,54 @@ function TimeField({ label, value, onChange }: { label: string; value: string; o
       onChange={(e) => e.target.value && onChange(e.target.value)}
       className="rounded-md bg-fill px-2 py-1 text-body text-label"
     />
+  );
+}
+
+const NOTIFY_LABELS = {
+  plan: "Plan your day",
+  shutdown: "Shut down the day",
+  review: "Cycle review",
+  habits: "Habits",
+  focus: "Focus session ends",
+} as const;
+
+/** NOT-1: turn push on for this device, with iPhone guidance (it needs Orbit on the Home Screen). */
+function PushRow() {
+  const push = usePush();
+  let status: React.ReactNode;
+  let action: React.ReactNode = null;
+  if (push.support === "needs-install") {
+    status =
+      "On iPhone and iPad, add Orbit to your Home Screen first: tap Share, then Add to Home Screen, and open Orbit from there.";
+  } else if (push.support === "unsupported") {
+    status = "This browser can't receive notifications.";
+  } else if (push.permission === "denied") {
+    status = "Notifications are blocked for Orbit in this browser's settings.";
+  } else if (push.subscribed) {
+    status = "On for this device.";
+    action = (
+      <span className="flex gap-2">
+        <Button variant="secondary" loading={push.busy} onClick={() => void push.test()}>
+          Send a test
+        </Button>
+        <Button variant="ghost" disabled={push.busy} onClick={() => void push.disable()}>
+          Turn off
+        </Button>
+      </span>
+    );
+  } else {
+    status = "Get reminders for your rituals, habits and focus sessions, even when Orbit is closed.";
+    action = (
+      <Button loading={push.busy || push.subscribed == null} onClick={() => void push.enable()}>
+        Turn on
+      </Button>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2 px-4 py-3">
+      <p className="text-callout text-label-secondary">{status}</p>
+      {push.error ? <p className="text-footnote text-danger-text">{push.error}</p> : null}
+      {action}
+    </div>
   );
 }

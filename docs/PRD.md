@@ -6,7 +6,7 @@
 | **Version** | PRD v1.1 |
 | **Date** | 2026-11-12 |
 | **Owner** | Alameen (product owner, sole user for v1) |
-| **Status** | Approved — Phase 1C built, Phase 1D next ([phase plans](./phases/README.md)) |
+| **Status** | Approved — Phase 1D built; Phase 1 trial next ([phase plans](./phases/README.md)) |
 | **Platforms** | Web app + installable PWA (iOS, Android, desktop) |
 | **Repo** | Single Next.js repo at `orbit/orbit-app/` (the `orbit/` root folder is not a repo) |
 
@@ -995,8 +995,8 @@ The detailed plan for each phase — scope, data model changes, decisions, steps
 | [0 — Foundation](./phases/phase-0.md) | Project, design system, auth, MongoDB, PWA, local-first sync, tests, deploy | Sign in on desktop and phone, install the PWA, offline changes sync | ✅ Complete (2026-11-12) |
 | [1A — Plan the work](./phases/phase-1a.md) | ONB-2/3, AREA-1/2, GOAL-1–6, GOAL-9, TASK-1–6, TASK-10, INB-1–4, CMD-1–3, VIEW-1/2, SET-1 | Real areas, goals, milestones and tasks set up; inbox capture and triage, all offline | ✅ Deployed (2026-11-12) |
 | [1B — Do the work, stop drifting](./phases/phase-1b.md) | TODAY-1–6, TASK-4, FOC-1–6, §8.1, §8.2, Upcoming, swipe gestures | A week run from Today; every postponement has a reason | ✅ Deployed (2026-11-12) |
-| [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | ✅ Built (2026-11-12) |
-| [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | 🔜 Next |
+| [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | ✅ Deployed (2026-11-12) |
+| [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | ✅ Built (2026-11-12) |
 | [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, QTR-1–6, RIT-7, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | Planned |
 | [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–4, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, email capture | Insights reflect four cycles of real data | Planned |
 | [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |
@@ -1028,10 +1028,10 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 3. **Habit ideas** — no existing habits to import; do you want a starter habit library during onboarding?
 4. **AI autonomy default** — PRD assumes `Act and tell me`; confirm.
 5. ~~**Strictness default**~~ — built with `Firm` as the default (D26); changeable in Settings → Accountability.
-6. **Level titles** — keep the space-themed titles (Spark → Constellation) or plain numbers? *(Proposed: space-themed; needed by Phase 1D.)*
-7. **Notifications** — preferred default ritual times? *(Proposed: Daily Plan 07:30, Shutdown 21:00, Cycle Review Sunday 18:00; needed by Phase 1D.)*
+6. ~~**Level titles**~~ — space-themed (D30).
+7. ~~**Notifications**~~ — built with the proposed times (D26); editable in Settings.
 8. **Domain** — will Orbit have a custom domain? Currently `orbit-app-three-beta.vercel.app`; a change means updating `BETTER_AUTH_URL` and the Google OAuth client.
-9. **Reminder scheduler** — Vercel Pro or an external per-minute scheduler (see §22)? *(Needed by Phase 1D.)*
+9. ~~**Reminder scheduler**~~ — cron-job.org, free (D29).
 10. **Quarter boundaries** — calendar quarters (Q1 = January–March), or 12-week blocks of 6 cycles so quarters and cycles line up exactly? *(Proposed: calendar quarters; the last cycle of a quarter can run a few days past its end. Needed by Phase 2.)*
 
 ---
@@ -1068,3 +1068,6 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 | D26 | Strictness defaults to Firm (open question 5); ritual times default to 07:30 / 21:00 / 18:00 (part of open question 7) | The owner asked for real accountability; times are editable in Settings |
 | D27 | Planning the next cycle is allowed on the review day itself; after that, an unreviewed cycle blocks it (Firm: override with a reason) | Planning the next cycle is the last step of the review |
 | D28 | Add quarters (QTR-1–6, RIT-7) between the yearly vision and cycles, built in Phase 2 alongside the Vision page and goals timeline | Owner request: plan "the things I want to achieve in the next three months"; all three are about the long view |
+| D29 | Reminders are dispatched by a free external scheduler (cron-job.org) calling a secret-protected route every minute; ritual and habit reminders are computed on the server each minute, one-off ones (focus ending) are scheduled by the device | Vercel Hobby crons run once a day; reminders must arrive even when the app hasn't been opened |
+| D30 | Space-themed level titles (Spark → … → Cosmos) | Owner choice; fits Orbit's identity |
+| D31 | XP entries are one per source and are zeroed, not deleted, on undo | Deletes win in sync, so a deleted entry could never be re-awarded |

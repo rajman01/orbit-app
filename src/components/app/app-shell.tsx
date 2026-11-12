@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { FocusProvider } from "@/components/focus/focus-mode";
 import { RitualProvider } from "@/components/rituals/ritual-flow";
+import { LevelBadge, XpLayer } from "@/components/xp/xp-layer";
 import { SkipFlowProvider } from "@/components/skip/skip-flow";
 import { TaskPanelProvider } from "@/components/tasks/task-panel";
 import { Kbd } from "@/components/ui/pill";
@@ -46,6 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </main>
                   <TabBar />
                 </div>
+                <XpLayer />
               </CommandsProvider>
             </RitualProvider>
           )}
@@ -210,6 +212,7 @@ function Sidebar() {
         ))}
       </nav>
       <div className="mt-auto flex flex-col gap-0.5">
+        <LevelBadge />
         <NavLink href="/settings" label="Settings" icon={Settings} />
         <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
           <span className="grid size-7 place-items-center rounded-full bg-accent-fill text-caption text-accent-text">

@@ -231,3 +231,40 @@ export function AreasScene() {
     </Scene>
   );
 }
+
+/** No habits: a small planet with a dotted orbit of days, a few already lit. */
+export function HabitsScene() {
+  const lit = [0, 1, 2, 4, 5];
+  return (
+    <Scene>
+      <Stars
+        points={[
+          [22, 20],
+          [200, 26, 1],
+          [30, 104, 1],
+          [196, 100],
+        ]}
+      />
+      <circle cx={112} cy={64} r={44} stroke={LINE} strokeWidth={1.5} strokeDasharray="2 6" />
+      <circle cx={112} cy={64} r={16} fill={mix(A, 22)} />
+      <circle cx={112} cy={64} r={9} fill={A} />
+      <g className="orbit-spin" style={{ ["--orbit-duration" as string]: "90s", transformOrigin: "112px 64px" }}>
+        {Array.from({ length: 7 }, (_, i) => {
+          const a = -Math.PI / 2 + (i / 7) * 2 * Math.PI;
+          const on = lit.includes(i);
+          return (
+            <circle
+              key={i}
+              cx={112 + 44 * Math.cos(a)}
+              cy={64 + 44 * Math.sin(a)}
+              r={on ? 5.5 : 4.5}
+              fill={on ? "var(--area-orange)" : SURFACE}
+              stroke={on ? "none" : LINE}
+              strokeWidth={2}
+            />
+          );
+        })}
+      </g>
+    </Scene>
+  );
+}

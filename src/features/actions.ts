@@ -13,6 +13,24 @@ import { newTaskFields, nextInstanceId, nextOccurrence, type Task, type TaskFiel
 import { isSkip, planDay, type SkipReason } from "./today/model";
 import type { FocusMode } from "./focus/model";
 import { cycleId, cyclesToCreate, ritualId, type Cycle, type RitualType } from "./cycles/model";
+import { habitLogId, habitStatus, newHabitFields, type Habit, type HabitFields } from "./habits/model";
+import {
+  CHECKIN_XP,
+  focusXp,
+  goalXp,
+  habitXp,
+  levelFromXp,
+  MILESTONE_XP,
+  RITUAL_XP,
+  softCap,
+  STALE_PENALTY,
+  taskXp,
+  totalXp,
+  WIN_XP,
+  xpEventId,
+  type XpSource,
+} from "./xp/model";
+import { addDays, dayOf } from "@/lib/dates";
 
 const now = () => Date.now();
 
@@ -36,6 +54,64 @@ export function createActions(engine: SyncEngine, userId: string) {
     fields: Omit<EntityFields<"taskEvents">, "actor" | "at"> & Partial<EntityFields<"taskEvents">>,
   ) {
     await engine.create("taskEvents", { actor: "user", at: now(), ...fields });
+  }
+
+  /**
+   * Records XP for a source (PRD §9). One entry per source: re-awarding updates it, undoing sets it
+   * to 0 (a deleted entry could never come back, because deletes win in sync).
+   */
+  async function award(
+    source: XpSource,
+    sourceId: string,
+    amount: number,
+    reason: string,
+    areaId: string | null = null,
+  ) {
+    const id = xpEventId(source, sourceId);
+    const existing = await db.xpEvents.get(id);
+    if (existing && !existing.deletedAt) {
+      if (existing.amount === amount) return;
+      await engine.update("xpEvents", id, { amount, reason, at: now() });
+    } else {
+      await engine.create("xpEvents", { source, sourceId, areaId, amount, reason, at: now() }, id);
+    }
+    const gained = amount - (existing && !existing.deletedAt ? existing.amount : 0);
+    if (gained > 0 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("orbit:xp", { detail: { amount: gained, reason } }));
+    }
+  }
+
+  const goalArea = async (goalId: string | null | undefined) =>
+    goalId ? ((await db.goals.get(goalId))?.areaId ?? null) : null;
+
+  async function awardTask(task: Task, done: boolean) {
+    if (task.parentTaskId) return;
+    if (!done) return award("task", task.id, 0, "Reopened", task.areaId);
+    const s = await settings();
+    const at = now();
+    const day = dayOf(at, s.timezone);
+    const raw = taskXp({
+      effort: task.effort,
+      mustDo: task.mustDoDate === day,
+      wasStale: (task.postponeCount ?? 0) >= 3,
+      createdAt: task.createdAt,
+      completedAt: at,
+      recurring: Boolean(task.recurrence || task.recurrenceParentId),
+    });
+    // Soft cap (§9.1 anti-gaming): compare with today's task XP and the last 14 days' average.
+    const taskEvents = (await db.xpEvents.where("source").equals("task").toArray()).filter(
+      (e) => !e.deletedAt && e.sourceId !== task.id,
+    );
+    const from = addDays(day, -14);
+    let today = 0;
+    let recent = 0;
+    for (const e of taskEvents) {
+      const d = dayOf(e.at, s.timezone);
+      if (d === day) today += e.amount;
+      else if (d >= from) recent += e.amount;
+    }
+    const amount = softCap(raw.amount, today, recent / 14);
+    await award("task", task.id, amount, amount < raw.amount ? `${raw.reason} · daily cap` : raw.reason, task.areaId);
   }
 
   const actions = {
@@ -81,9 +157,18 @@ export function createActions(engine: SyncEngine, userId: string) {
     // ------------------------------------------------------------ goals
     createGoal: (fields: Partial<GoalFields> & { title: string }) => engine.create("goals", newGoalFields(fields)),
     updateGoal: (id: string, patch: Partial<GoalFields>) => engine.update("goals", id, patch),
-    completeGoal: (id: string) => engine.update("goals", id, { status: "completed", completedAt: now() }),
-    reopenGoal: (id: string) =>
-      engine.update("goals", id, { status: "active", completedAt: null, droppedReason: null }),
+    async completeGoal(id: string) {
+      await engine.update("goals", id, { status: "completed", completedAt: now() });
+      const g = await db.goals.get(id);
+      if (!g) return;
+      const s = await settings();
+      const start = g.startDate ?? dayOf(g.createdAt, s.timezone);
+      await award("goal", id, goalXp(start, today(s.timezone)), `Goal completed: ${g.title}`.slice(0, 200), g.areaId);
+    },
+    async reopenGoal(id: string) {
+      await engine.update("goals", id, { status: "active", completedAt: null, droppedReason: null });
+      await award("goal", id, 0, "Goal reopened", await goalArea(id));
+    },
     dropGoal: (id: string, reason: string) => engine.update("goals", id, { status: "dropped", droppedReason: reason }),
     async deleteGoal(goal: Goal) {
       const [krs, milestones, tasks] = await Promise.all([
@@ -109,8 +194,21 @@ export function createActions(engine: SyncEngine, userId: string) {
     updateKeyResult: (id: string, patch: Partial<EntityFields<"keyResults">>) => engine.update("keyResults", id, patch),
     deleteKeyResult: (id: string) => engine.remove("keyResults", id),
     async checkInKeyResult(kr: KeyResult, value: number, note: string | null) {
-      await engine.create("krCheckins", { keyResultId: kr.id, goalId: kr.goalId, value, note, at: now() });
+      const checkinId = await engine.create("krCheckins", {
+        keyResultId: kr.id,
+        goalId: kr.goalId,
+        value,
+        note,
+        at: now(),
+      });
       await engine.update("keyResults", kr.id, { current: value });
+      await award(
+        "checkin",
+        checkinId,
+        CHECKIN_XP,
+        `Key result check-in: ${kr.title}`.slice(0, 200),
+        await goalArea(kr.goalId),
+      );
     },
 
     // ------------------------------------------------------------ milestones
@@ -119,7 +217,18 @@ export function createActions(engine: SyncEngine, userId: string) {
       return engine.create("milestones", { goalId, title, dueDate, doneAt: null, order: count });
     },
     updateMilestone: (id: string, patch: Partial<EntityFields<"milestones">>) => engine.update("milestones", id, patch),
-    toggleMilestone: (id: string, done: boolean) => engine.update("milestones", id, { doneAt: done ? now() : null }),
+    async toggleMilestone(id: string, done: boolean) {
+      await engine.update("milestones", id, { doneAt: done ? now() : null });
+      const m = await db.milestones.get(id);
+      const area = await goalArea(m?.goalId);
+      await award(
+        "milestone",
+        id,
+        done ? MILESTONE_XP : 0,
+        done ? `Milestone: ${m?.title ?? ""}`.slice(0, 200) : "Milestone reopened",
+        area,
+      );
+    },
     async deleteMilestone(id: string) {
       for (const t of await db.tasks.where("milestoneId").equals(id).toArray()) {
         await engine.update("tasks", t.id, { milestoneId: null });
@@ -162,6 +271,8 @@ export function createActions(engine: SyncEngine, userId: string) {
           reasonText: null,
         });
         if (patch.status === "done" && task.recurrence) await actions.spawnNextOccurrence(task);
+        if (patch.status === "done") await awardTask({ ...task, ...full } as Task, true);
+        else if (task.status === "done") await awardTask(task, false);
       }
       for (const field of ["dueDate", "scheduledDate"] as const) {
         if (field in patch && patch[field] !== task[field]) {
@@ -481,7 +592,93 @@ export function createActions(engine: SyncEngine, userId: string) {
     async completeRitual(id: string, patch: Record<string, unknown> = {}) {
       const r = await db.rituals.get(id);
       if (!r) return;
-      await engine.update("rituals", id, { data: { ...r.data, ...patch }, completedAt: now() });
+      const data = { ...r.data, ...patch };
+      await engine.update("rituals", id, { data, completedAt: now() });
+      const names = { daily_plan: "Daily Plan", daily_shutdown: "Daily Shutdown", cycle_review: "Cycle Review" };
+      await award("ritual", id, RITUAL_XP[r.type], `${names[r.type]} completed`);
+      const wins = Array.isArray(data.wins) ? (data.wins as unknown[]).filter((w) => typeof w === "string" && w) : [];
+      for (const [i, w] of wins.slice(0, 3).entries())
+        await award("win", `${i}${id}`, WIN_XP, `Win: ${String(w)}`.slice(0, 200));
+    },
+
+    // ------------------------------------------------------------ habits (Phase 1D)
+
+    createHabit: (fields: Partial<HabitFields> & { name: string }) => engine.create("habits", newHabitFields(fields)),
+    updateHabit: (id: string, patch: Partial<HabitFields>) => engine.update("habits", id, patch),
+    archiveHabit: (id: string, archived: boolean) =>
+      engine.update("habits", id, { archivedAt: archived ? now() : null }),
+
+    /** Sets the day's value for a habit (one log per habit per day) and awards XP when it's met. */
+    async logHabit(habit: Habit, date: string, value: number, note: string | null = null) {
+      const id = habitLogId(habit.id, date);
+      const existing = await db.habitLogs.get(id);
+      if (existing && !existing.deletedAt) await engine.update("habitLogs", id, { value, note });
+      else await engine.create("habitLogs", { habitId: habit.id, date, value, note }, id);
+
+      const s = await settings();
+      const logs = (await db.habitLogs.where("habitId").equals(habit.id).toArray()).filter((l) => !l.deletedAt);
+      const status = habitStatus(habit, logs, date, {
+        weekStart: s.weekStartDay,
+        startDay: dayOf(habit.createdAt, s.timezone),
+      });
+      const met = habit.targetType === "boolean" ? value >= 1 : value >= habit.targetCount;
+      const streakDays = status.unit === "week" ? status.streak * 7 : status.streak;
+      await award(
+        "habit",
+        id,
+        met ? habitXp(streakDays) : 0,
+        met ? `Habit: ${habit.name}` : "Habit unchecked",
+        habit.areaId,
+      );
+    },
+
+    /**
+     * Strict mode (§9.3): each unresolved stale task costs 5 XP a day, never dropping the total
+     * below the floor of the current level. Safe to call repeatedly: one entry per task per day.
+     */
+    async applyStalePenalties(todayDay: string, staleTaskIds: string[]) {
+      if (!staleTaskIds.length) return;
+      const events = await db.xpEvents.toArray();
+      let total = totalXp(events);
+      const floor = levelFromXp(total).floor;
+      for (const taskId of staleTaskIds) {
+        const id = xpEventId("penalty", `${todayDay}${taskId}`);
+        if (await db.xpEvents.get(id)) continue;
+        if (total - STALE_PENALTY < floor) break;
+        await engine.create(
+          "xpEvents",
+          {
+            source: "penalty",
+            sourceId: `${todayDay}${taskId}`,
+            areaId: null,
+            amount: -STALE_PENALTY,
+            reason: "Stale task left unresolved (Strict)",
+            at: now(),
+          },
+          id,
+        );
+        total -= STALE_PENALTY;
+      }
+    },
+
+    // ------------------------------------------------------------ reminders (Phase 1D)
+
+    /** Schedules (or moves) a one-off reminder the server will push at `fireAt`. */
+    async scheduleReminder(id: string, fields: Omit<EntityFields<"reminders">, "status">) {
+      const existing = await db.reminders.get(id);
+      if (existing && !existing.deletedAt) {
+        if (existing.fireAt === fields.fireAt && existing.status === "pending") return;
+        await engine.update("reminders", id, { ...fields, status: "pending" });
+      } else {
+        await engine.create("reminders", { ...fields, status: "pending" }, id);
+      }
+    },
+
+    async cancelReminder(id: string) {
+      const existing = await db.reminders.get(id);
+      if (existing && !existing.deletedAt && existing.status !== "cancelled") {
+        await engine.update("reminders", id, { status: "cancelled" });
+      }
     },
 
     // ------------------------------------------------------------ focus (Phase 1B)
@@ -503,13 +700,20 @@ export function createActions(engine: SyncEngine, userId: string) {
       return id;
     },
 
-    endFocusSession: (
+    async endFocusSession(
       id: string,
       fields: Pick<
         EntityFields<"focusSessions">,
         "endedAt" | "actualMinutes" | "outcome" | "interruptions" | "mode" | "plannedMinutes"
       >,
-    ) => engine.update("focusSessions", id, fields),
+    ) {
+      await engine.update("focusSessions", id, fields);
+      const session = await db.focusSessions.get(id);
+      const task = session ? await db.tasks.get(session.taskId) : undefined;
+      const xp = focusXp(fields.actualMinutes);
+      if (xp > 0)
+        await award("focus", id, xp, `${Math.round(fields.actualMinutes)} min of focus`, task?.areaId ?? null);
+    },
 
     async deleteTask(task: Task) {
       for (const sub of await db.tasks.where("parentTaskId").equals(task.id).toArray()) {

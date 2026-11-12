@@ -136,3 +136,31 @@ export function useCycleAddedAt(cycleId: string | null | undefined): Map<string,
     return map;
   }, [db, cycleId]);
 }
+
+export type HabitDoc = SyncedDoc<"habits">;
+export type HabitLogDoc = SyncedDoc<"habitLogs">;
+export type XpEventDoc = SyncedDoc<"xpEvents">;
+
+export function useHabits(opts: { includeArchived?: boolean } = {}): HabitDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => {
+    const rows = live(await db.habits.toArray()).filter((h) => opts.includeArchived || h.archivedAt == null);
+    return rows.sort((a, b) => a.order - b.order);
+  }, [db, opts.includeArchived]);
+}
+
+export function useHabitLogs(): HabitLogDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.habitLogs.toArray()), [db]);
+}
+
+export function useXpEvents(): XpEventDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.xpEvents.toArray()).sort((a, b) => b.at - a.at), [db]);
+}
+
+/** Every task event (history, skips, stale resolutions). */
+export function useAllTaskEvents(): TaskEvent[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.taskEvents.toArray()), [db]);
+}

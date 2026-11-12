@@ -2,16 +2,19 @@
 
 import { Command } from "cmdk";
 import {
+  BarChart3,
   CalendarDays,
   CalendarSync,
   Inbox,
   LayoutList,
   Moon,
   Plus,
+  Repeat,
   Settings,
   Shapes,
   Sun,
   Target,
+  Trophy,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -61,6 +64,9 @@ const GO: Record<string, string> = {
   a: "/areas",
   s: "/settings",
   c: "/cycle",
+  h: "/habits",
+  r: "/report",
+  l: "/levels",
 };
 
 /** Quick Add, ⌘K palette and Linear-style keyboard shortcuts (PRD CMD-1 – CMD-3, INB-1). */
@@ -401,6 +407,9 @@ function Palette({
                       {[
                         ["Today", "/today", Sun, "G T"],
                         ["Upcoming", "/upcoming", CalendarDays, "G U"],
+                        ["Habits", "/habits", Repeat, "G H"],
+                        ["Weekly report", "/report", BarChart3, "G R"],
+                        ["Levels", "/levels", Trophy, "G L"],
                         ["Inbox", "/inbox", Inbox, "G I"],
                         ["Tasks", "/tasks", LayoutList, "G K"],
                         ["Goals", "/goals", Target, "G G"],
@@ -482,6 +491,9 @@ const SHORTCUTS: [string, string[]][] = [
   ["New task", ["C"]],
   ["Go to Today", ["G", "T"]],
   ["Go to Upcoming", ["G", "U"]],
+  ["Go to Habits", ["G", "H"]],
+  ["Go to Weekly report", ["G", "R"]],
+  ["Go to Levels", ["G", "L"]],
   ["Go to Inbox", ["G", "I"]],
   ["Go to Tasks", ["G", "K"]],
   ["Go to Goals", ["G", "G"]],

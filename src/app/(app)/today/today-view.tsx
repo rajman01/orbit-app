@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Sun, Target } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { EmptyState } from "@/components/app/empty-state";
 import { ClearSkyScene } from "@/components/app/scenes";
@@ -26,7 +26,10 @@ import { useMinuteNow, useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { longDayLabel } from "@/lib/dates";
 import { DayOrbit } from "./day-orbit";
+import { PushPrompt } from "./push-prompt";
 import { RitualCards } from "./ritual-cards";
+import { HabitRow } from "@/components/habits/habit-row";
+import { useHabitBoard } from "@/features/habits/use-habit-board";
 import { SortableTasks } from "./sortable-tasks";
 import { NextStepDialog, STALE_ACTIONS, SwapMustDoDialog, useStaleResolver } from "./today-dialogs";
 
@@ -63,6 +66,12 @@ export function TodayView() {
   );
   const stuckGoals = (goals ?? []).filter((g) => needsNextStep(g, all ?? []));
 
+  // Strict (PRD §9.3): each unresolved stale task costs 5 XP a day.
+  const staleIds = plan.stale.map((t) => t.id).join(",");
+  useEffect(() => {
+    if (settings.strictness === "strict" && staleIds) void actions.applyStalePenalties(todayDay, staleIds.split(","));
+  }, [settings.strictness, staleIds, todayDay, actions]);
+
   async function toggleMustDo(t: Task) {
     if (t.mustDoDate === todayDay) return actions.setMustDo(t, todayDay, false);
     if (plan.mustDos.length >= MUST_DO_LIMIT) return setSwapIn(t);
@@ -91,6 +100,7 @@ export function TodayView() {
       <PageHeader title="Today" subtitle={longDayLabel(todayDay)} />
       <PageBody>
         <RitualCards />
+        <PushPrompt />
         <DayOrbit plan={plan} now={now} timezone={settings.timezone} ready={all !== undefined} />
         <CapacityBar capacity={plan.capacity} />
 
@@ -168,6 +178,8 @@ export function TodayView() {
             />
           </>
         ) : null}
+
+        <HabitsDue />
 
         {stuckGoals.length ? <GoalsNeedingStep goals={stuckGoals} /> : null}
 
@@ -390,5 +402,31 @@ function GoalStepRow({ goal }: { goal: Goal }) {
         </form>
       ) : null}
     </li>
+  );
+}
+
+/** TODAY-1: habits due today, between Also today and Overdue (PRD §7.10). */
+function HabitsDue() {
+  const { items, today } = useHabitBoard();
+  const { areaById } = useTaskLookups();
+  const due = (items ?? []).filter((i) => i.status.due || i.status.doneToday);
+  if (!due.length) return null;
+  return (
+    <>
+      <SectionLabel count={due.filter((i) => !i.status.doneToday).length}>Habits</SectionLabel>
+      <ul aria-label="Habits" className="flex flex-col">
+        {due.map((i) => (
+          <li key={i.habit.id}>
+            <HabitRow
+              habit={i.habit}
+              status={i.status}
+              log={i.todayLog}
+              today={today}
+              area={i.habit.areaId ? areaById.get(i.habit.areaId) : undefined}
+            />
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
