@@ -128,3 +128,44 @@ test("onboarding lets you add areas of your own", async ({ browser, baseURL }, i
   await expect(page.getByRole("link", { name: new RegExp(`^Faith ${r}`) }).first()).toBeVisible();
   await context.close();
 });
+
+/** Icon-only buttons must show their icon (they once rendered empty on desktop: no room left by padding). */
+test("icon-only buttons show their icons", async ({ page }) => {
+  const r = run();
+  const title = `Icons ${r}`;
+  await page.goto("/today");
+  await waitForSynced(page);
+  await addToday(page, title);
+  await page.getByRole("button", { name: `Open ${title}` }).click();
+  await expect(page.getByRole("button", { name: "Delete task" })).toBeVisible();
+
+  for (const path of [null, "/habits", "/areas"]) {
+    if (path) await page.goto(path);
+    const empty = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLButtonElement>("button[aria-label]")]
+        .filter((b) => b.offsetParent !== null && !b.textContent?.trim() && b.querySelector("svg"))
+        .filter((b) => b.querySelector("svg")!.getBoundingClientRect().width < 8)
+        .map((b) => b.getAttribute("aria-label")),
+    );
+    expect(empty, `icon buttons with no visible icon on ${path ?? "/today"}`).toEqual([]);
+  }
+});
+
+test("board cards have the right-click menu too", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Right-click is desktop-only");
+  const r = run();
+  const title = `Board card ${r}`;
+  await page.goto("/today");
+  await waitForSynced(page);
+  await addToday(page, title);
+  await page.goto("/tasks");
+  await page.getByRole("radio", { name: "Board" }).click();
+  const card = page.getByLabel(`Open ${title}`, { exact: true });
+  await card.click({ button: "right" });
+  await page.getByRole("menuitem", { name: /Delete task/ }).click();
+  await page
+    .getByRole("dialog", { name: `Delete “${title}”?` })
+    .getByRole("button", { name: "Delete task" })
+    .click();
+  await expect(card).toHaveCount(0);
+});

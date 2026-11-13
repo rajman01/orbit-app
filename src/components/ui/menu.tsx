@@ -67,10 +67,21 @@ export function MenuSeparator() {
 }
 
 /** Right-click menu (desktop), styled like Menu. */
-export function ContextMenu({ children, items }: { children: React.ReactNode; items: React.ReactNode }) {
+export function ContextMenu({
+  children,
+  items,
+  disabled,
+}: {
+  children: React.ReactNode;
+  items: React.ReactNode;
+  /** Off on touch screens, where a long press already means "drag". */
+  disabled?: boolean;
+}) {
   return (
     <CM.Root>
-      <CM.Trigger asChild>{children}</CM.Trigger>
+      <CM.Trigger asChild disabled={disabled}>
+        {children}
+      </CM.Trigger>
       <CM.Portal>
         <CM.Content
           className={cn(

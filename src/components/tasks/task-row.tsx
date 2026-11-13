@@ -2,6 +2,7 @@
 
 import { AlertTriangle, CalendarClock, Check, PanelRight, Play, Repeat, Star, Target, Trash2 } from "lucide-react";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/menu";
+import { useIsDesktop } from "@/lib/use-media-query";
 import { AreaDot } from "@/components/areas/area-icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useActions } from "@/features/actions";
@@ -182,8 +183,31 @@ export function TaskRow({
     </div>
   );
 
-  const menu = (
+  const menu = <TaskContextMenu task={task}>{row}</TaskContextMenu>;
+
+  if (!swipe || task.parentTaskId) return menu;
+  return (
+    <SwipeRow
+      done={done}
+      onSwipeRight={() => void actions.setTaskDone(task, !done)}
+      onSwipeLeft={done ? undefined : () => skip.open(task)}
+    >
+      {menu}
+    </SwipeRow>
+  );
+}
+
+/** Right-click menu for a task (desktop), used by list rows and board cards. */
+export function TaskContextMenu({ task, children }: { task: Task; children: React.ReactNode }) {
+  const actions = useActions();
+  const panel = useTaskPanel();
+  const skip = useSkipFlow();
+  const focus = useFocus();
+  const done = task.status === "done";
+  const isDesktop = useIsDesktop();
+  return (
     <ContextMenu
+      disabled={!isDesktop}
       items={
         <>
           <ContextMenuItem icon={<PanelRight />} shortcut="↵" onSelect={() => panel.open(task.id)}>
@@ -209,18 +233,7 @@ export function TaskRow({
         </>
       }
     >
-      {row}
+      {children}
     </ContextMenu>
-  );
-
-  if (!swipe || task.parentTaskId) return menu;
-  return (
-    <SwipeRow
-      done={done}
-      onSwipeRight={() => void actions.setTaskDone(task, !done)}
-      onSwipeLeft={done ? undefined : () => skip.open(task)}
-    >
-      {menu}
-    </SwipeRow>
   );
 }

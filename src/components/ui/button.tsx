@@ -6,7 +6,15 @@ import { cn } from "@/lib/cn";
 import { timing } from "@/lib/motion/springs";
 
 type Variant = "primary" | "secondary" | "plain" | "destructive" | "ghost";
-type Size = "default" | "large";
+type Size = "default" | "large" | "icon";
+
+// Padding lives with the size: cn() only joins classes, so an override like "px-0" could never
+// beat a "px-4" already in the list (that left icon-only buttons with no room for their icon).
+const sizes: Record<Size, string> = {
+  default: "h-control px-4",
+  large: "h-control-lg px-5",
+  icon: "size-icon-btn shrink-0 px-0",
+};
 
 const variants: Record<Variant, string> = {
   primary: "bg-accent text-on-accent hover:brightness-95 active:brightness-90",
@@ -37,8 +45,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-md px-4 text-body font-semibold whitespace-nowrap transition-[background-color,filter,opacity] duration-150 select-none disabled:opacity-40",
-        size === "large" ? "h-control-lg px-5" : "h-control",
+        "inline-flex items-center justify-center gap-2 rounded-md text-body font-semibold whitespace-nowrap transition-[background-color,filter,opacity] duration-150 select-none disabled:opacity-40",
+        sizes[size],
         variants[variant],
         className,
       )}
@@ -55,14 +63,7 @@ export const IconButton = forwardRef<HTMLButtonElement, ButtonProps & { label: s
   ref,
 ) {
   return (
-    <Button
-      ref={ref}
-      variant={variant}
-      aria-label={label}
-      title={label}
-      className={cn("size-icon-btn px-0", className)}
-      {...props}
-    />
+    <Button ref={ref} variant={variant} aria-label={label} title={label} size="icon" className={className} {...props} />
   );
 });
 

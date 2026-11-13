@@ -16,6 +16,7 @@ import { useState } from "react";
 import { AreaDot } from "@/components/areas/area-icon";
 import { PriorityIcon, StatusIcon } from "@/components/tasks/icons";
 import { useTaskLookups } from "@/components/tasks/task-list";
+import { TaskContextMenu } from "@/components/tasks/task-row";
 import { useTaskPanel } from "@/components/tasks/task-panel";
 import { useActions } from "@/features/actions";
 import { compareTasks, STATUS_META, taskCode, type Task, type TaskStatus } from "@/features/tasks/model";
@@ -94,14 +95,16 @@ function Column({ status, tasks }: { status: TaskStatus; tasks: Task[] }) {
 function DraggableCard({ task }: { task: Task }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
   return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className={cn("touch-manipulation outline-none", isDragging && "opacity-30")}
-    >
-      <Card task={task} />
-    </div>
+    <TaskContextMenu task={task}>
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        className={cn("touch-manipulation outline-none", isDragging && "opacity-30")}
+      >
+        <Card task={task} />
+      </div>
+    </TaskContextMenu>
   );
 }
 
@@ -114,7 +117,15 @@ function Card({ task, lifted }: { task: Task; lifted?: boolean }) {
   return (
     <button
       type="button"
+      data-task-row={task.id}
+      aria-label={`Open ${task.title}`}
       onClick={() => panel.open(task.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          panel.requestDelete(task);
+        }
+      }}
       className={cn(
         "flex w-full flex-col gap-2 rounded-md border border-separator bg-surface p-3 text-left shadow-1 dark:bg-surface-raised",
         lifted && "scale-[1.02] shadow-2",
