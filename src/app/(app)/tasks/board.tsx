@@ -13,6 +13,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { AreaDot } from "@/components/areas/area-icon";
 import { PriorityIcon, StatusIcon } from "@/components/tasks/icons";
 import { useTaskLookups } from "@/components/tasks/task-list";
@@ -59,9 +60,15 @@ export function Board({ tasks, showDone }: { tasks: Task[]; showDone: boolean })
           <Column key={status} status={status} tasks={tasks.filter((t) => t.status === status).sort(compareTasks)} />
         ))}
       </div>
-      <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" }}>
-        {dragging ? <Card task={dragging} lifted /> : null}
-      </DragOverlay>
+      {/* Rendered at the top of the page, so no transformed ancestor can offset it from the pointer. */}
+      {typeof document !== "undefined"
+        ? createPortal(
+            <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" }}>
+              {dragging ? <Card task={dragging} lifted /> : null}
+            </DragOverlay>,
+            document.body,
+          )
+        : null}
     </DndContext>
   );
 }

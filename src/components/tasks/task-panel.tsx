@@ -47,6 +47,9 @@ export function TaskPanelProvider({ children }: { children: React.ReactNode }) {
       if (e.key === "Escape" && !document.querySelector("[data-radix-popper-content-wrapper], [role=dialog]")) close();
     };
     const onPointer = (e: PointerEvent) => {
+      // While a picker, menu or dialog is open, a click elsewhere only closes that. (An open picker
+      // also blocks pointer events on the page, so the click lands on <html>, not on the panel.)
+      if (document.querySelector("[data-radix-popper-content-wrapper], [role=dialog], [role=menu]")) return;
       const target = e.target as Element | null;
       if (!target || panelRef.current?.contains(target) || target.closest(KEEP_OPEN)) return;
       close();

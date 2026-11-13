@@ -169,3 +169,67 @@ test("board cards have the right-click menu too", async ({ page, isMobile }) => 
     .click();
   await expect(card).toHaveCount(0);
 });
+
+test("closing a picker inside the task panel keeps the panel open", async ({ page, isMobile }) => {
+  test.skip(isMobile, "The side panel is desktop-only");
+  const r = run();
+  const title = `Picker ${r}`;
+  await page.goto("/today");
+  await waitForSynced(page);
+  await addToday(page, title);
+  const panel = page.getByRole("complementary", { name: "Task details" });
+  await page.getByRole("button", { name: `Open ${title}` }).click();
+  const box = (await panel.boundingBox())!;
+  await panel.getByRole("button", { name: "Priority" }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  // A click elsewhere in the panel (near its bottom left) closes the picker only.
+  await page.mouse.click(box.x + 40, box.y + box.height - 40);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  // Wait past the slide-out (it would still look open mid-animation), then check it stayed.
+  await page.waitForTimeout(800);
+  await expect(panel).toBeVisible();
+  await expect(panel).toBeInViewport({ ratio: 0.95 });
+  // The next click outside the panel closes the panel.
+  await page.getByRole("heading", { name: "Today", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+});
+
+test("a dragged board card stays under the pointer", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Mouse drag; phones use long-press");
+  const r = run();
+  const title = `Drag me ${r}`;
+  await page.goto("/today");
+  await waitForSynced(page);
+  await addToday(page, title);
+  await page.goto("/tasks");
+  await page.getByRole("radio", { name: "Board" }).click();
+  const card = page.getByLabel(`Open ${title}`, { exact: true });
+  // Earlier tests fill the board: bring the card into view before grabbing it.
+  await card.scrollIntoViewIfNeeded();
+  const box = (await card.boundingBox())!;
+  const start = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  const end = { x: start.x + 160, y: start.y + 40 };
+  await page.mouse.move(start.x + 20, start.y + 5, { steps: 3 });
+  await page.mouse.move(end.x, end.y, { steps: 10 });
+  await expect(page.locator(`[aria-label="Open ${title}"]`)).toHaveCount(2); // the card and its drag preview
+  const overlay = await page.evaluate(
+    ({ label }) => {
+      const lifted = [...document.querySelectorAll(`[aria-label="${label}"]`)].find((el) => {
+        for (let n: Element | null = el; n; n = n.parentElement)
+          if (getComputedStyle(n).position === "fixed") return true;
+        return false;
+      });
+      const r = lifted?.getBoundingClientRect();
+      return r ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom } : null;
+    },
+    { label: `Open ${title}` },
+  );
+  await page.mouse.up();
+  expect(overlay).not.toBeNull();
+  expect(end.x).toBeGreaterThanOrEqual(overlay!.left);
+  expect(end.x).toBeLessThanOrEqual(overlay!.right);
+  expect(end.y).toBeGreaterThanOrEqual(overlay!.top);
+  expect(end.y).toBeLessThanOrEqual(overlay!.bottom);
+});
