@@ -342,7 +342,7 @@ function Subtasks({ task }: { task: Task }) {
         ) : null}
       </h3>
       {subs.map((s) => (
-        <div key={s.id} className="group flex items-center gap-1">
+        <div key={s.id} className="group flex items-start gap-1">
           <Checkbox
             shape="square"
             color="var(--accent)"
@@ -352,7 +352,8 @@ function Subtasks({ task }: { task: Task }) {
           />
           <span
             className={cn(
-              "min-w-0 flex-1 truncate text-body",
+              // Wraps rather than cutting off: the whole step is always readable.
+              "min-w-0 flex-1 py-2.5 text-body break-words lg:py-[3px]",
               s.status === "done" && "text-label-tertiary line-through",
             )}
           >

@@ -717,7 +717,7 @@ function FocusSubtasks({ task }: { task: Task }) {
     <section aria-label="Subtasks" className="mb-6">
       <h3 className="mb-1 px-1 text-micro text-label-secondary uppercase">Steps</h3>
       {subs.map((s) => (
-        <div key={s.id} className="flex items-center gap-1">
+        <div key={s.id} className="flex items-start gap-1">
           <Checkbox
             shape="square"
             color="var(--accent)"
@@ -725,7 +725,12 @@ function FocusSubtasks({ task }: { task: Task }) {
             onChange={(d) => void actions.setTaskDone(s, d)}
             label={`Complete ${s.title}`}
           />
-          <span className={cn("min-w-0 flex-1 truncate", s.status === "done" && "text-label-tertiary line-through")}>
+          <span
+            className={cn(
+              "min-w-0 flex-1 py-2.5 break-words lg:py-[3px]",
+              s.status === "done" && "text-label-tertiary line-through",
+            )}
+          >
             {s.title}
           </span>
         </div>

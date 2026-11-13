@@ -233,3 +233,26 @@ test("a dragged board card stays under the pointer", async ({ page, isMobile }) 
   expect(end.y).toBeGreaterThanOrEqual(overlay!.top);
   expect(end.y).toBeLessThanOrEqual(overlay!.bottom);
 });
+
+test("a long subtask wraps instead of being cut off", async ({ page }) => {
+  const r = run();
+  const title = `Subtask parent ${r}`;
+  const long = `Email the recruiter about the senior role, attach the updated CV and the portfolio link, and ask about the timeline ${r}`;
+  await page.goto("/today");
+  await waitForSynced(page);
+  await addToday(page, title);
+  await page.getByRole("button", { name: `Open ${title}` }).click();
+  await page.getByRole("textbox", { name: "New subtask" }).fill(long);
+  await page.getByRole("textbox", { name: "New subtask" }).press("Enter");
+  const text = page.getByRole("region", { name: "Subtasks" }).getByText(long, { exact: true });
+  await expect(text).toBeVisible();
+  const box = await text.evaluate((el) => ({
+    clipped: el.scrollWidth > el.clientWidth + 1,
+    lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+  }));
+  expect(box.clipped).toBe(false);
+  expect(box.lines).toBeGreaterThan(1);
+  await page
+    .getByRole("region", { name: "Subtasks" })
+    .screenshot({ path: `test-results/long-subtask-${test.info().project.name}.png` });
+});
