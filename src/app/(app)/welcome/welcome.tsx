@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -30,6 +30,14 @@ export function Welcome() {
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const [areas, setAreas] = useState<string[]>(AREA_PRESETS.filter((a) => a.suggested).map((a) => a.slug));
+  // Areas of your own, alongside the presets.
+  const [custom, setCustom] = useState<string[]>([]);
+  const [customName, setCustomName] = useState("");
+  const addCustom = () => {
+    const name = customName.trim();
+    if (name && !custom.some((c) => c.toLowerCase() === name.toLowerCase())) setCustom([...custom, name]);
+    setCustomName("");
+  };
   const [weekStart, setWeekStart] = useState(String(settings.weekStartDay));
   const [cycle, setCycle] = useState(String(settings.cycleLengthDays));
   const [goal, setGoal] = useState("");
@@ -45,6 +53,10 @@ export function Welcome() {
   const finish = async (withGoal: boolean) => {
     setBusy(true);
     await actions.ensurePresetAreas(areas);
+    const colors = ["purple", "mint", "cyan", "yellow", "brown", "indigo"] as const;
+    for (const [i, name] of custom.entries()) {
+      await actions.createArea({ name, color: colors[i % colors.length], order: areas.length + i });
+    }
     await actions.saveSettings({
       timezone: deviceTimezone(),
       weekStartDay: Number(weekStart),
@@ -128,7 +140,48 @@ export function Welcome() {
                     );
                   })}
                 </div>
-                <Button size="large" disabled={!areas.length} onClick={() => go(1)}>
+                <div className="flex flex-col gap-2">
+                  {custom.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {custom.map((c) => (
+                        <span
+                          key={c}
+                          className="flex h-8 items-center gap-1.5 rounded-full bg-accent-fill pr-1 pl-3 text-callout font-medium text-accent-text"
+                        >
+                          {c}
+                          <button
+                            type="button"
+                            aria-label={`Remove ${c}`}
+                            onClick={() => setCustom(custom.filter((x) => x !== c))}
+                            className="grid size-6 place-items-center rounded-full hover:bg-accent-fill"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <form
+                    className="flex gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      addCustom();
+                    }}
+                  >
+                    <input
+                      aria-label="Add your own area"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      maxLength={60}
+                      placeholder="Add your own, e.g. Faith, Side project"
+                      className="h-control min-w-0 flex-1 rounded-md bg-surface-sunken px-3 text-body outline-none placeholder:text-label-tertiary focus-visible:ring-2 focus-visible:ring-accent"
+                    />
+                    <Button type="submit" variant="secondary" disabled={!customName.trim()}>
+                      Add
+                    </Button>
+                  </form>
+                </div>
+                <Button size="large" disabled={!areas.length && !custom.length} onClick={() => go(1)}>
                   Continue
                 </Button>
               </>

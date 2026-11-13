@@ -12,7 +12,12 @@ export async function POST(request: Request) {
   const sent = await sendToUser(
     db(),
     userId,
-    { title: "Notifications are on", body: "Orbit will remind you about your rituals and habits.", url: "/settings", tag: "orbit-test" },
+    {
+      title: "Notifications are on",
+      body: "Orbit will remind you about your rituals and habits.",
+      url: "/settings",
+      tag: "orbit-test",
+    },
     send,
   );
   return NextResponse.json({ sent });

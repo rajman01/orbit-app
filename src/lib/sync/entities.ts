@@ -61,7 +61,13 @@ export const entitySchemas = {
     quietHours: z.object({ start: time, end: time }).optional(),
     /** Phase 1D: which reminders to send. */
     notify: z
-      .object({ plan: z.boolean(), shutdown: z.boolean(), review: z.boolean(), habits: z.boolean(), focus: z.boolean() })
+      .object({
+        plan: z.boolean(),
+        shutdown: z.boolean(),
+        review: z.boolean(),
+        habits: z.boolean(),
+        focus: z.boolean(),
+      })
       .optional(),
     strictness: z.enum(["gentle", "firm", "strict"]),
     onboardingCompletedAt: ms.nullable(),

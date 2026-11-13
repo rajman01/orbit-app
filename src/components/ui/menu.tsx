@@ -1,6 +1,6 @@
 "use client";
 
-import { DropdownMenu as M } from "radix-ui";
+import { ContextMenu as CM, DropdownMenu as M } from "radix-ui";
 import { cn } from "@/lib/cn";
 import { Kbd } from "./pill";
 
@@ -64,4 +64,56 @@ export function MenuItem({
 
 export function MenuSeparator() {
   return <M.Separator className="mx-2 my-1 h-px bg-separator" />;
+}
+
+/** Right-click menu (desktop), styled like Menu. */
+export function ContextMenu({ children, items }: { children: React.ReactNode; items: React.ReactNode }) {
+  return (
+    <CM.Root>
+      <CM.Trigger asChild>{children}</CM.Trigger>
+      <CM.Portal>
+        <CM.Content
+          className={cn(
+            "z-50 min-w-[200px] rounded-lg p-1 shadow-2 material-popover outline-none",
+            "origin-[var(--radix-context-menu-content-transform-origin)] animate-[menu-in_180ms_cubic-bezier(0.2,0.9,0.3,1)] motion-reduce:animate-none",
+          )}
+        >
+          {items}
+        </CM.Content>
+      </CM.Portal>
+    </CM.Root>
+  );
+}
+
+export function ContextMenuItem({
+  icon,
+  children,
+  shortcut,
+  destructive,
+  onSelect,
+}: {
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  shortcut?: string;
+  destructive?: boolean;
+  onSelect?: () => void;
+}) {
+  return (
+    <CM.Item
+      onSelect={onSelect}
+      className={cn(
+        "flex h-11 cursor-default items-center gap-2 rounded-md px-2 text-body outline-none select-none lg:h-8",
+        "data-[highlighted]:bg-fill",
+        destructive ? "text-danger-text" : "text-label",
+      )}
+    >
+      {icon ? <span className="text-label-secondary [&>svg]:size-4">{icon}</span> : null}
+      <span className="flex-1">{children}</span>
+      {shortcut ? <Kbd>{shortcut}</Kbd> : null}
+    </CM.Item>
+  );
+}
+
+export function ContextMenuSeparator() {
+  return <CM.Separator className="mx-2 my-1 h-px bg-separator" />;
 }

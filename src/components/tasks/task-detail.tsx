@@ -1,15 +1,14 @@
 "use client";
 
-import { CalendarSync, Flag, MoreHorizontal, Play, Plus, Repeat, Timer, Trash2, X } from "lucide-react";
+import { CalendarSync, Flag, Play, Plus, Repeat, Timer, Trash2, X } from "lucide-react";
 import { currentCycle } from "@/features/cycles/model";
 import { useFocus } from "@/components/focus/focus-mode";
 import { useSkipFlow } from "@/components/skip/skip-flow";
+import { useTaskPanel } from "./task-panel";
 import { useState } from "react";
 import { IconButton } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Menu, MenuItem } from "@/components/ui/menu";
 import { ChipButton, Picker } from "@/components/ui/picker";
-import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
 import {
   useAllTasks,
@@ -47,10 +46,10 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
 
 function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void }) {
   const actions = useActions();
-  const toast = useToast();
   const todayDay = useToday();
   const focus = useFocus();
   const skip = useSkipFlow();
+  const panel = useTaskPanel();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [nextStep, setNextStep] = useState(task.nextStep ?? "");
@@ -65,7 +64,8 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
 
   return (
     <div className="flex flex-col gap-5 pb-8 lg:p-6">
-      <header className="flex items-center justify-between gap-2">
+      {/* Sticky, so close and delete stay in reach however far the panel is scrolled. */}
+      <header className="sticky top-0 z-10 -mx-4 -mt-1 flex items-center justify-between gap-2 bg-surface/95 px-4 py-1 backdrop-blur lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-4 lg:pb-2">
         <span className="font-mono text-caption text-label-tertiary">{code ?? "New task · syncing"}</span>
         <div className="flex items-center gap-1">
           {isOpen(task) && !task.parentTaskId ? (
@@ -80,20 +80,13 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
               <Play className="size-3.5" fill="currentColor" aria-hidden /> Start focus
             </button>
           ) : null}
-          <Menu trigger={<IconButton label="More actions" icon={<MoreHorizontal className="size-4" />} />} align="end">
-            <MenuItem
-              icon={<Trash2 />}
-              destructive
-              onSelect={() => {
-                void actions.deleteTask(task);
-                onClose();
-                toast({ message: "Task deleted" });
-              }}
-            >
-              Delete task
-            </MenuItem>
-          </Menu>
-          <IconButton label="Close" icon={<X className="size-4" />} onClick={onClose} />
+          <IconButton
+            label="Delete task"
+            icon={<Trash2 className="size-4" />}
+            className="hover:text-danger-text"
+            onClick={() => panel.requestDelete(task)}
+          />
+          <IconButton label="Close" title="Close (Esc)" icon={<X className="size-4" />} onClick={onClose} />
         </div>
       </header>
 

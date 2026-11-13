@@ -65,7 +65,7 @@ export function AreasView() {
       <PageHeader
         title="Areas"
         actions={
-          <Button variant="secondary" icon={<Plus className="size-4" />} onClick={() => setEditing("new")}>
+          <Button icon={<Plus className="size-4" />} onClick={() => setEditing("new")}>
             New area
           </Button>
         }

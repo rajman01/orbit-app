@@ -106,16 +106,30 @@ export async function dispatchReminders(db: Db, now: number, send: Sender) {
   let users = 0;
   let notifications = 0;
   for (const userId of userIds) {
-    const settings = await db.collection("settings").findOne(live({ _id: settingsId(userId) as unknown as Document["_id"] }));
+    const settings = await db
+      .collection("settings")
+      .findOne(live({ _id: settingsId(userId) as unknown as Document["_id"] }));
     if (!settings) continue;
     const tz = (settings.timezone as string) ?? "UTC";
     const today = dayOf(now, tz);
     const weekAgo = addDays(today, -7);
     const [rituals, cycles, habits, habitLogs, reminders, dueTodayCount, sent] = await Promise.all([
-      db.collection("rituals").find(live({ userId, date: today })).toArray(),
-      db.collection("cycles").find(live({ userId, endDate: today })).toArray(),
-      db.collection("habits").find(live({ userId, archivedAt: null })).toArray(),
-      db.collection("habitLogs").find(live({ userId, date: { $gte: weekAgo } })).toArray(),
+      db
+        .collection("rituals")
+        .find(live({ userId, date: today }))
+        .toArray(),
+      db
+        .collection("cycles")
+        .find(live({ userId, endDate: today }))
+        .toArray(),
+      db
+        .collection("habits")
+        .find(live({ userId, archivedAt: null }))
+        .toArray(),
+      db
+        .collection("habitLogs")
+        .find(live({ userId, date: { $gte: weekAgo } }))
+        .toArray(),
       db
         .collection("reminders")
         .find(live({ userId, status: "pending", fireAt: { $lte: now, $gte: now - 30 * 60_000 } }))
@@ -148,4 +162,3 @@ export async function dispatchReminders(db: Db, now: number, send: Sender) {
   }
   return { users, notifications };
 }
-

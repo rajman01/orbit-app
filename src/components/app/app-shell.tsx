@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AreaIcon } from "@/components/areas/area-icon";
+import { AreaDialog } from "@/components/areas/area-form";
 import { FocusProvider } from "@/components/focus/focus-mode";
 import { RitualProvider } from "@/components/rituals/ritual-flow";
 import { LevelBadge, XpLayer } from "@/components/xp/xp-layer";
@@ -161,6 +162,7 @@ function NavLink({
 
 function Sidebar() {
   const user = useCurrentUser();
+  const [newArea, setNewArea] = useState(false);
   const { openQuickAdd, openPalette } = useCommands();
   const inbox = useInboxCount();
   const areas = useAreas() ?? [];
@@ -197,9 +199,20 @@ function Sidebar() {
         ))}
       </nav>
       <nav className="flex flex-col gap-0.5" aria-label="Areas">
-        <Link href="/areas" className="px-2 pb-1 text-micro text-label-tertiary uppercase hover:text-label-secondary">
-          Areas
-        </Link>
+        <div className="flex items-center justify-between pr-1 pb-1 pl-2">
+          <Link href="/areas" className="text-micro text-label-tertiary uppercase hover:text-label-secondary">
+            Areas
+          </Link>
+          <button
+            type="button"
+            onClick={() => setNewArea(true)}
+            aria-label="New area"
+            title="New area"
+            className="grid size-6 place-items-center rounded-md text-label-tertiary hover:bg-fill hover:text-label"
+          >
+            <Plus className="size-3.5" />
+          </button>
+        </div>
         {areas.map((a) => (
           <Link
             key={a.id}
@@ -214,6 +227,7 @@ function Sidebar() {
       <div className="mt-auto flex flex-col gap-0.5">
         <LevelBadge />
         <NavLink href="/settings" label="Settings" icon={Settings} />
+        {newArea ? <AreaDialog open onOpenChange={(o) => !o && setNewArea(false)} /> : null}
         <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
           <span className="grid size-7 place-items-center rounded-full bg-accent-fill text-caption text-accent-text">
             {user.name.slice(0, 1).toUpperCase()}
@@ -294,6 +308,7 @@ function TabBar() {
 
 function MoreList({ onNavigate }: { onNavigate: () => void }) {
   const areas = useAreas() ?? [];
+  const [newArea, setNewArea] = useState(false);
   const row = "flex h-12 items-center gap-3 rounded-md px-2 text-body active:bg-fill";
   return (
     <div className="flex flex-col pb-4">
@@ -308,6 +323,10 @@ function MoreList({ onNavigate }: { onNavigate: () => void }) {
           <AreaIcon icon={a.icon} color={a.color} className="size-5" /> {a.name}
         </Link>
       ))}
+      <button type="button" onClick={() => setNewArea(true)} className={`${row} text-left text-accent-text`}>
+        <Plus className="size-5" strokeWidth={1.75} /> New area
+      </button>
+      {newArea ? <AreaDialog open onOpenChange={(o) => !o && setNewArea(false)} /> : null}
     </div>
   );
 }

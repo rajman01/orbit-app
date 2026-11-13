@@ -504,6 +504,7 @@ const SHORTCUTS: [string, string[]][] = [
   ["Complete task", ["⌘", "Enter"]],
   ["Start focus on task", ["F"]],
   ["Move task (skip)", ["S"]],
+  ["Delete task", ["⌫"]],
   ["Close panel", ["Esc"]],
   ["This list", ["?"]],
 ];

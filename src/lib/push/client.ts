@@ -5,7 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 export type PushSupport = "supported" | "needs-install" | "unsupported";
 
 function isIos() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
 }
 
 function isStandalone() {
@@ -19,7 +21,8 @@ function isStandalone() {
 export function pushSupport(): PushSupport {
   if (typeof window === "undefined") return "unsupported";
   if (isIos() && !isStandalone()) return "needs-install";
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "unsupported";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window))
+    return "unsupported";
   return "supported";
 }
 

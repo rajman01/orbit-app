@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, Play, Repeat, Star, Target } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, PanelRight, Play, Repeat, Star, Target, Trash2 } from "lucide-react";
+import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/menu";
 import { AreaDot } from "@/components/areas/area-icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useActions } from "@/features/actions";
@@ -70,7 +71,12 @@ export function TaskRow({
         if (e.target !== e.currentTarget) return;
         if (e.key === "Enter") panel.open(task.id);
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void actions.setTaskDone(task, !done);
-        if (e.metaKey || e.ctrlKey || e.altKey || done) return;
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          panel.requestDelete(task);
+        }
+        if (done) return;
         if (e.key === "f" && !task.parentTaskId) void focus.start(task);
         if (e.key === "s") skip.open(task);
       }}
@@ -176,14 +182,45 @@ export function TaskRow({
     </div>
   );
 
-  if (!swipe || task.parentTaskId) return row;
+  const menu = (
+    <ContextMenu
+      items={
+        <>
+          <ContextMenuItem icon={<PanelRight />} shortcut="↵" onSelect={() => panel.open(task.id)}>
+            Open
+          </ContextMenuItem>
+          {!done && !task.parentTaskId ? (
+            <>
+              <ContextMenuItem icon={<Play />} shortcut="F" onSelect={() => void focus.start(task)}>
+                Start focus
+              </ContextMenuItem>
+              <ContextMenuItem icon={<CalendarClock />} shortcut="S" onSelect={() => skip.open(task)}>
+                Move…
+              </ContextMenuItem>
+            </>
+          ) : null}
+          <ContextMenuItem icon={<Check />} onSelect={() => void actions.setTaskDone(task, !done)}>
+            {done ? "Mark not done" : "Mark done"}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem icon={<Trash2 />} shortcut="⌫" destructive onSelect={() => panel.requestDelete(task)}>
+            Delete task
+          </ContextMenuItem>
+        </>
+      }
+    >
+      {row}
+    </ContextMenu>
+  );
+
+  if (!swipe || task.parentTaskId) return menu;
   return (
     <SwipeRow
       done={done}
       onSwipeRight={() => void actions.setTaskDone(task, !done)}
       onSwipeLeft={done ? undefined : () => skip.open(task)}
     >
-      {row}
+      {menu}
     </SwipeRow>
   );
 }
