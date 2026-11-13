@@ -52,5 +52,11 @@ export function openLocalDb(userId: string): OrbitDB {
     xpEvents: "id, source, at",
     reminders: "id, fireAt",
   });
+  // Phase 2A: AI coach.
+  db.version(6).stores({
+    aiThreads: "id, lastMessageAt",
+    aiMessages: "id, threadId, [threadId+seq]",
+    aiMemories: "id",
+  });
   return db;
 }

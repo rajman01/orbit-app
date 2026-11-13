@@ -997,7 +997,7 @@ The detailed plan for each phase — scope, data model changes, decisions, steps
 | [1B — Do the work, stop drifting](./phases/phase-1b.md) | TODAY-1–6, TASK-4, FOC-1–6, §8.1, §8.2, Upcoming, swipe gestures | A week run from Today; every postponement has a reason | ✅ Deployed (2026-11-12) |
 | [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | ✅ Deployed (2026-11-12) |
 | [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | ✅ Deployed (2026-11-12) — trial running |
-| [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, QTR-1–6, RIT-7, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | Planned |
+| [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, QTR-1–6, RIT-7, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | 2A planned (2026-11-13) |
 | [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–4, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, email capture | Insights reflect four cycles of real data | Planned |
 | [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |
 
@@ -1026,13 +1026,13 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 1. **Finance area scope** — goals/tasks only for now; any finance-specific features (savings goals with amounts, net-worth tracking)? *(Owner to add if remembered.)*
 2. **Other life areas** — Health, Mind, Home etc. can be added anytime; should any be pre-created but hidden?
 3. **Habit ideas** — no existing habits to import; do you want a starter habit library during onboarding?
-4. **AI autonomy default** — PRD assumes `Act and tell me`; confirm.
+4. ~~**AI autonomy default**~~ — `Act and tell me` confirmed (D33).
 5. ~~**Strictness default**~~ — built with `Firm` as the default (D26); changeable in Settings → Accountability.
 6. ~~**Level titles**~~ — space-themed (D30).
 7. ~~**Notifications**~~ — built with the proposed times (D26); editable in Settings.
 8. **Domain** — will Orbit have a custom domain? Currently `orbit-app-three-beta.vercel.app`; a change means updating `BETTER_AUTH_URL` and the Google OAuth client.
 9. ~~**Reminder scheduler**~~ — cron-job.org, free (D29).
-10. **Quarter boundaries** — calendar quarters (Q1 = January–March), or 12-week blocks of 6 cycles so quarters and cycles line up exactly? *(Proposed: calendar quarters; the last cycle of a quarter can run a few days past its end. Needed by Phase 2.)*
+10. ~~**Quarter boundaries**~~ — calendar quarters chosen (D34). Was: calendar quarters (Q1 = January–March), or 12-week blocks of 6 cycles so quarters and cycles line up exactly? *(Proposed: calendar quarters; the last cycle of a quarter can run a few days past its end. Needed by Phase 2.)*
 
 ---
 
@@ -1071,3 +1071,6 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 | D29 | Reminders are dispatched by a free external scheduler (cron-job.org) calling a secret-protected route every minute; ritual and habit reminders are computed on the server each minute, one-off ones (focus ending) are scheduled by the device | Vercel Hobby crons run once a day; reminders must arrive even when the app hasn't been opened |
 | D30 | Space-themed level titles (Spark → … → Cosmos) | Owner choice; fits Orbit's identity |
 | D31 | XP entries are one per source and are zeroed, not deleted, on undo | Deletes win in sync, so a deleted entry could never be re-awarded |
+| D32 | Phase 2 starts with 2A (AI coach); the coach's tools run on the device through the same actions as the UI, one model call per server request | One code path for UI and AI; local-first writes sync like any edit; fits Vercel time limits |
+| D33 | AI autonomy defaults to `Act and tell me` | Owner choice; every change is logged and undoable, destructive/bulk changes still ask |
+| D34 | Quarters are calendar quarters (Q1 = January–March) | Owner choice; matches how the year is usually thought about |

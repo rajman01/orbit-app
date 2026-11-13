@@ -69,6 +69,10 @@ export const entitySchemas = {
         focus: z.boolean(),
       })
       .optional(),
+    /** Phase 2A: how much the coach may do on its own (PRD §10.5). */
+    aiAutonomy: z.enum(["suggest", "act_tell", "act_silent"]).optional(),
+    /** Phase 2A: proactive check-ins from the coach (§8.4). */
+    aiCheckins: z.boolean().optional(),
     strictness: z.enum(["gentle", "firm", "strict"]),
     onboardingCompletedAt: ms.nullable(),
   }),
@@ -254,6 +258,32 @@ export const entitySchemas = {
     pausedMs: z.number().int().min(0).optional(),
     breakEndsAt: ms.nullable().optional(),
   }),
+  /** Phase 2A: AI coach conversations. */
+  aiThreads: z.object({
+    title: z.string().trim().max(200),
+    lastMessageAt: ms,
+    archivedAt: ms.nullable(),
+  }),
+  /**
+   * One entry in a conversation, kept exactly as sent to / returned by the API (append-only, so
+   * thinking blocks stay valid). `system` entries carry the per-turn context and aren't shown.
+   */
+  aiMessages: z.object({
+    threadId: id,
+    seq: z.number().int().min(0).max(100000),
+    role: z.enum(["user", "assistant", "system"]),
+    content: z
+      .array(z.record(z.string(), z.any()))
+      .max(200)
+      .refine((v) => JSON.stringify(v).length <= 200_000, "too large"),
+    at: ms,
+  }),
+  /** What the coach remembers about the user (AI-9); visible and editable. */
+  aiMemories: z.object({
+    text: z.string().trim().min(1).max(500),
+    source: z.enum(["user", "coach"]),
+    archivedAt: ms.nullable(),
+  }),
 } as const;
 
 export type EntityName = keyof typeof entitySchemas;
@@ -299,4 +329,5 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   habits: { areaId: "areas", goalId: "goals" },
   habitLogs: { habitId: "habits" },
   xpEvents: { areaId: "areas" },
+  aiMessages: { threadId: "aiThreads" },
 };

@@ -8,6 +8,7 @@ import {
   LayoutList,
   Settings,
   Shapes,
+  Sparkles,
   Sun,
   Target,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import {
 export const NAV_MAIN = [
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/today", label: "Today", icon: Sun },
+  { href: "/coach", label: "Coach", icon: Sparkles },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/tasks", label: "Tasks", icon: LayoutList },
   { href: "/goals", label: "Goals", icon: Target },
@@ -25,6 +27,7 @@ export const NAV_MAIN = [
 ] as const;
 
 export const NAV_MORE = [
+  { href: "/coach", label: "Coach", icon: Sparkles },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/habits", label: "Habits", icon: Repeat },
   { href: "/tasks", label: "Tasks", icon: LayoutList },

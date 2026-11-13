@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { AreaDialog } from "@/components/areas/area-form";
+import { CoachPanelProvider } from "@/components/coach/coach-panel";
 import { FocusProvider } from "@/components/focus/focus-mode";
 import { RitualProvider } from "@/components/rituals/ritual-flow";
 import { LevelBadge, XpLayer } from "@/components/xp/xp-layer";
@@ -38,18 +39,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             children
           ) : (
             <RitualProvider>
-              <CommandsProvider>
-                <OnboardingRedirect />
-                <CycleKeeper />
-                <div className="flex min-h-dvh bg-bg">
-                  <Sidebar />
-                  <main className="min-w-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] lg:pb-0">
-                    {children}
-                  </main>
-                  <TabBar />
-                </div>
-                <XpLayer />
-              </CommandsProvider>
+              <CoachPanelProvider>
+                <CommandsProvider>
+                  <OnboardingRedirect />
+                  <CycleKeeper />
+                  <div className="flex min-h-dvh bg-bg">
+                    <Sidebar />
+                    <main className="min-w-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] lg:pb-0">
+                      {children}
+                    </main>
+                    <TabBar />
+                  </div>
+                  <XpLayer />
+                </CommandsProvider>
+              </CoachPanelProvider>
             </RitualProvider>
           )}
         </TaskPanelProvider>

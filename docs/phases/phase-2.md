@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Planned (outline — detailed when Phase 1 is done) |
+| **Status** | In progress — 2A planned 2026-11-13 ([plan](./phase-2a.md)) |
 | **Depends on** | Phase 1 |
 | **PRD** | §7.1 (VIS), §7.3 (GOAL-7/8), §7.6 (CYC-6/7, QTR-1–6), §7.9 (RIT-7), §7.11, §7.12 (CAR-1), §7.13, §10, §11, §13 |
 
@@ -16,7 +16,7 @@ Remove the friction of planning and connect Orbit to the rest of your life: an A
 
 | Part | Scope (PRD IDs) |
 |---|---|
-| **2A — AI coach** | AI-1 – AI-9: chat with app context, plan creation, task breakdown, reminders and scheduling by request, cycle planning assistant, ritual facilitation, proactive check-ins (§8.4), quick-capture parsing, memory; autonomy setting, action log and undo (§10.5); AI onboarding (ONB-3) |
+| **[2A — AI coach](./phase-2a.md)** | AI-1 – AI-9: chat with app context, plan creation, task breakdown, reminders and scheduling by request, cycle planning assistant, ritual facilitation, proactive check-ins (§8.4), quick-capture parsing, memory; autonomy setting, action log and undo (§10.5); AI onboarding (ONB-3) |
 | **2B — Calendar** | CAL-1 – CAL-7: Google Calendar (OAuth, two-way), Apple via CalDAV with an app-specific password, private ICS feed, time blocking, availability-aware planning; calendar view (VIEW-3) |
 | **2C — People** | REL-1 – REL-7: people, contact cadence, reach-out list, interaction log, gift ideas, important dates |
 | **2D — Reflection and capture** | VIS-1/2 vision and values, **QTR-1–6 and RIT-7 quarters** (quarterly goals, Quarterly Plan and Review rituals, year view, pace checks), GOAL-7/8 goal updates and timeline, CYC-6/7 cycle history and themes, CAR-1 wins log, JRN-1/2 journal; quick capture via share target, iOS Shortcut and personal API tokens (SET-8); HAB-4/6, TASK-7, CMD-4, notification centre and actions, SET-5 – SET-7 |

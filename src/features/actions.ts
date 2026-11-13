@@ -723,6 +723,34 @@ export function createActions(engine: SyncEngine, userId: string) {
         await award("focus", id, xp, `${Math.round(fields.actualMinutes)} min of focus`, task?.areaId ?? null);
     },
 
+    // ------------------------------------------------------------ coach (Phase 2A)
+
+    createCoachThread: (title: string, at: number = now()) =>
+      engine.create("aiThreads", { title: title.slice(0, 200), lastMessageAt: at, archivedAt: null }),
+
+    async appendCoachMessage(
+      threadId: string,
+      role: EntityFields<"aiMessages">["role"],
+      content: EntityFields<"aiMessages">["content"],
+    ) {
+      const last = await db.aiMessages
+        .where("[threadId+seq]")
+        .between([threadId, -Infinity], [threadId, Infinity])
+        .last();
+      const at = now();
+      const id = await engine.create("aiMessages", { threadId, seq: (last?.seq ?? -1) + 1, role, content, at });
+      await engine.update("aiThreads", threadId, { lastMessageAt: at });
+      return id;
+    },
+
+    renameCoachThread: (id: string, title: string) => engine.update("aiThreads", id, { title: title.slice(0, 200) }),
+    archiveCoachThread: (id: string) => engine.update("aiThreads", id, { archivedAt: now() }),
+
+    remember: (text: string, source: "user" | "coach" = "coach") =>
+      engine.create("aiMemories", { text: text.trim().slice(0, 500), source, archivedAt: null }),
+    updateMemory: (id: string, text: string) => engine.update("aiMemories", id, { text: text.trim().slice(0, 500) }),
+    forgetMemory: (id: string) => engine.update("aiMemories", id, { archivedAt: now() }),
+
     async deleteTask(task: Task) {
       for (const sub of await db.tasks.where("parentTaskId").equals(task.id).toArray()) {
         await engine.remove("tasks", sub.id);
