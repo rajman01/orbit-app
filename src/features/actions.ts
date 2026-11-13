@@ -694,11 +694,19 @@ export function createActions(engine: SyncEngine, userId: string) {
         actualMinutes: 0,
         outcome: null,
         interruptions: 0,
+        plannedMs: plannedMinutes == null ? null : plannedMinutes * 60_000,
+        pausedAt: null,
+        pausedMs: 0,
+        breakEndsAt: null,
       });
       if (task.status !== "in_progress" && task.status !== "done")
         await actions.updateTask(task, { status: "in_progress" });
       return id;
     },
+
+    /** Writes the live timer (pause, +5 min, break…) so other devices follow along. */
+    updateFocusSession: (id: string, fields: Partial<EntityFields<"focusSessions">>) =>
+      engine.update("focusSessions", id, fields),
 
     async endFocusSession(
       id: string,

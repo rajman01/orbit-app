@@ -15,6 +15,8 @@ export interface SyncStatus {
 /** Re-pull a few versions behind the cursor so a write that committed out of order is never skipped. */
 const CURSOR_OVERLAP = 20;
 const INTERVAL_MS = 60_000;
+/** While something live is happening (a focus session), pull this often, but only with the page in front. */
+const FAST_INTERVAL_MS = 5_000;
 
 /** Opt-in debug logging: localStorage.setItem("orbit:debug-sync", "1"). */
 function debug(...args: unknown[]) {
@@ -35,6 +37,7 @@ export class SyncEngine {
   private failures = 0;
   private again = false;
   private timer: ReturnType<typeof setInterval> | undefined;
+  private fastTimer: ReturnType<typeof setInterval> | undefined;
   private debounce: ReturnType<typeof setTimeout> | undefined;
   private listeners = new Set<(s: SyncStatus) => void>();
   status: SyncStatus = { state: "idle", pending: 0, lastSyncedAt: null };
@@ -84,14 +87,19 @@ export class SyncEngine {
       const onOnline = () => this.requestSync();
       const onVisible = () => document.visibilityState === "visible" && this.requestSync();
       window.addEventListener("online", onOnline);
+      // Switching back to this window (desktop) doesn't change visibility, so listen for focus too.
+      window.addEventListener("focus", onOnline);
       document.addEventListener("visibilitychange", onVisible);
       this.timer = setInterval(() => this.requestSync(), INTERVAL_MS);
       void this.refreshPending();
       this.requestSync();
       this.teardown = () => {
         window.removeEventListener("online", onOnline);
+        window.removeEventListener("focus", onOnline);
         document.removeEventListener("visibilitychange", onVisible);
         clearInterval(this.timer);
+        clearInterval(this.fastTimer);
+        this.fastTimer = undefined;
         clearTimeout(this.debounce);
       };
     }
@@ -103,6 +111,24 @@ export class SyncEngine {
         this.teardown?.();
         this.teardown = null;
       }
+    };
+  }
+
+  /**
+   * Near real-time sync for live state (a running focus session, so other devices follow along).
+   * Returns a cleanup, for use in an effect.
+   */
+  setFastSync(on: boolean): () => void {
+    clearInterval(this.fastTimer);
+    this.fastTimer = undefined;
+    if (on && typeof window !== "undefined") {
+      this.fastTimer = setInterval(() => {
+        if (document.visibilityState === "visible") this.requestSync();
+      }, FAST_INTERVAL_MS);
+    }
+    return () => {
+      clearInterval(this.fastTimer);
+      this.fastTimer = undefined;
     };
   }
 

@@ -68,7 +68,19 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
       <header className="sticky top-0 z-10 -mx-4 -mt-1 flex items-center justify-between gap-2 bg-surface/95 px-4 py-1 backdrop-blur lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-4 lg:pb-2">
         <span className="font-mono text-caption text-label-tertiary">{code ?? "New task · syncing"}</span>
         <div className="flex items-center gap-1">
-          {isOpen(task) && !task.parentTaskId ? (
+          {focus.active?.taskId === task.id ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                focus.open();
+              }}
+              className="mr-1 flex h-8 items-center gap-1.5 rounded-full bg-accent px-3 text-footnote font-semibold text-on-accent hover:brightness-95"
+            >
+              <span className="size-1.5 animate-pulse rounded-full bg-current motion-reduce:animate-none" aria-hidden />
+              Continue focus
+            </button>
+          ) : isOpen(task) && !task.parentTaskId ? (
             <button
               type="button"
               onClick={() => {

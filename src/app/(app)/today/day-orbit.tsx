@@ -2,7 +2,7 @@
 
 import { Play } from "lucide-react";
 import Link from "next/link";
-import { useXpEvents } from "@/features/data";
+import { useTask, useXpEvents } from "@/features/data";
 import { levelFromXp, totalXp } from "@/features/xp/model";
 import { AnimatePresence, motion } from "motion/react";
 import { useCurrentUser } from "@/components/app/auth-gate";
@@ -55,6 +55,7 @@ export function DayOrbit({
   const mustDone = plan.mustDos.length > 0 && plan.mustDos.every((t) => t.status === "done");
   const user = useCurrentUser();
   const focus = useFocus();
+  const focusTask = useTask(focus.active?.taskId);
   const open = [...plan.mustDos, ...plan.also].filter((t) => t.status !== "done");
   const total = plan.mustDos.length + plan.also.length + plan.doneToday.length;
   const done = total - open.length;
@@ -129,7 +130,22 @@ export function DayOrbit({
           ) : null}
         </p>
         <p className="mt-0.5 text-title3 text-balance">{headline}</p>
-        {next ? (
+        {focusTask ? (
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => focus.open()}
+              aria-label={`Continue: ${focusTask.title}`}
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 text-footnote font-semibold text-[var(--accent-on-white)] shadow-1 active:scale-[0.97]"
+            >
+              <span className="size-1.5 animate-pulse rounded-full bg-current motion-reduce:animate-none" aria-hidden />
+              Continue
+            </button>
+            <p className="min-w-0 truncate text-footnote text-white/85">
+              <span className="text-white/60">Focusing:</span> {focusTask.title}
+            </p>
+          </div>
+        ) : next ? (
           <div className="mt-3 flex items-center gap-2">
             <button
               type="button"

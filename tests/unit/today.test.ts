@@ -13,7 +13,11 @@ import {
   startBreak,
   startFocus,
   workedMinutes,
+  activeSession,
+  sessionToState,
+  stateFields,
 } from "@/features/focus/model";
+import { focusSummary } from "@/components/focus/focus-mode";
 import { newTaskFields, type Task } from "@/features/tasks/model";
 import {
   buildToday,
@@ -234,5 +238,48 @@ describe("focus timer", () => {
     expect(parseFocusState("{bad")).toBeNull();
     expect(parseFocusState(JSON.stringify({ v: 2 }))).toBeNull();
     expect(parseFocusState(null)).toBeNull();
+  });
+});
+
+describe("focus sessions synced across devices", () => {
+  const MIN = 60_000;
+  const t0 = Date.UTC(2026, 10, 13, 13, 0);
+  const doc = {
+    id: "s1",
+    taskId: "t1",
+    mode: "pomodoro" as const,
+    plannedMinutes: 25,
+    startedAt: t0,
+    interruptions: 0,
+  };
+
+  it("rebuilds the timer from a synced session, and writes it back losslessly", () => {
+    // A session from before syncing timers: falls back to its planned minutes.
+    expect(sessionToState(doc)).toMatchObject({ plannedMs: 25 * MIN, pausedAt: null, pausedMs: 0, breakEndsAt: null });
+    let s = sessionToState({ ...doc, plannedMs: 25 * MIN, pausedAt: null, pausedMs: 0, breakEndsAt: null });
+    s = pause(s, t0 + 10 * MIN); // e.g. paused on the phone
+    const written = stateFields(s);
+    const onLaptop = sessionToState({ ...doc, ...written });
+    expect(onLaptop).toEqual(s);
+    expect(remainingMs(onLaptop, t0 + 30 * MIN)).toBe(15 * MIN);
+  });
+
+  it("shows the most recent running session, ignoring ended and day-old ones", () => {
+    const now = t0 + 5 * MIN;
+    const sessions = [
+      { id: "old", endedAt: null, startedAt: now - 25 * 3_600_000, deletedAt: null },
+      { id: "done", endedAt: now - MIN, startedAt: now - 10 * MIN, deletedAt: null },
+      { id: "live", endedAt: null, startedAt: now - 2 * MIN, deletedAt: null },
+    ];
+    expect(activeSession(sessions, now)?.id).toBe("live");
+    expect(activeSession(sessions.slice(0, 2), now)).toBeNull();
+  });
+
+  it("says when a session ends, in the 'Focusing on…' notification", () => {
+    const s = sessionToState({ ...doc, plannedMs: 25 * MIN });
+    expect(focusSummary(s, t0 + 7 * MIN, false)).toMatch(/^Ends at .+ · 18 min left$/);
+    expect(focusSummary(pause(s, t0 + 7 * MIN), t0 + 9 * MIN, false)).toBe("Paused · 18 min left");
+    const open = sessionToState({ ...doc, mode: "open", plannedMinutes: null, plannedMs: null });
+    expect(focusSummary(open, t0 + 7 * MIN, false)).toMatch(/^Started .+ · open session$/);
   });
 });

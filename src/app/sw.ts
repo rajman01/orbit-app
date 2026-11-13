@@ -67,10 +67,12 @@ self.addEventListener("push", (event) => {
       await self.registration.showNotification(payload.title, {
         body: payload.body,
         tag: payload.tag,
+        // Replacing a quiet "Focusing on…" notification with the same tag should still alert.
+        renotify: true,
         icon: "/icons/icon-192.png",
         badge: "/icons/icon-192.png",
         data: { url: payload.url },
-      });
+      } as NotificationOptions);
     })(),
   );
 });

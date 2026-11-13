@@ -2,8 +2,20 @@
 
 import { Check, ChevronDown, Pause, Play, Plus, Square, Target } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { useCurrentUser } from "@/components/app/auth-gate";
+import { useSync } from "@/components/app/sync-provider";
+import { useMinuteNow } from "@/features/use-today";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Segmented } from "@/components/ui/segmented";
@@ -21,13 +33,15 @@ import {
   isPaused,
   isTimeUp,
   keepGoing,
+  activeSession,
   parseFocusState,
+  sessionToState,
+  stateFields,
   pause,
   plannedMinutes,
   remainingMs,
   resume,
   startBreak,
-  startFocus,
   workedMinutes,
   type FocusMode,
   type FocusState,
@@ -40,6 +54,8 @@ interface FocusContext {
   active: FocusState | null;
   /** One-tap Start (PRD TODAY-4): opens focus mode with a 5-minute first session (FOC-3). */
   start: (task: Task, mode?: FocusMode) => Promise<void>;
+  /** Brings the running session back to full screen ("Continue"). */
+  open: () => void;
 }
 
 const Ctx = createContext<FocusContext | null>(null);
@@ -50,70 +66,118 @@ export function useFocus(): FocusContext {
   return c;
 }
 
-const storageKey = (userId: string) => `orbit:focus:${userId}`;
+/** Earlier versions kept the timer only in local storage; carried over once into the synced session. */
+const legacyKey = (userId: string) => `orbit:focus:${userId}`;
+/** Which session this device has open full screen (a per-device choice, not synced). */
+const openKey = (userId: string) => `orbit:focus-open:${userId}`;
 
-function readState(userId: string): FocusState | null {
+function readOpen(userId: string): string | null {
   try {
-    return parseFocusState(localStorage.getItem(storageKey(userId)));
+    return localStorage.getItem(openKey(userId));
+  } catch {
+    return null;
+  }
+}
+/** The session this device last started or opened: only that device pops up when time's up. */
+const hereKey = (userId: string) => `orbit:focus-here:${userId}`;
+
+function readHere(userId: string): string | null {
+  try {
+    return localStorage.getItem(hereKey(userId));
   } catch {
     return null;
   }
 }
 
-function writeState(userId: string, s: FocusState | null) {
+function writeOpen(userId: string, sessionId: string | null) {
   try {
-    if (s) localStorage.setItem(storageKey(userId), JSON.stringify(s));
-    else localStorage.removeItem(storageKey(userId));
+    if (sessionId) {
+      localStorage.setItem(openKey(userId), sessionId);
+      localStorage.setItem(hereKey(userId), sessionId);
+    }
+    else localStorage.removeItem(openKey(userId));
   } catch {}
 }
 
-/** DESIGN.md §11.15 — focus mode. The timer is derived from timestamps, so reloads and offline don't stop it. */
+/**
+ * DESIGN.md §11.15 — focus mode. The running session lives in the synced data, so every device
+ * shows it and can pause, extend or end it; the timer is derived from timestamps, so reloads and
+ * offline don't stop it. While a session runs, Orbit syncs every few seconds.
+ */
 export function FocusProvider({ children }: { children: React.ReactNode }) {
   const user = useCurrentUser();
   const actions = useActions();
   const toast = useToast();
   const settings = useSettings();
-  const [state, setStateRaw] = useState<FocusState | null>(() => readState(user.id));
-  const [expanded, setExpanded] = useState(() => state != null);
-
-  const setState = useCallback(
-    (next: FocusState | null | ((s: FocusState) => FocusState)) => {
-      setStateRaw((prev) => {
-        const value = typeof next === "function" ? (prev ? next(prev) : null) : next;
-        writeState(user.id, value);
-        return value;
-      });
+  const engine = useSync();
+  const { db } = engine;
+  const minute = useMinuteNow();
+  const sessions = useLiveQuery(() => db.focusSessions.filter((s) => s.endedAt == null).toArray(), [db]);
+  const doc = sessions ? activeSession(sessions, minute) : null;
+  const state = useMemo(() => (doc ? sessionToState(doc) : null), [doc]);
+  const [openId, setOpenId] = useState<string | null>(() => readOpen(user.id));
+  const expanded = state != null && openId === state.sessionId;
+  const setExpanded = useCallback(
+    (v: boolean) => {
+      const id = v ? (state?.sessionId ?? null) : null;
+      writeOpen(user.id, id);
+      setOpenId(id);
     },
-    [user.id],
+    [state?.sessionId, user.id],
   );
 
-  // Another tab started or ended a session.
+  // Keep other devices close behind while a session runs (and this page is in front).
+  useEffect(() => engine.setFastSync(state != null), [engine, state != null]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // One-time carry-over of a timer from the old local-only storage.
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === storageKey(user.id)) setStateRaw(parseFocusState(e.newValue));
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [user.id]);
+    let legacy: FocusState | null = null;
+    try {
+      legacy = parseFocusState(localStorage.getItem(legacyKey(user.id)));
+      localStorage.removeItem(legacyKey(user.id));
+    } catch {}
+    if (legacy) void actions.updateFocusSession(legacy.sessionId, stateFields(legacy));
+  }, [actions, user.id]);
+
+  // Writes go to the synced session; the live query brings the new state back here.
+  const setState = useCallback(
+    (next: (s: FocusState) => FocusState) => {
+      if (state) void actions.updateFocusSession(state.sessionId, stateFields(next(state)));
+    },
+    [actions, state],
+  );
 
   const start = useCallback(
     async (task: Task, mode: FocusMode = "five") => {
-      if (state) {
-        if (state.taskId !== task.id) toast({ message: "Finish your current focus session first" });
+      if (state?.taskId === task.id) {
         setExpanded(true);
         return;
       }
+      if (state) {
+        // Another task is running (maybe left open on another device): wrap it up and switch.
+        const end = Date.now();
+        await actions.endFocusSession(state.sessionId, {
+          endedAt: end,
+          actualMinutes: workedMinutes(state, end),
+          outcome: "progress",
+          interruptions: state.interruptions,
+          mode: state.mode,
+          plannedMinutes: plannedMinutes(state),
+        });
+        await actions.cancelReminder(`rf${state.sessionId}`.slice(0, 40));
+        toast({ message: "Ended your previous focus session" });
+      }
       const preset = FOCUS_PRESETS.find((p) => p.mode === mode)!;
       const minutes = mode === "pomodoro" ? (settings.focusMinutes ?? 25) : preset.minutes;
-      const now = Date.now();
-      const id = await actions.startFocusSession(task, mode, minutes, now);
-      setState(startFocus(id, task.id, mode, minutes, now));
-      setExpanded(true);
+      const id = await actions.startFocusSession(task, mode, minutes, Date.now());
+      writeOpen(user.id, id);
+      setOpenId(id);
     },
-    [state, actions, settings.focusMinutes, setState, toast],
+    [state, actions, settings.focusMinutes, toast, setExpanded, user.id],
   );
 
-  const value = useMemo(() => ({ active: state, start }), [state, start]);
+  const open = useCallback(() => setExpanded(true), [setExpanded]);
+  const value = useMemo(() => ({ active: state, start, open }), [state, start, open]);
 
   return (
     <Ctx.Provider value={value}>
@@ -125,10 +189,45 @@ export function FocusProvider({ children }: { children: React.ReactNode }) {
           setState={setState}
           expanded={expanded}
           setExpanded={setExpanded}
+          userId={user.id}
         />
       ) : null}
     </Ctx.Provider>
   );
+}
+
+const FOCUS_TAG = "orbit-focus";
+
+async function closeFocusNotifications() {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    for (const n of (await reg?.getNotifications({ tag: FOCUS_TAG })) ?? []) n.close();
+  } catch {}
+}
+
+/** True while the page is in the background (another app, a locked phone, another tab). */
+function useDocumentHidden(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      document.addEventListener("visibilitychange", cb);
+      return () => document.removeEventListener("visibilitychange", cb);
+    },
+    () => document.hidden,
+    () => false,
+  );
+}
+
+const clockTime = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+/** One line for the "Focusing on…" notification: what's happening and when it ends. */
+export function focusSummary(s: FocusState, now: number, onBreak: boolean): string {
+  if (onBreak && s.breakEndsAt) return `On a break until ${clockTime(s.breakEndsAt)}`;
+  const left = remainingMs(s, now);
+  const minutes = (ms: number) => `${Math.max(1, Math.round(ms / 60_000))} min`;
+  if (s.pausedAt != null)
+    return left != null ? `Paused · ${minutes(left)} left` : `Paused · ${minutes(elapsedMs(s, now))} so far`;
+  if (left == null) return `Started ${clockTime(s.startedAt)} · open session`;
+  return `Ends at ${clockTime(now + left)} · ${minutes(left)} left`;
 }
 
 /** Re-renders every second while a session is running. */
@@ -149,11 +248,13 @@ function FocusSession({
   setState,
   expanded,
   setExpanded,
+  userId,
 }: {
   state: FocusState;
-  setState: (s: FocusState | null | ((s: FocusState) => FocusState)) => void;
+  setState: (next: (s: FocusState) => FocusState) => void;
   expanded: boolean;
   setExpanded: (v: boolean) => void;
+  userId: string;
 }) {
   const actions = useActions();
   const settings = useSettings();
@@ -206,9 +307,9 @@ function FocusSession({
         }
       }
       await actions.cancelReminder(reminderId);
-      setState(null);
+      setExpanded(false);
     },
-    [actions, state, task, setState, reminderId],
+    [actions, state, task, reminderId, setExpanded],
   );
 
   // Push "time's up" (PRD §12) even if Orbit is in the background or the phone is locked.
@@ -236,6 +337,32 @@ function FocusSession({
     }
   }, [actions, reminderId, plannedMs, pausedAt, pausedMs, breakEndsAt, startedAt, taskTitle]);
 
+  // Leaving Orbit mid-session: a quiet "Focusing on…" notification with when it ends (PRD FOC-6).
+  // Web apps can't keep a live countdown in a notification, so it states the end time instead,
+  // and is refreshed when the session changes. The time's-up push replaces it (same tag).
+  const hidden = useDocumentHidden();
+  const live = stage === "work" || stage === "break";
+  // Rounded to minutes, so the notification only changes when the text does.
+  const summary = focusSummary(state, now, stage === "break");
+  useEffect(() => {
+    if (!hidden || !live || !taskTitle) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    void navigator.serviceWorker?.ready
+      .then((r) =>
+        r.showNotification(`Focusing: ${taskTitle}`, {
+          body: summary,
+          tag: FOCUS_TAG,
+          silent: true,
+          data: { url: "/today" },
+        }),
+      )
+      .catch(() => {});
+  }, [hidden, live, taskTitle, summary]);
+  useEffect(() => {
+    if (!hidden) void closeFocusNotifications();
+  }, [hidden]);
+  useEffect(() => () => void closeFocusNotifications(), []);
+
   // A deleted task ends its session.
   useEffect(() => {
     if (task === null) void finish("abandoned");
@@ -247,17 +374,18 @@ function FocusSession({
     const key = stage === "timeUp" ? `w${state.plannedMs}` : stage === "breakOver" ? `b${state.breakEndsAt}` : null;
     if (!key || notified.current === key) return;
     notified.current = key;
-    setExpanded(true);
+    // Only the device that started or last opened the session pops up; the others keep the pill.
+    if (readHere(userId) === state.sessionId) setExpanded(true);
     try {
       navigator.vibrate?.([20, 60, 20]);
     } catch {}
     if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.hidden) {
       const body = stage === "timeUp" ? "Time's up. Keep going?" : "Break's over.";
       void navigator.serviceWorker?.ready
-        .then((r) => r.showNotification(task?.title ?? "Focus", { body, tag: "orbit-focus" }))
+        .then((r) => r.showNotification(task?.title ?? "Focus", { body, tag: FOCUS_TAG }))
         .catch(() => {});
     }
-  }, [stage, state.plannedMs, state.breakEndsAt, setExpanded, task?.title]);
+  }, [stage, state.plannedMs, state.breakEndsAt, state.sessionId, setExpanded, task?.title, userId]);
 
   // Tab title shows the timer (FOC-6).
   const clock =

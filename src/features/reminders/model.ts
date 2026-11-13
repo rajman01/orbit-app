@@ -118,7 +118,9 @@ export function dueNotifications(opts: {
   for (const r of opts.reminders) {
     if (r.status !== "pending" || r.fireAt > opts.now || opts.now - r.fireAt > 30 * 60_000) continue;
     if (r.kind === "focus_end" ? !notify.focus : quietNow) continue;
-    push({ key: `reminder:${r.id}:${r.fireAt}`, title: r.title, body: r.body, url: r.url, tag: `orbit-${r.kind}` });
+    // Focus ends share the "Focusing on…" notification's tag, so they replace it.
+    const tag = r.kind === "focus_end" ? "orbit-focus" : `orbit-${r.kind}`;
+    push({ key: `reminder:${r.id}:${r.fireAt}`, title: r.title, body: r.body, url: r.url, tag });
   }
   return out;
 }

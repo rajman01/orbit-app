@@ -159,3 +159,62 @@ export const FOCUS_PRESETS: { mode: FocusMode; minutes: number | null; label: st
   { mode: "fixed", minutes: 50, label: "50 min" },
   { mode: "open", minutes: null, label: "Open" },
 ];
+
+// ---------------------------------------------------------------- synced sessions
+
+type SessionDoc = {
+  id: string;
+  taskId: string;
+  mode: FocusMode;
+  plannedMinutes: number | null;
+  plannedMs?: number | null;
+  startedAt: number;
+  pausedAt?: number | null;
+  pausedMs?: number;
+  breakEndsAt?: number | null;
+  interruptions: number;
+};
+
+/** The timer state of a synced focus session (sessions from before Phase 1D+ fall back to minutes). */
+export function sessionToState(s: SessionDoc): FocusState {
+  return {
+    v: 1,
+    sessionId: s.id,
+    taskId: s.taskId,
+    mode: s.mode,
+    plannedMs: s.plannedMs !== undefined ? s.plannedMs : s.plannedMinutes == null ? null : s.plannedMinutes * MIN,
+    startedAt: s.startedAt,
+    pausedAt: s.pausedAt ?? null,
+    pausedMs: s.pausedMs ?? 0,
+    interruptions: s.interruptions,
+    breakEndsAt: s.breakEndsAt ?? null,
+  };
+}
+
+/** The fields to write back to the session when the timer changes. */
+export function stateFields(s: FocusState) {
+  return {
+    mode: s.mode,
+    plannedMs: s.plannedMs == null ? null : Math.round(s.plannedMs),
+    plannedMinutes: plannedMinutes(s),
+    pausedAt: s.pausedAt,
+    pausedMs: Math.round(s.pausedMs),
+    breakEndsAt: s.breakEndsAt,
+    interruptions: s.interruptions,
+  };
+}
+
+/** A session left running this long is treated as abandoned (a device that died mid-session). */
+export const STALE_SESSION_MS = 24 * 3_600_000;
+
+/** The running session to show: the most recent one not ended, unless it's stale. */
+export function activeSession<T extends { endedAt: number | null; startedAt: number; deletedAt?: number | null }>(
+  sessions: T[],
+  now: number,
+): T | null {
+  return (
+    sessions
+      .filter((s) => s.endedAt == null && s.deletedAt == null && now - s.startedAt < STALE_SESSION_MS)
+      .sort((a, b) => b.startedAt - a.startedAt)[0] ?? null
+  );
+}

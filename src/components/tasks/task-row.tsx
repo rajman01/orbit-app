@@ -57,6 +57,7 @@ export function TaskRow({
   const skip = useSkipFlow();
   const focus = useFocus();
   const todayDay = useToday();
+  const focusing = focus.active?.taskId === task.id;
   const done = task.status === "done";
   const overdue = isOpen(task) && task.dueDate != null && task.dueDate < todayDay;
   const code = taskCode(task);
@@ -141,7 +142,21 @@ export function TaskRow({
         ) : null}
         {area ? <AreaDot color={area.color} /> : null}
       </div>
-      {showStart && !done ? (
+      {focusing ? (
+        // The session for this task is running (maybe minimised, maybe on another device).
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            focus.open();
+          }}
+          aria-label={`Continue ${task.title}`}
+          className="ml-1 flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3 text-footnote font-semibold text-on-accent hover:brightness-95"
+        >
+          <span className="size-1.5 animate-pulse rounded-full bg-current motion-reduce:animate-none" aria-hidden />
+          Continue
+        </button>
+      ) : showStart && !done ? (
         <button
           type="button"
           onClick={(e) => {

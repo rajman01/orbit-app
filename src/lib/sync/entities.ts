@@ -241,6 +241,18 @@ export const entitySchemas = {
       .max(24 * 60),
     outcome: z.enum(["done", "progress", "stuck", "abandoned"]).nullable(),
     interruptions: z.number().int().min(0).max(10000),
+    // The live timer, synced so every device shows (and can control) a running session.
+    // Optional: sessions from before this change only have the fields above.
+    plannedMs: z
+      .number()
+      .int()
+      .min(0)
+      .max(48 * 3_600_000)
+      .nullable()
+      .optional(),
+    pausedAt: ms.nullable().optional(),
+    pausedMs: z.number().int().min(0).optional(),
+    breakEndsAt: ms.nullable().optional(),
   }),
 } as const;
 

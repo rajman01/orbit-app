@@ -256,3 +256,51 @@ test("a long subtask wraps instead of being cut off", async ({ page }) => {
     .getByRole("region", { name: "Subtasks" })
     .screenshot({ path: `test-results/long-subtask-${test.info().project.name}.png` });
 });
+
+test("a focus session shows on every device and can be controlled from any of them", async ({
+  page,
+  context,
+  browser,
+}, info) => {
+  test.skip(info.project.name === "phone", "Uses two browser contexts; once is enough");
+  test.setTimeout(120_000);
+  const r = run();
+  const title = `Shared focus ${r}`;
+  await page.goto("/today");
+  await waitForSynced(page);
+  await addToday(page, title);
+  await page.getByRole("button", { name: `Open ${title}` }).click();
+  await page.getByRole("button", { name: "Start focus" }).click();
+  const focusA = page.getByRole("dialog", { name: `Focus: ${title}` });
+  await expect(focusA).toBeVisible();
+
+  // Minimised, the task offers Continue, not Start.
+  await focusA.getByRole("button", { name: "Minimise" }).click();
+  await expect(focusA).toHaveCount(0);
+  await expect(page.getByRole("button", { name: `Continue ${title}` })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Start ${title}` })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: `Continue: ${title}` })).toBeVisible();
+  await waitForSynced(page);
+
+  // The laptop sees it too, and pauses it.
+  const other = await browser.newContext();
+  await other.addCookies(await context.cookies());
+  const laptop = await other.newPage();
+  await laptop.goto("/today");
+  await laptop.getByRole("button", { name: `Continue ${title}` }).click({ timeout: 20_000 });
+  const focusB = laptop.getByRole("dialog", { name: `Focus: ${title}` });
+  await focusB.getByRole("button", { name: "Pause" }).click();
+  await expect(focusB.getByText("Paused")).toBeVisible();
+
+  // Within a few seconds the first device shows it paused.
+  await page.getByRole("button", { name: `Continue ${title}` }).click();
+  await expect(focusA.getByText("Paused")).toBeVisible({ timeout: 15_000 });
+
+  // Ending it on the first device closes it on the laptop.
+  await focusA.getByRole("button", { name: "End" }).click();
+  await focusA.getByRole("button", { name: "Just stop" }).click();
+  await expect(focusA).toHaveCount(0);
+  await expect(focusB).toHaveCount(0, { timeout: 15_000 });
+  await expect(laptop.getByRole("button", { name: `Continue ${title}` })).toHaveCount(0);
+  await other.close();
+});
