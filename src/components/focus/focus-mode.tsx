@@ -535,7 +535,12 @@ function FocusOverlay({
         backgroundImage: `radial-gradient(ellipse at 50% 20%, color-mix(in srgb, ${areaColorVar(area?.color ?? "indigo")} 9%, transparent), transparent 65%)`,
       }}
       initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.98, filter: "blur(8px)" }}
-      animate={reduced ? { opacity: 1 } : { opacity: 1, scale: 1, filter: "blur(0px)" }}
+      // A leftover filter would anchor the fixed controls to this scrolling layer, so clear them.
+      animate={
+        reduced
+          ? { opacity: 1 }
+          : { opacity: 1, scale: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }
+      }
       exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.98, filter: "blur(8px)" }}
       transition={reduced ? { duration: 0.2 } : { type: "spring", bounce: 0, duration: 0.4 }}
     >
@@ -567,7 +572,7 @@ function FocusOverlay({
         ) : null}
       </header>
 
-      <div className="relative mx-auto flex w-full max-w-xl flex-1 flex-col items-center px-4 pt-6 pb-40 text-center">
+      <div className="relative mx-auto flex w-full max-w-xl flex-1 flex-col items-center px-4 pt-4 pb-44 text-center sm:pt-6">
         <TimerRing
           progress={progress}
           label={stage === "timeUp" ? "Time's up" : clock}
@@ -575,7 +580,7 @@ function FocusOverlay({
         />
 
         {stage === "work" ? (
-          <div className="mt-5">
+          <div className="mt-4 sm:mt-5">
             <Segmented
               label="Session length"
               value={presetValue}
@@ -591,16 +596,16 @@ function FocusOverlay({
           </div>
         ) : null}
 
-        <h2 className="mt-8 text-title1 text-balance">{task.title}</h2>
-        {task.nextStep ? <p className="mt-2 text-title3 font-normal text-label-secondary">↳ {task.nextStep}</p> : null}
+        <h2 className="mt-6 text-title2 text-balance sm:mt-8 sm:text-title1">{task.title}</h2>
+        {task.nextStep ? <p className="mt-2 text-body sm:text-title3 font-normal text-label-secondary">↳ {task.nextStep}</p> : null}
 
-        <div className="mt-8 w-full text-left">
+        <div className="mt-6 w-full text-left sm:mt-8">
           <FocusSubtasks task={task} />
           <Scratchpad task={task} />
         </div>
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),1.25rem)]">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-bg from-60% to-transparent px-4 pt-10 pb-[max(env(safe-area-inset-bottom),1.25rem)]">
         <div className="pointer-events-auto w-full max-w-md">
           {stage === "outcome" ? (
             <OutcomePanel onFinish={onFinish} onBack={onCancelEnd} />
@@ -625,7 +630,7 @@ function FocusOverlay({
           ) : stage === "break" ? (
             <PromptPanel title="On a break" actions={[{ label: "Skip break", onClick: onKeepGoing, primary: true }]} />
           ) : (
-            <div className="mx-auto flex w-fit items-center gap-1 rounded-full p-1.5 shadow-2 material-thin">
+            <div className="mx-auto grid w-full grid-flow-col auto-cols-fr items-center gap-1 rounded-2xl p-1.5 shadow-2 material-thin sm:flex sm:w-fit sm:rounded-full">
               <PillButton
                 label={paused ? "Resume" : "Pause"}
                 icon={paused ? <Play className="size-4" /> : <Pause className="size-4" />}
@@ -677,8 +682,8 @@ function TimerRing({ progress, label, sub }: { progress: number; label: string; 
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   return (
-    <div className="relative grid place-items-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90" aria-hidden>
+    <div className="relative grid size-[200px] shrink-0 place-items-center sm:size-[240px]">
+      <svg viewBox={`0 0 ${size} ${size}`} className="size-full -rotate-90" aria-hidden>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--fill)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
@@ -720,7 +725,7 @@ function PillButton({ label, icon, onClick }: { label: string; icon: React.React
       onClick={onClick}
       whileTap={{ scale: 0.95 }}
       transition={{ duration: 0.1, ease: "easeOut" }}
-      className="flex h-11 items-center gap-1.5 rounded-full px-4 text-callout font-semibold hover:bg-fill active:bg-fill-strong"
+      className="flex h-14 flex-col items-center justify-center gap-0.5 rounded-xl px-2 text-caption font-semibold whitespace-nowrap hover:bg-fill active:bg-fill-strong sm:h-11 sm:flex-row sm:gap-1.5 sm:rounded-full sm:px-4 sm:text-callout"
     >
       {icon}
       {label}

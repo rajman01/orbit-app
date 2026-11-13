@@ -304,3 +304,35 @@ test("a focus session shows on every device and can be controlled from any of th
   await expect(laptop.getByRole("button", { name: `Continue ${title}` })).toHaveCount(0);
   await other.close();
 });
+
+test("focus mode fits a phone screen: controls stay inside it and notes stay readable", async ({ page }, info) => {
+  const r = run();
+  const title = `Apply for a masters programme ${r}`;
+  await page.goto("/today");
+  await waitForSynced(page);
+  await addToday(page, title);
+  await page.getByRole("button", { name: `Open ${title}` }).click();
+  await page.getByRole("button", { name: "Start focus" }).click();
+  const focus = page.getByRole("dialog", { name: `Focus: ${title}` });
+  await expect(focus).toBeVisible();
+  await focus.getByRole("textbox").fill(Array.from({ length: 12 }, (_, i) => `Note line ${i + 1}`).join("\n\n"));
+
+  // Every control is fully on screen, on one line.
+  const width = page.viewportSize()!.width;
+  for (const name of ["Pause", "+5 min", "Done", "End"]) {
+    const box = (await focus.getByRole("button", { name, exact: true }).boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+  }
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `test-results/focus-layout-${info.project.name}.png` });
+  await focus.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `test-results/focus-layout-${info.project.name}-end.png` });
+  // The controls stay pinned to the bottom of the screen while the notes scroll.
+  const bar = (await focus.getByRole("button", { name: "End", exact: true }).boundingBox())!;
+  expect(page.viewportSize()!.height - (bar.y + bar.height)).toBeLessThan(80);
+  await focus.getByRole("button", { name: "End", exact: true }).click();
+  await focus.getByRole("button", { name: "Just stop" }).click();
+  await expect(focus).toHaveCount(0);
+});
