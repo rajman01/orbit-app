@@ -102,7 +102,7 @@ test("block time for a task, drag it on the calendar, and see moves in Google co
   const box = (await block.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + 10);
   await page.mouse.down();
-  for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2, box.y + 10 + i * 12);
+  for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2, box.y + 10 + i * 13);
   await page.mouse.up();
   await expect(block).toHaveAccessibleName(`Time block: ${title}, 12:00 PM to 1:00 PM`);
   await expect
@@ -136,9 +136,9 @@ test("on a phone, the calendar shows one day; tap an empty time to block it", as
 
   const day = page.locator('[role="group"][aria-label]').first();
   await day.evaluate((el) => {
-    el.closest(".overflow-y-auto")!.scrollTop = 13 * 48;
+    el.closest(".overflow-y-auto")!.scrollTop = 13 * 52;
   });
-  await day.click({ position: { x: 40, y: 14 * 48 + 10 } });
+  await day.click({ position: { x: 40, y: 14 * 52 + 10 } });
   const dialog = page.getByRole("dialog", { name: "Block time" });
   await dialog.getByPlaceholder(/Find a task/).fill(title);
   await expect(dialog.getByLabel("Starts")).toHaveValue("14:00");
@@ -195,9 +195,9 @@ test("the calendar feed link serves time blocks and can be reset", async ({ page
   await page.goto("/calendar");
   const group = page.locator('[role="group"][aria-label]').first();
   await group.evaluate((el) => {
-    el.closest(".overflow-y-auto")!.scrollTop = 13 * 48;
+    el.closest(".overflow-y-auto")!.scrollTop = 13 * 52;
   });
-  await group.click({ position: { x: 20, y: 14 * 48 + 10 } });
+  await group.click({ position: { x: 20, y: 14 * 52 + 10 } });
   const dialog = page.getByRole("dialog", { name: "Block time" });
   await dialog.getByPlaceholder(/Find a task/).fill(title);
   await dialog.getByRole("button", { name: "Block time" }).click();
