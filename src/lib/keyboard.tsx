@@ -30,12 +30,18 @@ export function KeyboardWatcher() {
         const typing = isTypingField(document.activeElement);
         if (!typing) baseline = Math.max(height(), window.innerHeight);
         const open = typing && (vv ? baseline - height() > 120 : true);
-        document.documentElement.dataset.keyboard = open ? "open" : "closed";
+        const root = document.documentElement;
+        root.dataset.keyboard = open ? "open" : "closed";
+        // Where the visible area is: full-screen views pin themselves to it while typing, so iOS
+        // scrolling the page up for the keyboard doesn't carry their heading away (.keyboard-fit).
+        root.style.setProperty("--vv-height", `${Math.round(height())}px`);
+        root.style.setProperty("--vv-top", `${Math.round(vv?.offsetTop ?? 0)}px`);
       });
     };
     document.addEventListener("focusin", update);
     document.addEventListener("focusout", update);
     vv?.addEventListener("resize", update);
+    vv?.addEventListener("scroll", update);
     window.addEventListener("resize", update);
     update();
     return () => {
@@ -43,6 +49,7 @@ export function KeyboardWatcher() {
       document.removeEventListener("focusin", update);
       document.removeEventListener("focusout", update);
       vv?.removeEventListener("resize", update);
+      vv?.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
       delete document.documentElement.dataset.keyboard;
     };

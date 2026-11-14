@@ -261,7 +261,7 @@ function Composer({
   };
   return (
     <form
-      className="border-t border-separator px-3 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]"
+      className="border-t border-separator px-3 pt-2 pb-3"
       onSubmit={(e) => {
         e.preventDefault();
         submit();

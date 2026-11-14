@@ -33,7 +33,7 @@ export function CoachView() {
   const prompt = useMemo(() => (askText ? { text: askText, n: 1 } : null), [askText]);
 
   return (
-    <div className="flex h-[calc(100dvh-var(--tabbar-space))] lg:h-dvh">
+    <div className="keyboard-fit flex h-[calc(100dvh-var(--tabbar-space))] bg-bg lg:h-dvh">
       <aside
         className={cn("w-full flex-col border-separator lg:flex lg:w-72 lg:border-r", showChat ? "hidden" : "flex")}
       >

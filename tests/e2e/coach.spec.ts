@@ -255,3 +255,32 @@ test("a ritual can be run with the coach instead", async ({ page }, info) => {
     page.getByRole("dialog", { name: "Coach" }).getByText(/You said: Let's do my Daily Plan together/),
   ).toBeVisible({ timeout: 15_000 });
 });
+
+test("on a phone, the chat box sits just above the tab bar, and the heading stays put while typing", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== "phone", "Only phones have an on-screen keyboard");
+  await page.goto("/coach?new=1");
+  const box = page.getByRole("textbox", { name: "Message the coach" });
+  const form = page.locator("form").filter({ has: box });
+  const heading = page.getByRole("heading", { name: "New chat" });
+  const tabBar = page.locator("nav[data-hide-on-keyboard]");
+  await expect(box).toBeVisible();
+  // No extra gap: the tab bar already leaves room for the home indicator.
+  const gap = (await tabBar.boundingBox())!.y - ((await form.boundingBox())!.y + (await form.boundingBox())!.height);
+  expect(gap).toBeLessThan(32);
+
+  // Keyboard up: the visible area shrinks. The heading stays at the top, the box right above the keyboard.
+  const size = page.viewportSize()!;
+  await box.focus();
+  const visible = Math.round(size.height * 0.55);
+  await page.setViewportSize({ width: size.width, height: visible });
+  await expect(tabBar).toBeHidden();
+  const h = (await heading.boundingBox())!;
+  expect(h.y).toBeGreaterThanOrEqual(0);
+  expect(h.y).toBeLessThan(80);
+  const f = (await form.boundingBox())!;
+  expect(f.y + f.height).toBeLessThanOrEqual(visible + 1);
+  expect(f.y + f.height).toBeGreaterThan(visible - 24);
+  await page.setViewportSize(size);
+});

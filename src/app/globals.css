@@ -110,6 +110,19 @@ html[data-keyboard="open"] [data-hide-on-keyboard] {
   display: none !important;
 }
 
+/*
+ * Full-screen views with a text box (the coach chat): while the keyboard is up, fill exactly the
+ * visible area, wherever iOS has scrolled it, so the heading stays at the top and the box sits on
+ * the keyboard. (lib/keyboard.tsx keeps --vv-top and --vv-height current.)
+ */
+html[data-keyboard="open"] .keyboard-fit {
+  position: fixed;
+  inset-inline: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-height, 100dvh);
+  z-index: 30;
+}
+
 @layer base {
   html {
     font-family: var(--font-sans);
