@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, Flame, Moon, Sunrise } from "lucide-react";
+import { CalendarCheck, CalendarRange, Flag, Flame, Moon, Sunrise } from "lucide-react";
 import { useRitualLauncher } from "@/components/rituals/ritual-flow";
 import {
   dueRituals,
@@ -10,7 +10,8 @@ import {
   timeOfDay,
   type RitualType,
 } from "@/features/cycles/model";
-import { useCycles, useRituals, useSettings } from "@/features/data";
+import { useCycles, useQuarters, useRituals, useSettings } from "@/features/data";
+import { dueQuarterRituals, quarterLabel } from "@/features/quarters/model";
 import { defaultSettings } from "@/features/settings/model";
 import { useMinuteNow, useToday } from "@/features/use-today";
 
@@ -18,6 +19,8 @@ const ICONS: Record<RitualType, typeof Sunrise> = {
   daily_plan: Sunrise,
   daily_shutdown: Moon,
   cycle_review: CalendarCheck,
+  quarterly_plan: CalendarRange,
+  quarterly_review: Flag,
 };
 
 /** PRD RIT-4: rituals that are due stay pinned at the top of Today until they're done. */
@@ -28,15 +31,58 @@ export function RitualCards() {
   const rituals = useRituals();
   const cycles = useCycles();
   const launcher = useRitualLauncher();
-  if (!rituals || !cycles) return null;
+  const quarters = useQuarters();
+  if (!rituals || !cycles || !quarters) return null;
 
   const times = settings.ritualTimes ?? defaultSettings().ritualTimes!;
-  const due = dueRituals({ rituals, cycles, today: todayDay, time: timeOfDay(now, settings.timezone), times });
-  if (!due.length) return null;
+  const time = timeOfDay(now, settings.timezone);
+  const due = dueRituals({ rituals, cycles, today: todayDay, time, times });
+  const quarterly = dueQuarterRituals({ quarters, today: todayDay, time, reviewTime: times.review });
+  if (!due.length && !quarterly.length) return null;
   const skippedShutdown = missedShutdown(rituals, todayDay);
 
   return (
     <section aria-label="Rituals" className="mb-4 flex flex-col gap-2">
+      {quarterly.map((r) => {
+        const Icon = ICONS[r.type];
+        const started = rituals.find((x) => x.type === r.type && x.date === r.date && !x.completedAt);
+        const title = `${r.type === "quarterly_plan" ? "Plan" : "Review"} ${quarterLabel(r.quarter)}`;
+        const note =
+          r.type === "quarterly_review"
+            ? r.missed
+              ? "Overdue — it blocks planning the next quarter"
+              : `About ${RITUAL_META.quarterly_review.minutes} min`
+            : r.short
+              ? "A short plan for the weeks left · about 15 min"
+              : `About ${RITUAL_META.quarterly_plan.minutes} min`;
+        return (
+          <button
+            key={`${r.type}${r.date}`}
+            type="button"
+            onClick={() => void launcher.open(r.type, { date: r.date, quarter: r.quarter })}
+            className="flex items-center gap-3 rounded-xl border border-separator bg-surface p-3 text-left shadow-1 hover:bg-fill active:scale-[0.99] dark:bg-surface-raised"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-fill text-accent-text">
+              <Icon className="size-5" strokeWidth={1.75} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-headline">{title}</span>
+              <span
+                className={
+                  r.missed
+                    ? "block text-footnote font-medium text-warning-text"
+                    : "block text-footnote text-label-secondary"
+                }
+              >
+                {note}
+              </span>
+            </span>
+            <span className="shrink-0 rounded-full bg-accent px-3.5 py-1.5 text-footnote font-semibold text-on-accent">
+              {started && typeof started.data.step === "number" && started.data.step > 0 ? "Resume" : "Start"}
+            </span>
+          </button>
+        );
+      })}
       {due.map((r) => {
         const Icon = ICONS[r.type];
         const meta = RITUAL_META[r.type];

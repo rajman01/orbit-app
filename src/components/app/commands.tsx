@@ -78,6 +78,7 @@ const GO: Record<string, string> = {
   p: "/people",
   q: "/quarter",
   v: "/vision",
+  y: "/year",
 };
 
 /** Quick Add, ⌘K palette and Linear-style keyboard shortcuts (PRD CMD-1 – CMD-3, INB-1). */
@@ -448,6 +449,7 @@ function Palette({
                         ["People", "/people", Users, "G P"],
                         ["Quarter", "/quarter", CalendarRange, "G Q"],
                         ["Vision", "/vision", Telescope, "G V"],
+                        ["Year", "/year", CalendarRange, "G Y"],
                         ["Cycle", "/cycle", CalendarSync, "G C"],
                         ["Settings", "/settings", Settings, "G S"],
                       ].map(([label, href, Icon, keys]) => {
@@ -549,6 +551,7 @@ const SHORTCUTS: [string, string[]][] = [
   ["Go to People", ["G", "P"]],
   ["Go to Quarter", ["G", "Q"]],
   ["Go to Vision", ["G", "V"]],
+  ["Go to Year", ["G", "Y"]],
   ["Go to Settings", ["G", "S"]],
   ["Next / previous task", ["J", "K"]],
   ["Open task", ["Enter"]],

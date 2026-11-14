@@ -69,7 +69,13 @@ export function focusXp(actualMinutes: number): number {
   return Math.floor(actualMinutes / 25) * 15;
 }
 
-export const RITUAL_XP = { daily_plan: 20, daily_shutdown: 20, cycle_review: 100 } as const;
+export const RITUAL_XP = {
+  daily_plan: 20,
+  daily_shutdown: 20,
+  cycle_review: 100,
+  quarterly_plan: 100,
+  quarterly_review: 150,
+} as const;
 
 /** 5 XP, with a streak multiplier rising to 2× at 30 days. */
 export function habitXp(streakDays: number): number {

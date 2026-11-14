@@ -588,13 +588,28 @@ export function createActions(engine: SyncEngine, userId: string) {
     // ------------------------------------------------------------ rituals (Phase 1C)
 
     /** Starts (or resumes) a ritual. One per type per day, the same id on every device. */
-    async startRitual(type: RitualType, date: string, cycle: Pick<Cycle, "id"> | null = null) {
+    async startRitual(
+      type: RitualType,
+      date: string,
+      cycle: Pick<Cycle, "id"> | null = null,
+      quarter: QuarterRef | null = null,
+    ) {
       const id = ritualId(userId, type, date);
       const existing = await db.rituals.get(id);
       if (existing && !existing.deletedAt) return id;
+      // A ritual for a quarter needs the quarter's document to point at.
+      const qid = quarter ? await actions.ensureQuarter(quarter) : null;
       await engine.create(
         "rituals",
-        { type, date, cycleId: cycle?.id ?? null, startedAt: now(), completedAt: null, data: { step: 0 } },
+        {
+          type,
+          date,
+          cycleId: cycle?.id ?? null,
+          ...(qid ? { quarterId: qid } : {}),
+          startedAt: now(),
+          completedAt: null,
+          data: { step: 0 },
+        },
         id,
       );
       return id;
@@ -612,7 +627,13 @@ export function createActions(engine: SyncEngine, userId: string) {
       if (!r) return;
       const data = { ...r.data, ...patch };
       await engine.update("rituals", id, { data, completedAt: now() });
-      const names = { daily_plan: "Daily Plan", daily_shutdown: "Daily Shutdown", cycle_review: "Cycle Review" };
+      const names = {
+        daily_plan: "Daily Plan",
+        daily_shutdown: "Daily Shutdown",
+        cycle_review: "Cycle Review",
+        quarterly_plan: "Quarterly Plan",
+        quarterly_review: "Quarterly Review",
+      };
       await award("ritual", id, RITUAL_XP[r.type], `${names[r.type]} completed`);
       const wins = Array.isArray(data.wins) ? (data.wins as unknown[]).filter((w) => typeof w === "string" && w) : [];
       for (const [i, w] of wins.slice(0, 3).entries())
@@ -793,6 +814,18 @@ export function createActions(engine: SyncEngine, userId: string) {
     async setQuarterGoals(ref: QuarterRef, goalIds: string[]) {
       await actions.updateQuarter(ref, { goalIds: [...new Set(goalIds)].slice(0, 10) });
     },
+    /** QTR-2: the explicit commitment at the end of the Quarterly Plan. */
+    commitQuarter: (ref: QuarterRef, opts: { goalIds: string[]; theme: string | null }) =>
+      actions.updateQuarter(ref, {
+        goalIds: [...new Set(opts.goalIds)].slice(0, 10),
+        theme: opts.theme?.trim() || null,
+        committedAt: now(),
+      }),
+    /** QTR-4: plan the next quarter anyway (Firm), with a reason. */
+    overrideQuarterPlanning: (ref: QuarterRef, reason: string) =>
+      actions.updateQuarter(ref, { planningOverride: reason.trim().slice(0, 500) }),
+    completeQuarterReview: (ref: QuarterRef, reflection: string | null) =>
+      actions.updateQuarter(ref, { reviewCompletedAt: now(), reflection: reflection?.trim() || null }),
 
     // ------------------------------------------------------------ people (Phase 2C)
 

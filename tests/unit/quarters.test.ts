@@ -7,6 +7,9 @@ import { coachContext, runCoachTool } from "@/features/coach/device";
 import {
   addQuarters,
   cyclesInQuarter,
+  dueQuarterRituals,
+  monthsLeft,
+  quarterPlanningGate,
   elapsedShare,
   newQuarterFields,
   pace,
@@ -20,6 +23,8 @@ import {
   yearTheme,
 } from "@/features/quarters/model";
 import { openLocalDb } from "@/lib/local-db/db";
+import { dueNotifications } from "@/features/reminders/model";
+import { ritualId } from "@/features/cycles/model";
 import { SyncEngine } from "@/lib/sync/engine";
 import { applyMutations } from "@/lib/sync/server";
 
@@ -160,5 +165,96 @@ describe("quarters on the server", () => {
       await client.close();
       await mongod.stop();
     }
+  });
+});
+
+describe("quarterly rituals (QTR-2, QTR-4, RIT-7)", () => {
+  const q = (year: number, n: number, f: Record<string, unknown> = {}) => ({
+    year,
+    q: n,
+    committedAt: null,
+    reviewCompletedAt: null,
+    planningOverride: null,
+    ...f,
+  });
+  const due = (quarters: ReturnType<typeof q>[], today: string, time = "09:00") =>
+    dueQuarterRituals({ quarters, today, time, reviewTime: "18:00" }).map(
+      (r) => `${r.type}:${r.quarter.year}Q${r.quarter.q}${r.short ? ":short" : ""}${r.missed ? ":missed" : ""}`,
+    );
+
+  it("offers a short plan partway through, the next quarter's plan in the last week, and the review at the end", () => {
+    expect(due([], "2026-11-14")).toEqual(["quarterly_plan:2026Q4:short"]);
+    expect(due([], "2026-10-05")).toEqual(["quarterly_plan:2026Q4"]);
+    expect(due([q(2026, 4, { committedAt: 1 })], "2026-11-14")).toEqual([]);
+    // Two weeks left: too late to plan this one; the last week offers the next.
+    expect(due([], "2026-12-20")).toEqual([]);
+    expect(due([q(2026, 4, { committedAt: 1 })], "2026-12-26")).toEqual(["quarterly_plan:2027Q1"]);
+    // Review on the last day after the review time, and every day after.
+    expect(due([q(2026, 4, { committedAt: 1 }), q(2027, 1, { committedAt: 1 })], "2026-12-31", "17:00")).toEqual([]);
+    expect(due([q(2026, 4, { committedAt: 1 }), q(2027, 1, { committedAt: 1 })], "2026-12-31", "18:30")).toEqual([
+      "quarterly_review:2026Q4",
+    ]);
+    expect(due([q(2026, 4, { committedAt: 1 }), q(2027, 1, { committedAt: 1 })], "2027-01-03")).toEqual([
+      "quarterly_review:2026Q4:missed",
+    ]);
+    // An unplanned quarter has nothing to review.
+    expect(due([], "2027-01-03")).toEqual(["quarterly_plan:2027Q1"]);
+    expect(ritualId("u1", "quarterly_plan", "2026-10-01")).toBe("rq20261001u1");
+  });
+
+  it("an unreviewed planned quarter blocks planning the next one (Firm can override)", () => {
+    const planned = [q(2026, 4, { committedAt: 1 })];
+    const target = { year: 2027, q: 1 };
+    expect(quarterPlanningGate(planned, target, "2027-01-02", "gentle")).toEqual({ blocked: false });
+    expect(quarterPlanningGate(planned, target, "2027-01-02", "strict")).toMatchObject({
+      blocked: true,
+      canOverride: false,
+      quarter: { year: 2026, q: 4 },
+    });
+    expect(quarterPlanningGate(planned, target, "2027-01-02", "firm")).toMatchObject({
+      blocked: true,
+      canOverride: true,
+    });
+    expect(
+      quarterPlanningGate([...planned, q(2027, 1, { planningOverride: "Travelling" })], target, "2027-01-02", "firm"),
+    ).toEqual({ blocked: false });
+    // Planning ahead in the last week, and on review day itself, isn't blocked.
+    expect(quarterPlanningGate(planned, target, "2026-12-31", "strict")).toEqual({ blocked: false });
+    expect(
+      quarterPlanningGate([q(2026, 4, { committedAt: 1, reviewCompletedAt: 2 })], target, "2027-01-02", "strict"),
+    ).toEqual({
+      blocked: false,
+    });
+  });
+
+  it("lists the months left for milestones", () => {
+    expect(monthsLeft({ year: 2026, q: 4 }, "2026-11-14").map((m) => m.end)).toEqual(["2026-11-30", "2026-12-31"]);
+    expect(monthsLeft({ year: 2027, q: 1 }, "2026-12-28").map((m) => m.end)).toEqual([
+      "2027-01-31",
+      "2027-02-28",
+      "2027-03-31",
+    ]);
+  });
+
+  it("reminds on the first day, a week before the next, and on review day", () => {
+    const base = {
+      settings: { timezone: "UTC" },
+      rituals: [],
+      cycles: [],
+      habits: [],
+      habitLogs: [],
+      reminders: [],
+      dueTodayCount: 0,
+      sent: new Set<string>(),
+    };
+    const keys = (day: string, time: string, quarters: ReturnType<typeof q>[]) =>
+      dueNotifications({ ...base, now: Date.parse(`${day}T${time}:00Z`), quarters: quarters as never })
+        .map((n) => n.key)
+        .filter((k) => k.startsWith("q"));
+    expect(keys("2027-01-01", "07:30", [])).toEqual(["qplan:20271"]);
+    expect(keys("2027-01-01", "07:30", [q(2027, 1, { committedAt: 1 })])).toEqual([]);
+    expect(keys("2026-12-25", "07:30", [])).toEqual(["qplan:20271"]);
+    expect(keys("2026-12-31", "18:00", [q(2026, 4, { committedAt: 1 })])).toEqual(["qreview:20264"]);
+    expect(keys("2026-12-31", "18:00", [q(2026, 4)])).toEqual([]);
   });
 });

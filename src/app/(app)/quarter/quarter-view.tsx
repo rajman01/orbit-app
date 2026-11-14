@@ -7,7 +7,9 @@ import { useMemo, useState } from "react";
 import { PageBody } from "@/components/app/app-shell";
 import { SyncIndicator } from "@/components/app/sync-indicator";
 import { SectionLabel } from "@/components/tasks/task-list";
-import { IconButton } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
+import { useRitualLauncher } from "@/components/rituals/ritual-flow";
+import { useRituals } from "@/features/data";
 import { Picker } from "@/components/ui/picker";
 import { Pill } from "@/components/ui/pill";
 import { useActions } from "@/features/actions";
@@ -54,7 +56,7 @@ export function QuarterView() {
       <header className="mx-auto flex w-full max-w-[880px] flex-col gap-1 px-4 pt-[max(env(safe-area-inset-top),1.25rem)] pb-4 lg:px-6 lg:pt-8">
         <div className="flex items-center justify-between gap-2">
           <nav className="flex items-center gap-1 text-footnote text-label-secondary" aria-label="Breadcrumb">
-            <Link href="/vision" className="hover:text-label">
+            <Link href={`/year?y=${ref.year}`} className="hover:text-label">
               {ref.year}
               {theme ? ` · ${theme}` : ""}
             </Link>
@@ -81,6 +83,7 @@ export function QuarterView() {
           {fmt(quarter.dates.startDate)} – {fmt(quarter.dates.endDate)}
           {past ? " · ended" : future ? "" : ` · ${left} day${left === 1 ? "" : "s"} left`}
         </p>
+        <QuarterRituals quarter={quarter} />
       </header>
       <PageBody>
         <QuarterBody key={quarter.id + (quarter.doc ? "1" : "0")} quarter={quarter} future={future} />
@@ -277,5 +280,46 @@ function QuarterGoalRow({ item, showPace, onRemove }: { item: QuarterGoal; showP
         className="opacity-100 lg:opacity-0 lg:group-focus-within:opacity-100 lg:group-hover:opacity-100"
       />
     </li>
+  );
+}
+
+/** QTR-2 / QTR-4: plan the quarter, see the commitment, or review it once it ends. */
+function QuarterRituals({ quarter }: { quarter: NonNullable<ReturnType<typeof useQuarter>> }) {
+  const launcher = useRitualLauncher();
+  const todayDay = useToday();
+  const rituals = useRituals() ?? [];
+  const { doc, ref, dates } = quarter;
+  const label = quarterLabel(ref);
+  const left = quarterDaysLeft(dates, todayDay);
+  const reviewable = doc?.committedAt && !doc.reviewCompletedAt && dates.endDate <= todayDay;
+  const plan = () => void launcher.open("quarterly_plan", { date: dates.startDate, quarter: ref });
+  const reviewDone = rituals.find((r) => r.type === "quarterly_review" && r.date === dates.endDate && r.completedAt);
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {reviewable ? (
+        <Button onClick={() => void launcher.open("quarterly_review", { date: dates.endDate, quarter: ref })}>
+          Review {label}
+        </Button>
+      ) : null}
+      {!doc?.committedAt && dates.endDate >= todayDay && left >= 1 ? (
+        <Button variant={reviewable ? "secondary" : "primary"} onClick={plan}>
+          Plan {label}
+        </Button>
+      ) : null}
+      {doc?.committedAt ? (
+        <span className="text-footnote text-label-secondary">
+          Committed {new Date(doc.committedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+          {doc.reviewCompletedAt || reviewDone ? " · reviewed" : ""}
+          {dates.endDate >= todayDay ? (
+            <>
+              {" · "}
+              <button type="button" onClick={plan} className="font-semibold text-accent-text">
+                Plan again
+              </button>
+            </>
+          ) : null}
+        </span>
+      ) : null}
+    </div>
   );
 }

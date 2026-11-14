@@ -4,6 +4,8 @@ import { defaultSettings, type Settings } from "@/features/settings/model";
 import { dayOf, type Day } from "@/lib/dates";
 import type { SyncedDoc } from "@/lib/sync/entities";
 import { dateTitle, formatPersonDate, upcomingDates } from "@/features/people/model";
+import { addQuarters, quarterDates, quarterLabel, quarterOf } from "@/features/quarters/model";
+import { addDays } from "@/lib/dates";
 
 type Ritual = Pick<SyncedDoc<"rituals">, "type" | "date" | "completedAt">;
 type Cycle = Pick<SyncedDoc<"cycles">, "id" | "number" | "endDate" | "reviewCompletedAt">;
@@ -52,6 +54,8 @@ export function dueNotifications(opts: {
   dueTodayCount: number;
   /** Phase 2C.2: people with important dates. */
   people?: Person[];
+  /** Phase 2D.2: quarters, for the Quarterly Plan and Review. */
+  quarters?: Pick<SyncedDoc<"quarters">, "year" | "q" | "committedAt" | "reviewCompletedAt">[];
   sent: Set<string>;
 }): Notification[] {
   const defaults = defaultSettings();
@@ -116,6 +120,41 @@ export function dueNotifications(opts: {
           tag: `orbit-habit-${h.id}`,
         });
       }
+    }
+    // RIT-7: plan the quarter on its first day (and the next one a week before it starts), review it
+    // on its last day.
+    if (notify.review) {
+      const now = quarterOf(today);
+      const nowDates = quarterDates(now);
+      const next = addQuarters(now, 1);
+      const doc = (r: { year: number; q: number }) => opts.quarters?.find((x) => x.year === r.year && x.q === r.q);
+      if (within(time, times.plan, 3)) {
+        if (today === nowDates.startDate && !doc(now)?.committedAt)
+          push({
+            key: `qplan:${now.year}${now.q}`,
+            title: `Plan ${quarterLabel(now)}`,
+            body: "A new quarter: choose the 3–5 goals that matter most.",
+            url: "/quarter",
+            tag: "orbit-quarter",
+          });
+        if (today === addDays(nowDates.endDate, -6) && !doc(next)?.committedAt)
+          push({
+            key: `qplan:${next.year}${next.q}`,
+            title: `${quarterLabel(next)} starts in a week`,
+            body: "Plan it when you're ready: the few goals that matter most.",
+            url: `/quarter?q=${next.year}-Q${next.q}`,
+            tag: "orbit-quarter",
+          });
+      }
+      const d = doc(now);
+      if (today === nowDates.endDate && within(time, times.review, 4) && d?.committedAt && !d.reviewCompletedAt)
+        push({
+          key: `qreview:${now.year}${now.q}`,
+          title: `Review ${quarterLabel(now)}`,
+          body: "Results, a decision on each unfinished goal, then the next quarter.",
+          url: "/today",
+          tag: "orbit-quarter",
+        });
     }
     // REL-6: a week and a day before each important date, at Daily Plan time (once each).
     if ((notify.people ?? true) && within(time, times.plan, 3)) {

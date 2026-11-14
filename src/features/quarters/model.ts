@@ -96,3 +96,105 @@ export function cyclesInQuarter<C extends { startDate: Day }>(cycles: C[], dates
 export function newValueId(): string {
   return Math.random().toString(36).slice(2, 10).padEnd(6, "0");
 }
+
+// ---------------------------------------------------------------- rituals (QTR-2, QTR-4, RIT-7)
+
+type QuarterState = Pick<Quarter, "year" | "q" | "committedAt" | "reviewCompletedAt" | "planningOverride">;
+
+/** Planning a quarter with less than this many days left isn't worth a ritual. */
+export const MIN_PLAN_DAYS = 14;
+/** The next quarter can be planned in the current one's last week. */
+export const PLAN_AHEAD_DAYS = 7;
+
+export interface DueQuarterRitual {
+  type: "quarterly_plan" | "quarterly_review";
+  quarter: QuarterRef;
+  /** The ritual's date (one per quarter): the quarter's first day for a plan, its last for a review. */
+  date: Day;
+  /** Planning partway through a quarter: a shorter plan (1–3 goals for the weeks left). */
+  short?: boolean;
+  missed?: boolean;
+}
+
+const find = (quarters: QuarterState[], ref: QuarterRef) => quarters.find((x) => x.year === ref.year && x.q === ref.q);
+
+/**
+ * Which quarterly rituals are waiting:
+ * - the Review on the quarter's last day (from the review time), and every day after until done,
+ *   for a quarter that was planned;
+ * - the Plan for the current quarter while it isn't committed and has at least two weeks left
+ *   (shortened once a third of it has gone), and for the next quarter in this one's last week.
+ */
+export function dueQuarterRituals(opts: {
+  quarters: QuarterState[];
+  today: Day;
+  time: string;
+  reviewTime: string;
+}): DueQuarterRitual[] {
+  const out: DueQuarterRitual[] = [];
+  const now = quarterOf(opts.today);
+  const nowDates = quarterDates(now);
+  for (const ref of [addQuarters(now, -1), now]) {
+    const d = quarterDates(ref);
+    const doc = find(opts.quarters, ref);
+    if (!doc?.committedAt || doc.reviewCompletedAt) continue;
+    const ended = d.endDate < opts.today;
+    if (ended || (d.endDate === opts.today && opts.time >= opts.reviewTime)) {
+      out.push({ type: "quarterly_review", quarter: ref, date: d.endDate, missed: ended });
+    }
+  }
+  const left = quarterDaysLeft(nowDates, opts.today);
+  if (!find(opts.quarters, now)?.committedAt && left >= MIN_PLAN_DAYS) {
+    out.push({
+      type: "quarterly_plan",
+      quarter: now,
+      date: nowDates.startDate,
+      short: elapsedShare(nowDates, opts.today) > 1 / 3,
+    });
+  }
+  const next = addQuarters(now, 1);
+  if (left < PLAN_AHEAD_DAYS && !find(opts.quarters, next)?.committedAt) {
+    out.push({ type: "quarterly_plan", quarter: next, date: quarterDates(next).startDate });
+  }
+  return out;
+}
+
+export type QuarterGate = { blocked: false } | { blocked: true; canOverride: boolean; quarter: QuarterRef };
+
+/**
+ * QTR-4 / §8.5: a planned quarter that ended without a review blocks planning the next one. Firm
+ * allows an override with a reason; Strict doesn't; Gentle never blocks. Its last day is review day.
+ */
+export function quarterPlanningGate(
+  quarters: QuarterState[],
+  target: QuarterRef,
+  today: Day,
+  strictness: "gentle" | "firm" | "strict",
+): QuarterGate {
+  if (strictness === "gentle") return { blocked: false };
+  const prevRef = addQuarters(target, -1);
+  const prev = find(quarters, prevRef);
+  if (!prev?.committedAt || prev.reviewCompletedAt || quarterDates(prevRef).endDate >= today) return { blocked: false };
+  if (strictness === "firm" && find(quarters, target)?.planningOverride) return { blocked: false };
+  return { blocked: true, canOverride: strictness === "firm", quarter: prevRef };
+}
+
+/** Months (first day, last day) of the quarter from `from` on, for monthly milestones. */
+export function monthsLeft(ref: QuarterRef, from: Day): { label: string; end: Day }[] {
+  const d = quarterDates(ref);
+  const out: { label: string; end: Day }[] = [];
+  for (let m = 0; m < 3; m++) {
+    const month = (ref.q - 1) * 3 + 1 + m;
+    const next = month === 12 ? `${ref.year + 1}-01-01` : `${ref.year}-${String(month + 1).padStart(2, "0")}-01`;
+    const end = addDays(next, -1);
+    if (end < from || end < d.startDate) continue;
+    out.push({
+      label: new Date(Date.UTC(ref.year, month - 1, 1)).toLocaleDateString(undefined, {
+        month: "long",
+        timeZone: "UTC",
+      }),
+      end,
+    });
+  }
+  return out;
+}

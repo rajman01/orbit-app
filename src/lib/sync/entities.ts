@@ -201,10 +201,12 @@ export const entitySchemas = {
     reflection: z.string().max(5000).nullable(),
   }),
   rituals: z.object({
-    type: z.enum(["daily_plan", "daily_shutdown", "cycle_review"]),
+    type: z.enum(["daily_plan", "daily_shutdown", "cycle_review", "quarterly_plan", "quarterly_review"]),
     /** The day it belongs to, in the user's timezone. */
     date: day,
     cycleId: ref,
+    /** Phase 2D.2: the quarter a Quarterly Plan or Review is for. */
+    quarterId: ref.optional(),
     startedAt: ms,
     completedAt: ms.nullable(),
     /** Answers and progress (current step, mood, energy, wins…). Kept small. */
@@ -493,7 +495,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   },
   taskEvents: { taskId: "tasks" },
   focusSessions: { taskId: "tasks" },
-  rituals: { cycleId: "cycles" },
+  rituals: { cycleId: "cycles", quarterId: "quarters" },
   habits: { areaId: "areas", goalId: "goals" },
   habitLogs: { habitId: "habits" },
   xpEvents: { areaId: "areas" },

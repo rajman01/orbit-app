@@ -27,12 +27,20 @@ export function VisionView() {
         title="Vision"
         subtitle="Where you're heading"
         actions={
-          <Link
-            href={`/quarter?q=${quarterKey(quarterOf(todayDay))}`}
-            className="inline-flex h-control items-center rounded-md bg-fill px-4 text-body font-semibold hover:bg-fill-strong"
-          >
-            {quarterLabel(quarterOf(todayDay))}
-          </Link>
+          <>
+            <Link
+              href={`/year?y=${year}`}
+              className="inline-flex h-control items-center rounded-md px-3 text-body font-semibold text-accent-text hover:bg-accent-fill"
+            >
+              {year}
+            </Link>
+            <Link
+              href={`/quarter?q=${quarterKey(quarterOf(todayDay))}`}
+              className="inline-flex h-control items-center rounded-md bg-fill px-4 text-body font-semibold hover:bg-fill-strong"
+            >
+              {quarterLabel(quarterOf(todayDay))}
+            </Link>
+          </>
         }
       />
       <PageBody>

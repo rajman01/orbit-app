@@ -1,5 +1,8 @@
 "use client";
 
+import type { QuarterRef } from "@/features/quarters/model";
+import { QuarterlyPlanFlow } from "./quarterly-plan";
+import { QuarterlyReviewFlow } from "./quarterly-review";
 import { ArrowLeft, Sparkles, X } from "lucide-react";
 import { AnimatePresence, motion, type PanInfo } from "motion/react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -26,6 +29,10 @@ const COACH_PROMPTS = {
     "Let's do my Shutdown together. Look at what I planned and what got done today, ask me how it went, note a win or two, glance at tomorrow, then close the day.",
   cycle_review:
     "Help me reflect on this cycle: what got done, what slipped and why, and what to change next cycle. I'll make the decisions in the review itself.",
+  quarterly_plan:
+    "Help me plan this quarter. Look at my vision, values and active goals, then help me choose the 3–5 goals that matter most, with a key result each. I'll commit in the Quarterly Plan itself.",
+  quarterly_review:
+    "Help me look back on this quarter: what each goal achieved, what got in the way, and what I learned. I'll make the decisions in the Quarterly Review itself.",
 } as const;
 
 export interface RitualStep {
@@ -40,7 +47,10 @@ export interface RitualStep {
 }
 
 interface Ctx {
-  open: (type: RitualType, opts?: { date?: string; cycle?: Pick<Cycle, "id" | "endDate"> | null }) => Promise<void>;
+  open: (
+    type: RitualType,
+    opts?: { date?: string; cycle?: Pick<Cycle, "id" | "endDate"> | null; quarter?: QuarterRef | null },
+  ) => Promise<void>;
 }
 
 const RitualCtx = createContext<Ctx | null>(null);
@@ -60,7 +70,7 @@ export function RitualProvider({ children }: { children: React.ReactNode }) {
   const open = useCallback<Ctx["open"]>(
     async (type, opts = {}) => {
       const date = type === "cycle_review" && opts.cycle ? opts.cycle.endDate : (opts.date ?? todayDay);
-      const id = await actions.startRitual(type, date, opts.cycle ?? null);
+      const id = await actions.startRitual(type, date, opts.cycle ?? null, opts.quarter ?? null);
       setOpenId(id);
     },
     [actions, todayDay],
@@ -120,6 +130,8 @@ function RitualBody({ ritual, onClose }: { ritual: RitualDoc; onClose: () => voi
   const props = { ritual, onClose };
   if (ritual.type === "daily_plan") return <DailyPlanFlow {...props} />;
   if (ritual.type === "daily_shutdown") return <DailyShutdownFlow {...props} />;
+  if (ritual.type === "quarterly_plan") return <QuarterlyPlanFlow {...props} />;
+  if (ritual.type === "quarterly_review") return <QuarterlyReviewFlow {...props} />;
   return <CycleReviewFlow {...props} />;
 }
 

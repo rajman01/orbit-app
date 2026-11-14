@@ -82,3 +82,99 @@ test("the quarter page moves between quarters", async ({ page }) => {
   await page.getByRole("button", { name: "This quarter" }).click();
   await expect(page.getByRole("heading", { name: `Q${q} ${now.getFullYear()}` })).toBeVisible();
 });
+
+/** Phase 2D.2: the Quarterly Plan (short, mid-quarter) and the Quarterly Review, then the year. */
+test("plan the rest of the quarter from Today, review it on its last day, see the year", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "One run is enough: it commits the shared quarter");
+  const r = run();
+  const goal = `Land a design role ${r}`;
+  const now = new Date();
+  const q = Math.floor(now.getMonth() / 3) + 1;
+  const label = `Q${q} ${now.getFullYear()}`;
+  const nextLabel = q === 4 ? `Q1 ${now.getFullYear() + 1}` : `Q${q + 1} ${now.getFullYear()}`;
+
+  await page.goto("/today");
+  await waitForSynced(page);
+  await page.getByRole("button", { name: new RegExp(`Plan ${label}`) }).click();
+  const dialog = page.getByRole("dialog", { name: "Plan the quarter" });
+  const cont = dialog.getByRole("button", { name: "Continue" });
+  await expect(dialog.getByRole("heading", { name: "Start from the long view" })).toBeVisible();
+  await cont.click();
+
+  // Choose: a new goal goes straight in.
+  await expect(cont).toBeDisabled();
+  await dialog.getByRole("textbox", { name: "New goal" }).fill(goal);
+  await dialog.getByRole("button", { name: "Add goal" }).click();
+  await expect(dialog.getByRole("button", { name: goal })).toHaveAttribute("aria-pressed", "true");
+  await cont.click();
+
+  // Concrete: a key result is required.
+  await expect(cont).toBeDisabled();
+  await dialog.getByRole("textbox", { name: `Key result for ${goal}` }).fill("Applications sent");
+  await dialog.getByRole("textbox", { name: `Target for ${goal}` }).fill("20");
+  await dialog.getByRole("button", { name: `Add key result to ${goal}` }).click();
+  await expect(cont).toBeEnabled();
+  await cont.click();
+
+  // Monthly milestones (optional): one for the first month left.
+  await dialog
+    .getByRole("textbox", { name: new RegExp(`${goal}: milestone for`) })
+    .first()
+    .fill("Portfolio live");
+  await dialog
+    .getByRole("button", { name: /^Add milestone for/ })
+    .first()
+    .click();
+  await expect(dialog.getByText("Portfolio live")).toBeVisible();
+  await cont.click();
+  await expect(dialog.getByRole("heading", { name: "Is it realistic?" })).toBeVisible();
+  await cont.click();
+
+  // Commit.
+  await dialog.getByRole("textbox", { name: "Quarter theme" }).fill(`Get hired ${r}`);
+  const commit = dialog.getByRole("button", { name: `Commit to ${label}` });
+  await expect(commit).toBeDisabled();
+  await dialog.getByRole("checkbox").check();
+  await commit.click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: new RegExp(`Plan ${label}`) })).toHaveCount(0);
+
+  await page.goto("/quarter");
+  await expect(page.getByRole("textbox", { name: "Quarter theme" })).toHaveValue(`Get hired ${r}`);
+  await expect(page.getByRole("list", { name: "Quarter goals" })).toContainText(goal);
+  await expect(page.getByText(/Committed/)).toBeVisible();
+  await page.goto(`/year?y=${now.getFullYear()}`);
+  await expect(page.getByRole("region", { name: "Quarters" })).toContainText(goal);
+  await expect(page.getByRole("region", { name: "Goals timeline" }).getByRole("link", { name: goal })).toBeVisible();
+  await waitForSynced(page);
+
+  // The quarter's last day, after the review time: the review is waiting on Today.
+  const lastDay = new Date(now.getFullYear(), q * 3, 0, 19, 0);
+  await page.clock.install({ time: lastDay });
+  await page.goto("/today");
+  await page.getByRole("button", { name: new RegExp(`Review ${label}`) }).click();
+  const review = page.getByRole("dialog", { name: "Review the quarter" });
+  const next = review.getByRole("button", { name: "Continue" });
+  await expect(review.getByRole("heading", { name: `How did ${label} go?` })).toBeVisible();
+  await expect(review).toContainText("Applications sent");
+  await next.click();
+  await expect(next).toBeDisabled();
+  await review.getByRole("radio", { name: `Carry into ${nextLabel}` }).click();
+  await expect(next).toBeEnabled();
+  await next.click();
+  await review.getByRole("textbox", { name: "Win 1" }).fill(`Portfolio shipped ${r}`);
+  await next.click();
+  await review.getByRole("textbox", { name: "Reflection" }).fill("Mornings worked; evenings didn't.");
+  await next.click();
+  await expect(review).toContainText(`Carried into ${nextLabel}: ${goal}`);
+  await review.getByRole("button", { name: `Finish and plan ${nextLabel}` }).click();
+
+  // It leads straight into the next quarter's plan, with the goal carried over.
+  const plan = page.getByRole("dialog", { name: "Plan the quarter" });
+  await expect(plan).toBeVisible();
+  await plan.getByRole("button", { name: "Continue" }).click();
+  await expect(plan.getByRole("button", { name: goal })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Close (progress is saved)" }).click();
+  await page.goto("/quarter");
+  await expect(page.getByText(/reviewed/)).toBeVisible();
+});

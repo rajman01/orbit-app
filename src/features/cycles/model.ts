@@ -19,7 +19,13 @@ export function cycleId(userId: string, number: number): string {
   return `c${String(number).padStart(5, "0")}${userId}`.slice(0, 40);
 }
 
-const RITUAL_CODE: Record<RitualType, string> = { daily_plan: "p", daily_shutdown: "s", cycle_review: "r" };
+const RITUAL_CODE: Record<RitualType, string> = {
+  daily_plan: "p",
+  daily_shutdown: "s",
+  cycle_review: "r",
+  quarterly_plan: "q",
+  quarterly_review: "y",
+};
 
 /** One ritual of each type per day, the same on every device. */
 export function ritualId(userId: string, type: RitualType, date: Day): string {
@@ -319,5 +325,15 @@ export const RITUAL_META: Record<RitualType, { title: string; blurb: string; min
     title: "Review the cycle",
     blurb: "Decide what's unfinished, reflect, plan the next one.",
     minutes: 20,
+  },
+  quarterly_plan: {
+    title: "Plan the quarter",
+    blurb: "Choose the few goals that matter, make them concrete, commit.",
+    minutes: 30,
+  },
+  quarterly_review: {
+    title: "Review the quarter",
+    blurb: "Results, a decision on each unfinished goal, wins, then the next quarter.",
+    minutes: 30,
   },
 };
