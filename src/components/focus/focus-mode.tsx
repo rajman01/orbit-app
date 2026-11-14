@@ -94,8 +94,7 @@ function writeOpen(userId: string, sessionId: string | null) {
     if (sessionId) {
       localStorage.setItem(openKey(userId), sessionId);
       localStorage.setItem(hereKey(userId), sessionId);
-    }
-    else localStorage.removeItem(openKey(userId));
+    } else localStorage.removeItem(openKey(userId));
   } catch {}
 }
 
@@ -447,6 +446,7 @@ function FocusPill({ task, clock, stage, onOpen }: { task: Task; clock: string; 
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 12 }}
       transition={transition("default")}
+      data-hide-on-keyboard
       className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-40 flex h-11 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full py-1 pr-4 pl-3 text-callout font-medium shadow-2 material-popover lg:right-6 lg:bottom-6"
     >
       <span
@@ -537,9 +537,7 @@ function FocusOverlay({
       initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.98, filter: "blur(8px)" }}
       // A leftover filter would anchor the fixed controls to this scrolling layer, so clear them.
       animate={
-        reduced
-          ? { opacity: 1 }
-          : { opacity: 1, scale: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }
+        reduced ? { opacity: 1 } : { opacity: 1, scale: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }
       }
       exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.98, filter: "blur(8px)" }}
       transition={reduced ? { duration: 0.2 } : { type: "spring", bounce: 0, duration: 0.4 }}
@@ -597,7 +595,9 @@ function FocusOverlay({
         ) : null}
 
         <h2 className="mt-6 text-title2 text-balance sm:mt-8 sm:text-title1">{task.title}</h2>
-        {task.nextStep ? <p className="mt-2 text-body sm:text-title3 font-normal text-label-secondary">↳ {task.nextStep}</p> : null}
+        {task.nextStep ? (
+          <p className="mt-2 text-body font-normal text-label-secondary sm:text-title3">↳ {task.nextStep}</p>
+        ) : null}
 
         <div className="mt-6 w-full text-left sm:mt-8">
           <FocusSubtasks task={task} />
@@ -605,7 +605,10 @@ function FocusOverlay({
         </div>
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-bg from-60% to-transparent px-4 pt-10 pb-[max(env(safe-area-inset-bottom),1.25rem)]">
+      <div
+        data-hide-on-keyboard
+        className="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-bg from-60% to-transparent px-4 pt-10 pb-[max(env(safe-area-inset-bottom),1.25rem)]"
+      >
         <div className="pointer-events-auto w-full max-w-md">
           {stage === "outcome" ? (
             <OutcomePanel onFinish={onFinish} onBack={onCancelEnd} />
@@ -630,7 +633,7 @@ function FocusOverlay({
           ) : stage === "break" ? (
             <PromptPanel title="On a break" actions={[{ label: "Skip break", onClick: onKeepGoing, primary: true }]} />
           ) : (
-            <div className="mx-auto grid w-full grid-flow-col auto-cols-fr items-center gap-1 rounded-2xl p-1.5 shadow-2 material-thin sm:flex sm:w-fit sm:rounded-full">
+            <div className="mx-auto grid w-full auto-cols-fr grid-flow-col items-center gap-1 rounded-2xl p-1.5 shadow-2 material-thin sm:flex sm:w-fit sm:rounded-full">
               <PillButton
                 label={paused ? "Resume" : "Pause"}
                 icon={paused ? <Play className="size-4" /> : <Pause className="size-4" />}

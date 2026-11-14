@@ -99,6 +99,17 @@
   --spacing-icon-btn: var(--icon-btn);
 }
 
+/* Room for the phone tab bar; none while the on-screen keyboard is up (see lib/keyboard.tsx). */
+:root {
+  --tabbar-space: calc(env(safe-area-inset-bottom) + 4.5rem);
+}
+html[data-keyboard="open"] {
+  --tabbar-space: 0px;
+}
+html[data-keyboard="open"] [data-hide-on-keyboard] {
+  display: none !important;
+}
+
 @layer base {
   html {
     font-family: var(--font-sans);

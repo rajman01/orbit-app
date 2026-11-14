@@ -3,6 +3,7 @@
 import { SerwistProvider } from "@serwist/turbopack/react";
 import { ThemeProvider } from "next-themes";
 import { ToastProvider } from "@/components/ui/toast";
+import { KeyboardWatcher } from "@/lib/keyboard";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV === "development"} reloadOnOnline={false}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange={false}>
         <ToastProvider>{children}</ToastProvider>
+        <KeyboardWatcher />
       </ThemeProvider>
     </SerwistProvider>
   );

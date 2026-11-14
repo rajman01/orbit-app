@@ -45,9 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <CycleKeeper />
                   <div className="flex min-h-dvh bg-bg">
                     <Sidebar />
-                    <main className="min-w-0 flex-1 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] lg:pb-0">
-                      {children}
-                    </main>
+                    <main className="min-w-0 flex-1 pb-[var(--tabbar-space)] lg:pb-0">{children}</main>
                     <TabBar />
                   </div>
                   <XpLayer />
@@ -275,6 +273,7 @@ function TabBar() {
     <>
       <nav
         aria-label="Main"
+        data-hide-on-keyboard
         className="fixed inset-x-0 bottom-0 z-30 flex border-t border-separator pt-1.5 pb-[env(safe-area-inset-bottom)] material-chrome lg:hidden"
       >
         {tab("/today", "Today", Sun)}

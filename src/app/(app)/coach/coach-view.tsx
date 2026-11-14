@@ -30,7 +30,7 @@ export function CoachView() {
   const showChat = threadId != null || composing;
 
   return (
-    <div className="flex h-[calc(100dvh-env(safe-area-inset-bottom)-4.5rem)] lg:h-dvh">
+    <div className="flex h-[calc(100dvh-var(--tabbar-space))] lg:h-dvh">
       <aside
         className={cn("w-full flex-col border-separator lg:flex lg:w-72 lg:border-r", showChat ? "hidden" : "flex")}
       >

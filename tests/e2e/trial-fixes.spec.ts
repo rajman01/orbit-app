@@ -365,3 +365,26 @@ test("changing a setting on a new device before its first sync keeps the account
   await page.waitForTimeout(1500);
   await expect(page).toHaveURL(/\/today/);
 });
+
+test("on a phone, the tab bar hides while the keyboard is up instead of riding on top of it", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "Only phones have an on-screen keyboard");
+  await page.goto("/today");
+  const tabBar = page.locator("nav[data-hide-on-keyboard]");
+  await expect(tabBar).toBeVisible();
+  const size = page.viewportSize()!;
+
+  // Typing with the keyboard up: a text field has focus and the visible area shrinks.
+  await page.getByRole("textbox", { name: "New task" }).focus();
+  await page.setViewportSize({ width: size.width, height: Math.round(size.height * 0.55) });
+  await expect(tabBar).toBeHidden();
+
+  // Keyboard down again.
+  await page.setViewportSize(size);
+  await page.getByRole("textbox", { name: "New task" }).blur();
+  await expect(tabBar).toBeVisible();
+
+  // Focus alone (e.g. a hardware keyboard, screen not shrunk) leaves the bar where it is.
+  await page.getByRole("textbox", { name: "New task" }).focus();
+  await page.waitForTimeout(300);
+  await expect(tabBar).toBeVisible();
+});
