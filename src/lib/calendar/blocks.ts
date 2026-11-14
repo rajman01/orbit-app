@@ -2,7 +2,9 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { Db } from "mongodb";
 import { eventFields, WINDOW_BACK_DAYS } from "@/features/calendar/model";
-import { google, GoogleNotFound, type EventBody, type GoogleEvent } from "./google";
+import { caldav, CaldavNotFound, type CaldavCreds } from "./caldav";
+import { google, GoogleNotFound, type EventBody } from "./google";
+import { blockIcs, blockUid, parseEvents } from "./ics";
 import type { Mutation } from "@/lib/sync/protocol";
 
 /**
@@ -42,10 +44,149 @@ interface Account {
   createdAt: number;
 }
 
+/** An event in the Orbit calendar, as either provider reports it. */
+export interface RemoteBlockEvent {
+  id: string;
+  /** Deleted there, or no longer a timed event. */
+  gone: boolean;
+  title: string;
+  start: number;
+  end: number;
+  updated: number | null;
+  orbitBlockId: string | null;
+}
+
+interface BlockFields {
+  id: string;
+  title: string;
+  start: number;
+  end: number;
+}
+
+/** What block syncing needs from a calendar provider. */
+export interface BlockRemote {
+  provider: "google" | "caldav";
+  /**
+   * Changes in the Orbit calendar since `state`. `complete`: the list is everything in the window,
+   * so a linked event that isn't in it was deleted.
+   */
+  pull(
+    calId: string,
+    state: string | undefined,
+    from: number,
+    to: number,
+  ): Promise<{
+    events: RemoteBlockEvent[];
+    complete: boolean;
+    next: string;
+  }>;
+  createCalendar(name: string, color: string, timeZone: string): Promise<string>;
+  /** Writes the block; returns the event id (`existing` when updating, null when it was gone). */
+  write(calId: string, block: BlockFields, timeZone: string, existing: string | null): Promise<string | null>;
+  remove(calId: string, eventId: string): Promise<void>;
+}
+
+export function googleBlocks(token: string): BlockRemote {
+  const g = google();
+  const body = (b: BlockFields, timeZone: string): EventBody => ({
+    summary: b.title,
+    description: "Time blocked in Orbit.",
+    start: { dateTime: new Date(b.start).toISOString(), timeZone },
+    end: { dateTime: new Date(b.end).toISOString(), timeZone },
+    extendedProperties: { private: { orbitBlockId: b.id } },
+  });
+  return {
+    provider: "google",
+    async pull(calId, syncToken, from, to) {
+      const events: RemoteBlockEvent[] = [];
+      let pageToken: string | undefined;
+      let next = syncToken ?? "";
+      do {
+        const page = await g.listEvents(token, calId, {
+          syncToken,
+          pageToken,
+          timeMin: new Date(from).toISOString(),
+          timeMax: new Date(to).toISOString(),
+        });
+        for (const e of page.items) {
+          const f = eventFields(e, "orbit");
+          events.push({
+            id: e.id,
+            gone: !f || f.allDay,
+            title: f?.title ?? "",
+            start: f?.start ?? 0,
+            end: f?.end ?? 0,
+            updated: Date.parse(e.updated ?? "") || null,
+            orbitBlockId: e.extendedProperties?.private?.orbitBlockId ?? null,
+          });
+        }
+        pageToken = page.nextPageToken;
+        if (page.nextSyncToken) next = page.nextSyncToken;
+      } while (pageToken);
+      return { events, complete: false, next };
+    },
+    createCalendar: async (name, _color, timeZone) => (await g.insertCalendar(token, name, timeZone)).id,
+    async write(calId, b, timeZone, existing) {
+      if (existing) {
+        const e = await g.patchEvent(token, calId, existing, body(b, timeZone)).catch((err) => {
+          if (err instanceof GoogleNotFound) return null;
+          throw err;
+        });
+        return e ? e.id : null;
+      }
+      return (await g.insertEvent(token, calId, body(b, timeZone))).id;
+    },
+    remove: (calId, eventId) => g.deleteEvent(token, calId, eventId),
+  };
+}
+
+/** iCloud: the Orbit calendar is read whole (it only holds blocks) when its ctag changes. */
+export function caldavBlocks(creds: CaldavCreds, homeUrl: string, fallbackTz: string): BlockRemote {
+  const d = caldav();
+  return {
+    provider: "caldav",
+    async pull(calId, ctag, from, to) {
+      const cal = (await d.listCalendars(creds, homeUrl)).find((c) => c.url === calId);
+      const tag = `${cal?.ctag ?? ""}|${new Date().toISOString().slice(0, 10)}`;
+      if (cal?.ctag && ctag === tag) return { events: [], complete: false, next: tag };
+      const objects = await d.listEvents(creds, calId, from, to);
+      const events: RemoteBlockEvent[] = [];
+      for (const o of objects) {
+        const parsed = parseEvents(o.ics, from, to, fallbackTz);
+        const e = parsed.find((x) => !x.allDay);
+        events.push({
+          id: o.href,
+          gone: !e,
+          title: e?.title ?? "",
+          start: e?.start ?? 0,
+          end: e?.end ?? 0,
+          updated: e?.updated ?? null,
+          orbitBlockId: e?.orbitBlockId ?? null,
+        });
+      }
+      return { events, complete: true, next: tag };
+    },
+    createCalendar: (name, color) => d.makeCalendar(creds, homeUrl, name, color),
+    async write(calId, b, _timeZone, existing) {
+      const ics = blockIcs(b);
+      const own = `${calId}${encodeURIComponent(blockUid(b.id))}.ics`;
+      // An event made in iCloud keeps its own address and UID: replace it with Orbit's.
+      if (existing && existing !== own) await d.deleteEvent(creds, existing);
+      try {
+        return (await d.putEvent(creds, calId, blockUid(b.id), ics)).href;
+      } catch (err) {
+        if (err instanceof CaldavNotFound) return null;
+        throw err;
+      }
+    },
+    remove: (_calId, href) => d.deleteEvent(creds, href),
+  };
+}
+
 interface Ctx {
   db: Db;
   account: Account;
-  token: string;
+  remote: BlockRemote;
   now: number;
   /** Google calendar ids the account has right now. */
   remoteIds: Set<string>;
@@ -71,7 +212,7 @@ export async function blocksAccountId(db: Db, userId: string): Promise<string | 
   return list.some((a) => a._id === chosen) ? chosen : list[0]._id;
 }
 
-async function userTimezone(db: Db, userId: string) {
+export async function userTimezone(db: Db, userId: string) {
   const s = await db.collection("settings").findOne({ userId, deletedAt: null });
   return typeof s?.timezone === "string" ? s.timezone : "UTC";
 }
@@ -84,7 +225,7 @@ export async function syncBlocks(ctx: Ctx): Promise<{ more: boolean }> {
   let calId = account.orbitCalendarId ?? null;
   let cursor = account.blocksCursor ?? 0;
   if (calId && !ctx.remoteIds.has(calId)) {
-    // The Orbit calendar was deleted in Google: start over with a new one, pushing every block again.
+    // The Orbit calendar was deleted there: start over with a new one, writing every block again.
     await blockLinks(db).deleteMany({ userId: account.userId, accountId: account._id });
     delete ctx.syncTokens[calId];
     calId = null;
@@ -97,53 +238,58 @@ export async function syncBlocks(ctx: Ctx): Promise<{ more: boolean }> {
   return push(ctx, calId, cursor);
 }
 
-/** Changes made in Google to the Orbit calendar's events. */
-async function pull(ctx: Ctx, calId: string, syncToken: string | undefined): Promise<string> {
-  const { token, now } = ctx;
-  const g = google();
+const windowOf = (now: number) => ({ from: now - WINDOW_BACK_DAYS * 86_400_000, to: now + 366 * 86_400_000 });
+
+/** Changes made in the calendar app to the Orbit calendar's events. */
+async function pull(ctx: Ctx, calId: string, state: string | undefined): Promise<string> {
+  const { db, account, now } = ctx;
+  const { from, to } = windowOf(now);
+  const res = await ctx.remote.pull(calId, state, from, to);
   const changes: Mutation[] = [];
-  let pageToken: string | undefined;
-  let next = syncToken ?? "";
-  const timeMin = new Date(now - WINDOW_BACK_DAYS * 86_400_000).toISOString();
-  const timeMax = new Date(now + 366 * 86_400_000).toISOString();
-  do {
-    const page = await g.listEvents(token, calId, { syncToken, pageToken, timeMin, timeMax });
-    for (const e of page.items) await pullOne(ctx, calId, e, changes);
-    pageToken = page.nextPageToken;
-    if (page.nextSyncToken) next = page.nextSyncToken;
-  } while (pageToken);
+  for (const e of res.events) await pullOne(ctx, calId, e, changes);
+  if (res.complete) {
+    // Linked events in the window that weren't listed were deleted there.
+    const seen = new Set(res.events.map((e) => e.id));
+    const links = blockLinks(db);
+    const linked = await links
+      .find({ userId: account.userId, accountId: account._id, end: { $gte: from }, start: { $lt: to } })
+      .toArray();
+    for (const l of linked) {
+      if (seen.has(l.eventId)) continue;
+      changes.push(ctx.remove("timeBlocks", l._id, now));
+      await links.deleteOne({ _id: l._id });
+    }
+  }
   await ctx.write(changes);
-  return next;
+  return res.next;
 }
 
-async function pullOne(ctx: Ctx, calId: string, e: GoogleEvent, changes: Mutation[]) {
+async function pullOne(ctx: Ctx, calId: string, e: RemoteBlockEvent, changes: Mutation[]) {
   const { db, account, now } = ctx;
   const links = blockLinks(db);
-  const at = Math.min(Date.parse(e.updated ?? "") || now, now);
+  const at = Math.min(e.updated ?? now, now);
   const link = await links.findOne({ userId: account.userId, accountId: account._id, eventId: e.id });
-  const f = eventFields(e, "orbit");
-  if (!f || f.allDay) {
-    // Cancelled (deleted in Google), or turned into an all-day event: the block goes.
+  if (e.gone) {
     if (link) {
       changes.push(ctx.remove("timeBlocks", link._id, at));
       await links.deleteOne({ _id: link._id });
     }
     return;
   }
-  const fields = { title: f.title === "(No title)" ? "Time block" : f.title, start: f.start, end: f.end };
+  const fields = { title: e.title === "(No title)" ? "Time block" : e.title, start: e.start, end: e.end };
   if (link) {
     if (link.title === fields.title && link.start === fields.start && link.end === fields.end) return;
     changes.push(ctx.upsert("timeBlocks", link._id, fields, at));
     await links.updateOne({ _id: link._id }, { $set: fields });
     return;
   }
-  // An event Orbit doesn't know: one it wrote whose link was lost, or one made in Google directly.
-  const claimed = e.extendedProperties?.private?.orbitBlockId;
+  // An event Orbit doesn't know: one it wrote whose link was lost, or one made in the calendar app.
+  const claimed = e.orbitBlockId;
   const id = claimed && BLOCK_ID.test(claimed) ? claimed : `tb${hash(`${account._id}:${e.id}`).slice(0, 30)}`;
   const existing = await db.collection("timeBlocks").findOne({ _id: id as never });
   if (existing && existing.userId !== account.userId) return;
   if (existing?.deletedAt) {
-    await google().deleteEvent(ctx.token, calId, e.id);
+    await ctx.remote.remove(calId, e.id);
     return;
   }
   changes.push(ctx.upsert("timeBlocks", id, existing ? fields : { taskId: null, ...fields }, at));
@@ -156,8 +302,7 @@ async function pullOne(ctx: Ctx, calId: string, e: GoogleEvent, changes: Mutatio
 
 /** Blocks changed in Orbit since the last push. */
 async function push(ctx: Ctx, calId: string | null, cursor: number): Promise<{ more: boolean }> {
-  const { db, account, token, now } = ctx;
-  const g = google();
+  const { db, account, now } = ctx;
   const links = blockLinks(db);
   const changed = await db
     .collection("timeBlocks")
@@ -172,43 +317,35 @@ async function push(ctx: Ctx, calId: string | null, cursor: number): Promise<{ m
   for (const b of changed) {
     const blockId = String(b._id);
     const link = await links.findOne({ _id: blockId });
+    const mine = link?.accountId === account._id ? link : null;
     try {
       if (b.deletedAt) {
-        if (link) {
-          await g.deleteEvent(token, link.calendarId, link.eventId);
+        if (mine) {
+          await ctx.remote.remove(mine.calendarId, mine.eventId);
           await links.deleteOne({ _id: blockId });
         }
         continue;
       }
       if (b.end < oldest) continue;
       const fields = { title: String(b.title), start: Number(b.start), end: Number(b.end) };
-      if (link?.accountId === account._id) {
-        if (link.title === fields.title && link.start === fields.start && link.end === fields.end) continue;
-      }
-      const body: EventBody = {
-        summary: fields.title,
-        description: "Time blocked in Orbit.",
-        start: { dateTime: new Date(fields.start).toISOString(), timeZone },
-        end: { dateTime: new Date(fields.end).toISOString(), timeZone },
-        extendedProperties: { private: { orbitBlockId: blockId } },
-      };
+      if (mine && mine.title === fields.title && mine.start === fields.start && mine.end === fields.end) continue;
       calId ??= await createOrbitCalendar(ctx, timeZone);
-      let event: GoogleEvent | null = null;
-      if (link?.accountId === account._id) {
-        event = await g.patchEvent(token, link.calendarId, link.eventId, body).catch((err) => {
-          if (err instanceof GoogleNotFound) return null; // deleted there meanwhile: write it again
-          throw err;
-        });
+      let target = mine?.calendarId ?? calId;
+      let eventId = mine ? await ctx.remote.write(target, { id: blockId, ...fields }, timeZone, mine.eventId) : null;
+      if (!eventId) {
+        // New, or deleted there meanwhile: write it again.
+        target = calId;
+        eventId = await ctx.remote.write(calId, { id: blockId, ...fields }, timeZone, null);
       }
-      event ??= await g.insertEvent(token, calId, body);
+      if (!eventId) continue;
       await links.updateOne(
         { _id: blockId },
         {
           $set: {
             userId: account.userId,
             accountId: account._id,
-            calendarId: link?.accountId === account._id ? link.calendarId : calId,
-            eventId: event.id,
+            calendarId: target,
+            eventId,
             ...fields,
           },
         },
@@ -225,9 +362,11 @@ async function push(ctx: Ctx, calId: string | null, cursor: number): Promise<{ m
   return { more: changed.length === PUSH_BATCH };
 }
 
+const ORBIT_COLOR = "#ff9500";
+
 async function createOrbitCalendar(ctx: Ctx, timeZone: string): Promise<string> {
-  const { db, account, token, now } = ctx;
-  const { id } = await google().insertCalendar(token, ORBIT_CALENDAR_NAME, timeZone);
+  const { db, account, now } = ctx;
+  const id = await ctx.remote.createCalendar(ORBIT_CALENDAR_NAME, ORBIT_COLOR, timeZone);
   await db.collection<Account>("calendarAccounts").updateOne({ _id: account._id }, { $set: { orbitCalendarId: id } });
   account.orbitCalendarId = id;
   ctx.remoteIds.add(id);
@@ -237,9 +376,9 @@ async function createOrbitCalendar(ctx: Ctx, timeZone: string): Promise<string> 
       ctx.calendarDocId(id),
       {
         accountId: account._id,
-        provider: "google",
+        provider: ctx.remote.provider,
         name: ORBIT_CALENDAR_NAME,
-        color: "#ff9500",
+        color: ORBIT_COLOR,
         selected: true,
         isOrbit: true,
         readOnly: false,

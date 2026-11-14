@@ -5,7 +5,17 @@ import { ulid } from "ulid";
 import { eventFields, WINDOW_AHEAD_DAYS, WINDOW_BACK_DAYS } from "@/features/calendar/model";
 import { applyMutations } from "@/lib/sync/server";
 import type { Mutation } from "@/lib/sync/protocol";
-import { blockLinks, blocksAccountId, syncBlocks } from "./blocks";
+import {
+  blockLinks,
+  blocksAccountId,
+  caldavBlocks,
+  googleBlocks,
+  syncBlocks,
+  userTimezone,
+  type BlockRemote,
+} from "./blocks";
+import { caldav, CaldavAuthFailed, ICLOUD_URL, type CaldavCreds } from "./caldav";
+import { parseEvents } from "./ics";
 import { decrypt, encrypt } from "./crypto";
 import { emailFromIdToken, google, GoogleAuthRevoked, SyncTokenExpired, type GoogleTokens } from "./google";
 
@@ -18,12 +28,17 @@ import { emailFromIdToken, google, GoogleAuthRevoked, SyncTokenExpired, type Goo
 export interface CalendarAccount {
   _id: string;
   userId: string;
-  provider: "google";
+  provider: "google" | "caldav";
+  /** Google: the account's email. iCloud: the Apple ID. */
   email: string;
+  /** iCloud: the app-specific password (encrypted), the server and where the calendars live. */
+  password?: string;
+  serverUrl?: string;
+  homeUrl?: string;
   refreshToken: string; // encrypted
   accessToken: string; // encrypted
   accessExpires: number;
-  /** Per Google calendar id: incremental sync token. */
+  /** Per calendar: Google sync token, or iCloud ctag (with the day). */
   syncTokens: Record<string, string>;
   /** Per Google calendar id: push channel. */
   channels: Record<string, { id: string; token: string; resourceId: string; expiration: number }>;
@@ -122,9 +137,17 @@ function webhookAddress(): string | null {
   return base.startsWith("https://") ? `${base.replace(/\/$/, "")}/api/calendar/google/notify` : null;
 }
 
+interface ProviderSync {
+  /** Provider calendar ids the account has right now. */
+  remoteIds: Set<string>;
+  syncTokens: Record<string, string>;
+  /** Provider-specific account fields to save. */
+  extra: Partial<CalendarAccount>;
+  blocks: BlockRemote;
+}
+
 /** Brings one account's calendars and events up to date. Never throws for one account's errors. */
 export async function syncAccount(db: Db, account: CalendarAccount, now = Date.now()): Promise<void> {
-  const g = google();
   // One sync per account at a time (a push from Google and a new time block can arrive together).
   // Taking the lock clears `dirty`, so a change that comes in during this sync triggers another.
   const locked = await accounts(db).findOneAndUpdate(
@@ -139,74 +162,10 @@ export async function syncAccount(db: Db, account: CalendarAccount, now = Date.n
   account = locked;
   let more = false;
   try {
-    const token = await accessToken(db, account, now);
-    const existing = await db
-      .collection("calendars")
-      .find({ userId: account.userId, accountId: account._id, deletedAt: null })
-      .toArray();
-    const selected = new Map(existing.map((c) => [String(c._id), Boolean(c.selected)]));
-    const remote = (await g.listCalendars(token)).filter((c) => !c.deleted);
-
-    // Calendars: new ones start shown if they're the primary or their own (not holidays or shared ones).
-    const changes: Mutation[] = [];
-    const docIds = new Map<string, string>();
-    for (const c of remote) {
-      const id = calendarDocId(account._id, c.id);
-      docIds.set(c.id, id);
-      const isOrbit = c.id === account.orbitCalendarId;
-      const fields: Record<string, unknown> = {
-        accountId: account._id,
-        provider: "google",
-        name: (c.summary ?? "Calendar").slice(0, 300),
-        color: (c.backgroundColor ?? "#8e8e93").slice(0, 20),
-        isOrbit,
-        readOnly: !["owner", "writer"].includes(c.accessRole),
-      };
-      if (!selected.has(id)) fields.selected = isOrbit || Boolean(c.primary) || c.accessRole === "owner";
-      changes.push(upsert("calendars", id, fields, now));
-    }
-    const remoteIds = new Set(docIds.values());
-    for (const c of existing) if (!remoteIds.has(String(c._id))) changes.push(remove("calendars", String(c._id), now));
-    await write(db, account.userId, changes);
-
-    const shown = await db
-      .collection("calendars")
-      .find({ userId: account.userId, accountId: account._id, deletedAt: null, selected: true })
-      .project({ _id: 1 })
-      .toArray();
-    const shownIds = new Set(shown.map((c) => String(c._id)));
-    const syncTokens = { ...account.syncTokens };
-    const channels = { ...account.channels };
-
-    for (const c of remote) {
-      const calId = docIds.get(c.id)!;
-      if (c.id === account.orbitCalendarId) {
-        // Its events are time blocks (synced below), not calendar events; it still gets a push channel.
-      } else if (!shownIds.has(calId)) {
-        // Hidden: forget its events and stop listening.
-        if (syncTokens[c.id] || channels[c.id]) {
-          await dropEvents(db, account.userId, calId, now);
-          if (channels[c.id]) await g.stopChannel(token, channels[c.id].id, channels[c.id].resourceId);
-          delete syncTokens[c.id];
-          delete channels[c.id];
-        }
-        continue;
-      } else {
-        syncTokens[c.id] = await syncEvents(db, account.userId, token, c.id, calId, syncTokens[c.id], now);
-      }
-      const address = webhookAddress();
-      const ch = channels[c.id];
-      if (address && (!ch || ch.expiration - now < 24 * 3600_000)) {
-        if (ch) await g.stopChannel(token, ch.id, ch.resourceId);
-        const channel = { id: ulid(), token: randomBytes(16).toString("hex"), address };
-        const w = await g.watch(token, c.id, channel).catch((err) => {
-          console.error("calendar watch failed", err);
-          return null;
-        });
-        if (w)
-          channels[c.id] = { id: channel.id, token: channel.token, resourceId: w.resourceId, expiration: w.expiration };
-      }
-    }
+    const side =
+      account.provider === "caldav"
+        ? await syncCaldavCalendars(db, account, now)
+        : await syncGoogleCalendars(db, account, now);
 
     // Time blocks go to one account (2B.2). Switching accounts in Settings moves them all.
     if ((await blocksAccountId(db, account.userId)) === account._id) {
@@ -217,18 +176,18 @@ export async function syncAccount(db: Db, account: CalendarAccount, now = Date.n
       ({ more } = await syncBlocks({
         db,
         account,
-        token,
+        remote: side.blocks,
         now,
-        remoteIds: new Set(remote.map((c) => c.id)),
-        syncTokens,
+        remoteIds: side.remoteIds,
+        syncTokens: side.syncTokens,
         write: (m) => write(db, account.userId, m),
         upsert,
         remove,
-        calendarDocId: (googleId) => calendarDocId(account._id, googleId),
+        calendarDocId: (providerId) => calendarDocId(account._id, providerId),
       }));
     } else if (account.blocksActive) {
       for (const l of await blockLinks(db).find({ accountId: account._id }).toArray()) {
-        await g.deleteEvent(token, l.calendarId, l.eventId);
+        await side.blocks.remove(l.calendarId, l.eventId);
       }
       await blockLinks(db).deleteMany({ accountId: account._id });
       await accounts(db).updateOne({ _id: account._id }, { $set: { blocksActive: false } });
@@ -236,17 +195,252 @@ export async function syncAccount(db: Db, account: CalendarAccount, now = Date.n
     await accounts(db).updateOne(
       { _id: account._id },
       {
-        $set: { syncTokens, channels, lastSyncAt: now, error: null, lockedUntil: 0, ...(more ? { dirty: true } : {}) },
+        $set: {
+          ...side.extra,
+          syncTokens: side.syncTokens,
+          lastSyncAt: now,
+          error: null,
+          lockedUntil: 0,
+          ...(more ? { dirty: true } : {}),
+        },
       },
     );
   } catch (err) {
     const error =
       err instanceof GoogleAuthRevoked
         ? "Google disconnected Orbit. Connect again."
-        : "Couldn't sync. Orbit will retry.";
-    if (!(err instanceof GoogleAuthRevoked)) console.error("calendar sync failed", err);
+        : err instanceof CaldavAuthFailed
+          ? "Apple didn't accept the password. Connect again with a new app-specific password."
+          : "Couldn't sync. Orbit will retry.";
+    if (!(err instanceof GoogleAuthRevoked || err instanceof CaldavAuthFailed))
+      console.error("calendar sync failed", err);
     await accounts(db).updateOne({ _id: account._id }, { $set: { lastSyncAt: now, error, lockedUntil: 0 } });
   }
+}
+
+/** Upserts an account's calendars; returns which are shown. New ones start shown when `defaultShown`. */
+async function saveCalendars(
+  db: Db,
+  account: CalendarAccount,
+  list: { providerId: string; name: string; color: string; readOnly: boolean; defaultShown: boolean }[],
+  now: number,
+) {
+  const existing = await db
+    .collection("calendars")
+    .find({ userId: account.userId, accountId: account._id, deletedAt: null })
+    .toArray();
+  const selected = new Map(existing.map((c) => [String(c._id), Boolean(c.selected)]));
+  const changes: Mutation[] = [];
+  const docIds = new Map<string, string>();
+  for (const c of list) {
+    const id = calendarDocId(account._id, c.providerId);
+    docIds.set(c.providerId, id);
+    const isOrbit = c.providerId === account.orbitCalendarId;
+    const fields: Record<string, unknown> = {
+      accountId: account._id,
+      provider: account.provider,
+      name: c.name.slice(0, 300),
+      color: c.color.slice(0, 20),
+      isOrbit,
+      readOnly: c.readOnly,
+    };
+    if (!selected.has(id)) fields.selected = isOrbit || c.defaultShown;
+    changes.push(upsert("calendars", id, fields, now));
+  }
+  const ids = new Set(docIds.values());
+  for (const c of existing) {
+    if (ids.has(String(c._id))) continue;
+    await dropEvents(db, account.userId, String(c._id), now);
+    changes.push(remove("calendars", String(c._id), now));
+  }
+  await write(db, account.userId, changes);
+  const shown = await db
+    .collection("calendars")
+    .find({ userId: account.userId, accountId: account._id, deletedAt: null, selected: true })
+    .project({ _id: 1 })
+    .toArray();
+  return { docIds, shownIds: new Set(shown.map((c) => String(c._id))) };
+}
+
+async function syncGoogleCalendars(db: Db, account: CalendarAccount, now: number): Promise<ProviderSync> {
+  const g = google();
+  const token = await accessToken(db, account, now);
+  const remote = (await g.listCalendars(token)).filter((c) => !c.deleted);
+  // New calendars start shown if they're the primary or their own (not holidays or shared ones).
+  const { docIds, shownIds } = await saveCalendars(
+    db,
+    account,
+    remote.map((c) => ({
+      providerId: c.id,
+      name: c.summary ?? "Calendar",
+      color: c.backgroundColor ?? "#8e8e93",
+      readOnly: !["owner", "writer"].includes(c.accessRole),
+      defaultShown: Boolean(c.primary) || c.accessRole === "owner",
+    })),
+    now,
+  );
+  const syncTokens = { ...account.syncTokens };
+  const channels = { ...account.channels };
+
+  for (const c of remote) {
+    const calId = docIds.get(c.id)!;
+    if (c.id === account.orbitCalendarId) {
+      // Its events are time blocks (synced separately), not calendar events; it still gets a push channel.
+    } else if (!shownIds.has(calId)) {
+      // Hidden: forget its events and stop listening.
+      if (syncTokens[c.id] || channels[c.id]) {
+        await dropEvents(db, account.userId, calId, now);
+        if (channels[c.id]) await g.stopChannel(token, channels[c.id].id, channels[c.id].resourceId);
+        delete syncTokens[c.id];
+        delete channels[c.id];
+      }
+      continue;
+    } else {
+      syncTokens[c.id] = await syncEvents(db, account.userId, token, c.id, calId, syncTokens[c.id], now);
+    }
+    const address = webhookAddress();
+    const ch = channels[c.id];
+    if (address && (!ch || ch.expiration - now < 24 * 3600_000)) {
+      if (ch) await g.stopChannel(token, ch.id, ch.resourceId);
+      const channel = { id: ulid(), token: randomBytes(16).toString("hex"), address };
+      const w = await g.watch(token, c.id, channel).catch((err) => {
+        console.error("calendar watch failed", err);
+        return null;
+      });
+      if (w)
+        channels[c.id] = { id: channel.id, token: channel.token, resourceId: w.resourceId, expiration: w.expiration };
+    }
+  }
+  return { remoteIds: new Set(remote.map((c) => c.id)), syncTokens, extra: { channels }, blocks: googleBlocks(token) };
+}
+
+const caldavCreds = (a: CalendarAccount): CaldavCreds => ({
+  serverUrl: a.serverUrl ?? ICLOUD_URL,
+  username: a.email,
+  password: decrypt(a.password ?? ""),
+});
+
+/**
+ * iCloud (2B.3): no push, so polled. A calendar's events are fetched again (the whole window) when
+ * its ctag changes, and at least once a day as the window moves.
+ */
+async function syncCaldavCalendars(db: Db, account: CalendarAccount, now: number): Promise<ProviderSync> {
+  const d = caldav();
+  const creds = caldavCreds(account);
+  const homeUrl = account.homeUrl ?? (await d.discover(creds)).homeUrl;
+  const timezone = await userTimezone(db, account.userId);
+  const remote = await d.listCalendars(creds, homeUrl);
+  const { docIds, shownIds } = await saveCalendars(
+    db,
+    account,
+    remote.map((c) => ({
+      providerId: c.url,
+      name: c.name,
+      color: c.color ?? "#8e8e93",
+      readOnly: c.readOnly,
+      // Your own calendars; shared ones (read-only) start hidden, like in Google.
+      defaultShown: !c.readOnly,
+    })),
+    now,
+  );
+  const syncTokens = { ...account.syncTokens };
+  const from = now - WINDOW_BACK_DAYS * 86_400_000;
+  const to = now + WINDOW_AHEAD_DAYS * 86_400_000;
+  const today = new Date(now).toISOString().slice(0, 10);
+  for (const c of remote) {
+    const calId = docIds.get(c.url)!;
+    const key = c.url;
+    if (c.url === account.orbitCalendarId) continue; // time blocks
+    if (!shownIds.has(calId)) {
+      if (syncTokens[key]) {
+        await dropEvents(db, account.userId, calId, now);
+        delete syncTokens[key];
+      }
+      continue;
+    }
+    const tag = `${c.ctag ?? ulid()}|${today}`;
+    if (c.ctag && syncTokens[key] === tag) continue; // nothing changed
+    const objects = await d.listEvents(creds, c.url, from, to);
+    const seen = new Set<string>();
+    const changes: Mutation[] = [];
+    for (const o of objects) {
+      for (const e of parseEvents(o.ics, from, to, timezone)) {
+        const id = eventDocId(calId, e.key);
+        if (seen.has(id)) continue;
+        seen.add(id);
+        changes.push(
+          upsert(
+            "calendarEvents",
+            id,
+            {
+              calendarId: calId,
+              title: e.title,
+              start: e.start,
+              end: e.end,
+              allDay: e.allDay,
+              startDay: e.startDay,
+              endDay: e.endDay,
+              location: e.location,
+              status: e.status,
+              link: null,
+            },
+            now,
+          ),
+        );
+      }
+    }
+    const had = await db
+      .collection("calendarEvents")
+      .find({ userId: account.userId, calendarId: calId, deletedAt: null })
+      .project({ _id: 1 })
+      .toArray();
+    for (const e of had) if (!seen.has(String(e._id))) changes.push(remove("calendarEvents", String(e._id), now));
+    await write(db, account.userId, changes);
+    syncTokens[key] = tag;
+  }
+  return {
+    remoteIds: new Set(remote.map((c) => c.url)),
+    syncTokens,
+    extra: { homeUrl },
+    blocks: caldavBlocks(creds, homeUrl, timezone),
+  };
+}
+
+/** Connect iCloud: checks the Apple ID and app-specific password by finding the calendars. */
+export async function connectCaldav(
+  db: Db,
+  userId: string,
+  input: { username: string; password: string; serverUrl?: string },
+  now = Date.now(),
+) {
+  const creds = {
+    serverUrl: input.serverUrl ?? ICLOUD_URL,
+    username: input.username.trim(),
+    password: input.password.trim(),
+  };
+  const { homeUrl } = await caldav().discover(creds); // throws CaldavAuthFailed
+  const _id = `ca${hash(`${userId}:${creds.serverUrl}:${creds.username.toLowerCase()}`).slice(0, 30)}`;
+  await accounts(db).updateOne(
+    { _id },
+    {
+      $set: {
+        userId,
+        provider: "caldav",
+        email: creds.username,
+        serverUrl: creds.serverUrl,
+        homeUrl,
+        password: encrypt(creds.password),
+        refreshToken: "",
+        accessToken: "",
+        accessExpires: 0,
+        dirty: true,
+        error: null,
+      },
+      $setOnInsert: { syncTokens: {}, channels: {}, lastSyncAt: null, createdAt: now },
+    },
+    { upsert: true },
+  );
+  return _id;
 }
 
 /** Incremental when there's a sync token; a full sync of the window otherwise. Returns the next token. */
@@ -334,14 +528,17 @@ export async function dispatchCalendarSync(db: Db, now = Date.now(), budgetMs = 
 export async function disconnectAccount(db: Db, userId: string, accountId: string, now = Date.now()) {
   const a = await accounts(db).findOne({ _id: accountId, userId });
   if (!a) return false;
-  const g = google();
-  try {
-    const token = await accessToken(db, a, now);
-    for (const ch of Object.values(a.channels ?? {})) await g.stopChannel(token, ch.id, ch.resourceId);
-    await g.revoke(decrypt(a.refreshToken));
-  } catch {
-    // Already revoked on Google's side: nothing to stop.
+  if (a.provider === "google") {
+    const g = google();
+    try {
+      const token = await accessToken(db, a, now);
+      for (const ch of Object.values(a.channels ?? {})) await g.stopChannel(token, ch.id, ch.resourceId);
+      await g.revoke(decrypt(a.refreshToken));
+    } catch {
+      // Already revoked on Google's side: nothing to stop.
+    }
   }
+  // iCloud: Orbit just forgets the password; you can also revoke it at account.apple.com.
   const cals = await db.collection("calendars").find({ userId, accountId, deletedAt: null }).toArray();
   for (const c of cals) await dropEvents(db, userId, String(c._id), now);
   await write(

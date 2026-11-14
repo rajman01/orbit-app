@@ -150,3 +150,40 @@ test("on a phone, the calendar shows one day; tap an empty time to block it", as
   await expect(block).toHaveCount(0);
   await waitForSynced(page);
 });
+
+/** Phase 2B.3: iCloud with an app-specific password (fake iCloud on the test server). */
+test("connect iCloud with an app-specific password and see its events on Today", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "One account per run");
+  const appleId = `e2e-${run()}@icloud.example`;
+  await page.goto("/settings");
+  await page.getByRole("button", { name: /Connect (another )?iCloud/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect iCloud Calendar" });
+  await expect(dialog.getByRole("link", { name: "account.apple.com" })).toBeVisible();
+  await dialog.getByLabel("Apple ID").fill(appleId);
+  await dialog.getByLabel("App-specific password").fill("my-apple-id-password");
+  await dialog.getByRole("button", { name: "Connect" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("app-specific password");
+
+  await dialog.getByLabel("App-specific password").fill("abcd-efgh-ijkl-mnop");
+  await dialog.getByRole("button", { name: "Connect" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText(/iCloud connected/)).toBeVisible();
+  const account = page.getByLabel(`Calendar account ${appleId}`);
+  // Your own calendars start shown; shared ones (Family) start hidden.
+  await expect(account.getByRole("checkbox", { name: "Show Home" })).toBeChecked({ timeout: 20_000 });
+  await expect(account.getByRole("checkbox", { name: "Show Family" })).not.toBeChecked();
+
+  await page.goto("/today");
+  await expect(page.getByRole("region", { name: "Calendar today" }).getByText("Gym")).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // Disconnect: its events leave Orbit.
+  await page.goto("/settings");
+  await page.getByLabel(`Calendar account ${appleId}`).getByRole("button", { name: "Disconnect" }).click();
+  await page.getByRole("button", { name: "Disconnect" }).last().click();
+  await expect(page.getByLabel(`Calendar account ${appleId}`)).toHaveCount(0);
+  await page.goto("/today");
+  await expect(page.getByText("Gym", { exact: true })).toHaveCount(0, { timeout: 20_000 });
+  await waitForSynced(page);
+});

@@ -1,11 +1,13 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { CalendarDays, RefreshCw } from "lucide-react";
+import { CalendarDays, Cloud, RefreshCw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useSync } from "@/components/app/sync-provider";
 import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
@@ -38,6 +40,7 @@ export function CalendarSettings() {
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
   const [disconnecting, setDisconnecting] = useState<Account | null>(null);
+  const [icloud, setIcloud] = useState(false);
   const { blocksAccountId } = useSettings();
   const calendars = useLiveQuery(
     async () =>
@@ -48,12 +51,17 @@ export function CalendarSettings() {
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/calendar/accounts", { cache: "no-store" });
-      if (res.ok) setState(await res.json());
+      if (res.ok) {
+        const body = (await res.json()) as { enabled: boolean; accounts: Account[] };
+        setState(body);
+        // The server has written calendars and events: bring them to this device now.
+        if (body.accounts.some((a) => a.lastSyncAt != null)) engine.requestSync(0);
+      }
       setOffline(false);
     } catch {
       setOffline(true);
     }
-  }, []);
+  }, [engine]);
 
   useEffect(() => {
     let live = true;
@@ -140,7 +148,8 @@ export function CalendarSettings() {
             <span className="min-w-0 flex-1">
               <span className="block truncate text-body font-medium">{a.email}</span>
               <span className={a.error ? "text-footnote text-danger-text" : "text-footnote text-label-secondary"}>
-                {a.error ?? (a.lastSyncAt ? `Google · synced ${ago(a.lastSyncAt)}` : "Google · syncing…")}
+                {a.error ??
+                  `${a.provider === "caldav" ? "iCloud" : "Google"} · ${a.lastSyncAt ? `synced ${ago(a.lastSyncAt)}` : "syncing…"}`}
               </span>
             </span>
             <button
@@ -206,12 +215,23 @@ export function CalendarSettings() {
             ? "Connect another Google account"
             : "Connect Google Calendar"}
         </a>
+        <Button variant="secondary" icon={<Cloud className="size-4" />} onClick={() => setIcloud(true)}>
+          {state?.accounts.some((a) => a.provider === "caldav") ? "Connect another iCloud account" : "Connect iCloud"}
+        </Button>
         {state?.accounts.length ? (
           <Button variant="ghost" icon={<RefreshCw className="size-4" />} loading={busy} onClick={() => void refresh()}>
             Refresh
           </Button>
         ) : null}
       </div>
+      <ConnectIcloud
+        open={icloud}
+        onOpenChange={setIcloud}
+        onConnected={(appleId) => {
+          toast({ message: `iCloud connected (${appleId}). Your events will appear in a moment.` });
+          void load();
+        }}
+      />
       <ConfirmDialog
         open={disconnecting != null}
         onOpenChange={(o) => !o && setDisconnecting(null)}
@@ -230,4 +250,117 @@ function ago(ms: number): string {
   if (min < 60) return `${min} min ago`;
   const h = Math.round(min / 60);
   return h < 24 ? `${h} h ago` : new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+const ICLOUD_ERRORS: Record<string, string> = {
+  auth: "Apple didn't accept that. Check your Apple ID, and use an app-specific password — not your Apple ID password.",
+  invalid: "Enter your Apple ID and the app-specific password.",
+  setup: "Calendars aren't set up on the server yet.",
+  unreachable: "Couldn't reach iCloud. Try again in a moment.",
+};
+
+/** CAL-2: iCloud signs in with an app-specific password (Apple has no OAuth for calendars). */
+function ConnectIcloud({
+  open,
+  onOpenChange,
+  onConnected,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConnected: (appleId: string) => void;
+}) {
+  const [appleId, setAppleId] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/calendar/icloud/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appleId, password }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(ICLOUD_ERRORS[body.error] ?? ICLOUD_ERRORS.unreachable);
+        return;
+      }
+      setPassword("");
+      onOpenChange(false);
+      onConnected(appleId.trim());
+    } catch {
+      setError("You're offline. Connect to the internet and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onOpenChange={onOpenChange} title="Connect iCloud Calendar" width={460}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-callout text-label-secondary">
+          <li>
+            Go to{" "}
+            <a
+              href="https://account.apple.com/account/manage"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-accent-text underline underline-offset-2"
+            >
+              account.apple.com
+            </a>{" "}
+            and sign in.
+          </li>
+          <li>
+            Open <strong className="text-label">Sign-In and Security → App-Specific Passwords</strong>.
+          </li>
+          <li>
+            Create one named <strong className="text-label">Orbit</strong> and paste it below.
+          </li>
+        </ol>
+        <Field label="Apple ID">
+          <Input
+            type="email"
+            autoComplete="username"
+            value={appleId}
+            onChange={(e) => setAppleId(e.target.value)}
+            placeholder="you@icloud.com"
+            required
+          />
+        </Field>
+        <Field label="App-specific password">
+          <Input
+            type="password"
+            autoComplete="off"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="abcd-efgh-ijkl-mnop"
+            required
+          />
+        </Field>
+        {error ? (
+          <p role="alert" className="text-footnote text-danger-text">
+            {error}
+          </p>
+        ) : (
+          <p className="text-footnote text-label-tertiary">
+            Orbit keeps it encrypted on its server and uses it only for your calendars. You can revoke it at
+            account.apple.com at any time.
+          </p>
+        )}
+        <Button type="submit" loading={busy} disabled={!appleId.trim() || !password.trim()}>
+          Connect
+        </Button>
+      </form>
+    </Modal>
+  );
 }
