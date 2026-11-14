@@ -164,3 +164,45 @@ export function useAllTaskEvents(): TaskEvent[] | undefined {
   const { db } = useSync();
   return useLiveQuery(async () => live(await db.taskEvents.toArray()), [db]);
 }
+
+export type PersonDoc = SyncedDoc<"people">;
+export type InteractionDoc = SyncedDoc<"interactions">;
+export type PersonItemDoc = SyncedDoc<"personItems">;
+
+/** People, sorted by name. */
+export function usePeople(opts: { includeArchived?: boolean } = {}): PersonDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => {
+    const rows = live(await db.people.toArray()).filter((p) => opts.includeArchived || p.archivedAt == null);
+    return rows.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  }, [db, opts.includeArchived]);
+}
+
+export function usePerson(id: string | null | undefined): PersonDoc | null | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => {
+    if (!id) return null;
+    const p = await db.people.get(id);
+    return p && !p.deletedAt ? p : null;
+  }, [db, id]);
+}
+
+/** Interactions, newest first; for one person when `personId` is given. */
+export function useInteractions(personId?: string | null): InteractionDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => {
+    const rows = personId
+      ? await db.interactions.where("personId").equals(personId).toArray()
+      : await db.interactions.toArray();
+    return live(rows).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  }, [db, personId]);
+}
+
+export function usePersonItems(personId: string): PersonItemDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () =>
+      live(await db.personItems.where("personId").equals(personId).toArray()).sort((a, b) => a.createdAt - b.createdAt),
+    [db, personId],
+  );
+}

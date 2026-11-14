@@ -12,7 +12,9 @@ import { GoalCard } from "@/components/goals/goal-card";
 import { NewGoalDialog } from "@/components/goals/goal-form";
 import { SectionLabel, TaskList } from "@/components/tasks/task-list";
 import { Button, IconButton } from "@/components/ui/button";
-import { useAllTasks, useArea, useGoals, useKeyResults, useSettings } from "@/features/data";
+import { useAllTasks, useArea, useGoals, useKeyResults, usePeople, useSettings } from "@/features/data";
+import Link from "next/link";
+import { PersonAvatar } from "@/components/people/avatar";
 import { goalProgress, needsNextStep, suggestHealth } from "@/features/goals/model";
 import { isOpen } from "@/features/tasks/model";
 import { useToday } from "@/features/use-today";
@@ -26,6 +28,7 @@ export function AreaView() {
   const allTasks = useAllTasks() ?? [];
   const tasks = allTasks.filter((t) => t.areaId === id && !t.parentTaskId);
   const krs = useKeyResults() ?? [];
+  const people = (usePeople() ?? []).filter((p) => p.areaId === id);
   const todayDay = useToday();
   const { timezone } = useSettings();
   const { openQuickAdd } = useCommands();
@@ -92,6 +95,23 @@ export function AreaView() {
             action={<Button onClick={() => setNewGoal(true)}>Add a goal</Button>}
           />
         )}
+        {people.length ? (
+          <>
+            <SectionLabel count={people.length}>People</SectionLabel>
+            <ul aria-label={`People in ${area.name}`} className="flex flex-wrap gap-2">
+              {people.map((p) => (
+                <li key={p.id}>
+                  <Link
+                    href={`/person?id=${p.id}`}
+                    className="flex h-10 items-center gap-2 rounded-full bg-fill py-1 pr-3.5 pl-1 text-callout font-medium hover:bg-fill-strong"
+                  >
+                    <PersonAvatar person={p} size={32} /> {p.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
         <SectionLabel count={openTasks.length}>Open tasks</SectionLabel>
         <TaskList tasks={openTasks} label={`Open tasks in ${area.name}`} />
         <button

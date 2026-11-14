@@ -17,6 +17,7 @@ import {
   useCycles,
   useFocusSessions,
   useMilestones,
+  usePeople,
   useTask,
   useTaskEvents,
   type TaskEvent,
@@ -27,7 +28,15 @@ import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { dayLabel, weekday } from "@/lib/dates";
 import type { Recurrence } from "@/lib/sync/entities";
-import { AreaPicker, DatePicker, EffortPicker, GoalPicker, PriorityPicker, StatusPicker } from "./pickers";
+import {
+  AreaPicker,
+  DatePicker,
+  EffortPicker,
+  GoalPicker,
+  PersonPicker,
+  PriorityPicker,
+  StatusPicker,
+} from "./pickers";
 
 export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () => void }) {
   const task = useTask(taskId);
@@ -49,6 +58,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
 function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void }) {
   const actions = useActions();
   const todayDay = useToday();
+  const hasPeople = (usePeople()?.length ?? 0) > 0;
   const focus = useFocus();
   const skip = useSkipFlow();
   const panel = useTaskPanel();
@@ -154,6 +164,11 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
               value={task.milestoneId}
               onChange={(m) => void update({ milestoneId: m })}
             />
+          </Prop>
+        ) : null}
+        {task.personId || hasPeople ? (
+          <Prop label="Person">
+            <PersonPicker value={task.personId ?? null} onChange={(p) => void update({ personId: p })} />
           </Prop>
         ) : null}
         <Prop label="Due">

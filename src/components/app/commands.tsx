@@ -16,6 +16,8 @@ import {
   Sparkles,
   Target,
   Trophy,
+  UserPlus,
+  Users,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -30,14 +32,15 @@ import { Kbd } from "@/components/ui/pill";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
-import { useAllTasks, useAreas, useGoals, useSettings } from "@/features/data";
+import { useAllTasks, useAreas, useGoals, usePeople, useSettings } from "@/features/data";
+import { PersonAvatar } from "@/components/people/avatar";
 import { parseQuickAdd, type QuickAddToken } from "@/features/quick-add/parse";
 import { isOpen, taskCode, type TaskFields } from "@/features/tasks/model";
 import { cn } from "@/lib/cn";
 import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
 import { useIsDesktop } from "@/lib/use-media-query";
 
-type QuickAddDefaults = Partial<Pick<TaskFields, "areaId" | "goalId" | "milestoneId" | "status" | "dueDate">>;
+type QuickAddDefaults = Partial<Pick<TaskFields, "areaId" | "goalId" | "milestoneId" | "status" | "dueDate" | "personId">>;
 
 interface CommandsContext {
   openQuickAdd: (defaults?: QuickAddDefaults) => void;
@@ -68,6 +71,7 @@ const GO: Record<string, string> = {
   h: "/habits",
   r: "/report",
   l: "/levels",
+  p: "/people",
 };
 
 /** Quick Add, ⌘K palette and Linear-style keyboard shortcuts (PRD CMD-1 – CMD-3, INB-1). */
@@ -218,6 +222,7 @@ function QuickAddPanel({
       goalId,
       milestoneId: parsed.goalId ? null : (defaults.milestoneId ?? null),
       dueDate,
+      personId: defaults.personId ?? null,
       status: defaults.status ?? (triaged ? "todo" : "inbox"),
     });
     setText("");
@@ -344,6 +349,7 @@ function Palette({
   const { resolvedTheme, setTheme } = useTheme();
   const areas = useAreas() ?? [];
   const goals = useGoals() ?? [];
+  const people = usePeople() ?? [];
   const tasks = (useAllTasks() ?? []).filter((t) => !t.parentTaskId && isOpen(t)).slice(0, 300);
   const { transition } = useOrbitMotion();
 
@@ -403,6 +409,9 @@ function Palette({
                       <Command.Item className={item} onSelect={() => go("/goals?new=1")}>
                         <Target className="size-4 text-label-secondary" /> <span className="flex-1">New goal</span>
                       </Command.Item>
+                      <Command.Item className={item} onSelect={() => go("/people?new=1")}>
+                        <UserPlus className="size-4 text-label-secondary" /> <span className="flex-1">New person</span>
+                      </Command.Item>
                       <Command.Item
                         className={item}
                         onSelect={() => run(() => setTheme(resolvedTheme === "dark" ? "light" : "dark"))}
@@ -430,6 +439,7 @@ function Palette({
                         ["Tasks", "/tasks", LayoutList, "G K"],
                         ["Goals", "/goals", Target, "G G"],
                         ["Areas", "/areas", Shapes, "G A"],
+                        ["People", "/people", Users, "G P"],
                         ["Cycle", "/cycle", CalendarSync, "G C"],
                         ["Settings", "/settings", Settings, "G S"],
                       ].map(([label, href, Icon, keys]) => {
@@ -474,6 +484,20 @@ function Palette({
                         ))}
                       </Command.Group>
                     ) : null}
+                    {people.length ? (
+                      <Command.Group heading="People" className={group}>
+                        {people.map((p) => (
+                          <Command.Item
+                            key={p.id}
+                            value={`person ${p.name} ${p.id}`}
+                            className={item}
+                            onSelect={() => go(`/person?id=${p.id}`)}
+                          >
+                            <PersonAvatar person={p} size={20} /> <span className="flex-1 truncate">{p.name}</span>
+                          </Command.Item>
+                        ))}
+                      </Command.Group>
+                    ) : null}
                     {tasks.length ? (
                       <Command.Group heading="Tasks" className={group}>
                         {tasks.map((t) => (
@@ -514,6 +538,7 @@ const SHORTCUTS: [string, string[]][] = [
   ["Go to Tasks", ["G", "K"]],
   ["Go to Goals", ["G", "G"]],
   ["Go to Areas", ["G", "A"]],
+  ["Go to People", ["G", "P"]],
   ["Go to Settings", ["G", "S"]],
   ["Next / previous task", ["J", "K"]],
   ["Open task", ["Enter"]],

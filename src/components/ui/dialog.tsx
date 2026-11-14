@@ -38,7 +38,7 @@ export function Dialog({
             </D.Overlay>
             <D.Content asChild forceMount>
               <motion.div
-                className="fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] rounded-xl bg-surface-raised p-6 shadow-3 outline-none"
+                className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-xl bg-surface-raised p-6 shadow-3 outline-none"
                 style={{ maxWidth: width, x: "-50%", y: "-50%" }}
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}

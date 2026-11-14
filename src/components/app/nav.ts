@@ -12,6 +12,7 @@ import {
   Sparkles,
   Sun,
   Target,
+  Users,
 } from "lucide-react";
 
 export const NAV_MAIN = [
@@ -23,6 +24,7 @@ export const NAV_MAIN = [
   { href: "/tasks", label: "Tasks", icon: LayoutList },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/habits", label: "Habits", icon: Repeat },
+  { href: "/people", label: "People", icon: Users },
   { href: "/cycle", label: "Cycle", icon: CalendarSync },
   { href: "/report", label: "Report", icon: BarChart3 },
   { href: "/levels", label: "Levels", icon: Trophy },
@@ -33,6 +35,7 @@ export const NAV_MORE = [
   { href: "/coach", label: "Coach", icon: Sparkles },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/habits", label: "Habits", icon: Repeat },
+  { href: "/people", label: "People", icon: Users },
   { href: "/tasks", label: "Tasks", icon: LayoutList },
   { href: "/areas", label: "Areas", icon: Shapes },
   { href: "/cycle", label: "Cycle", icon: CalendarSync },

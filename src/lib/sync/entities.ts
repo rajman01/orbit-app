@@ -34,6 +34,19 @@ export const AREA_COLORS = [
   "yellow",
 ] as const;
 
+export const RELATIONSHIPS = ["family", "friend", "partner", "mentor", "colleague", "other"] as const;
+export const INTERACTION_TYPES = ["call", "text", "in_person", "other"] as const;
+
+/** An important date on a person: month/day, with the year when it's known (REL-1, REL-6). */
+export const personDateSchema = z.object({
+  kind: z.enum(["birthday", "anniversary", "custom"]),
+  label: z.string().trim().max(60),
+  month: z.number().int().min(1).max(12),
+  day: z.number().int().min(1).max(31),
+  year: z.number().int().min(1800).max(2200).nullable(),
+});
+export type PersonDate = z.infer<typeof personDateSchema>;
+
 export const recurrenceSchema = z.object({
   freq: z.enum(["daily", "weekly", "monthly"]),
   interval: z.number().int().min(1).max(365),
@@ -150,6 +163,8 @@ export const entitySchemas = {
     postponeCount: z.number().int().min(0).max(100000).optional(),
     /** Phase 1C: the cycle this task is planned into. */
     cycleId: ref.optional(),
+    /** Phase 2C: the person this task is about (follow-ups). */
+    personId: ref.optional(),
   }),
   taskEvents: z.object({
     taskId: id,
@@ -343,6 +358,43 @@ export const entitySchemas = {
     start: ms,
     end: ms,
   }),
+  /** Phase 2C (REL-1/2): the people who matter. "Last in touch" comes from `interactions`. */
+  people: z.object({
+    name: z.string().trim().min(1).max(120),
+    /** Shown instead of initials when set. */
+    emoji: z.string().max(16).nullable(),
+    color: z.enum(AREA_COLORS),
+    relationship: z.enum(RELATIONSHIPS),
+    howWeMet: z.string().max(2000),
+    notes: z.string().max(20000),
+    interests: z.array(z.string().trim().min(1).max(60)).max(30),
+    phone: z.string().trim().max(40).nullable(),
+    whatsapp: z.string().trim().max(40).nullable(),
+    email: z.string().trim().max(200).nullable(),
+    /** Keep in touch every N days; null = no cadence (never in Reach out). */
+    cadenceDays: z.number().int().min(1).max(730).nullable(),
+    /** Out of Reach out until this day. */
+    snoozedUntil: day.nullable(),
+    dates: z.array(personDateSchema).max(20),
+    areaId: ref,
+    /** Set when imported from Google Contacts, so importing again skips them. */
+    googleId: z.string().max(200).nullable(),
+    archivedAt: ms.nullable(),
+  }),
+  /** REL-4: a call, message or meeting; the newest is "last in touch". */
+  interactions: z.object({
+    personId: id,
+    date: day,
+    type: z.enum(INTERACTION_TYPES),
+    notes: z.string().max(5000),
+  }),
+  /** REL-5: gift ideas and things to remember about someone. */
+  personItems: z.object({
+    personId: id,
+    kind: z.enum(["gift", "remember"]),
+    text: z.string().trim().min(1).max(500),
+    doneAt: ms.nullable(),
+  }),
   /** What the coach remembers about the user (AI-9); visible and editable. */
   aiMemories: z.object({
     text: z.string().trim().min(1).max(500),
@@ -396,6 +448,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
     parentTaskId: "tasks",
     recurrenceParentId: "tasks",
     cycleId: "cycles",
+    personId: "people",
   },
   taskEvents: { taskId: "tasks" },
   focusSessions: { taskId: "tasks" },
@@ -407,4 +460,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   aiActions: { threadId: "aiThreads" },
   calendarEvents: { calendarId: "calendars" },
   timeBlocks: { taskId: "tasks" },
+  people: { areaId: "areas" },
+  interactions: { personId: "people" },
+  personItems: { personId: "people" },
 };

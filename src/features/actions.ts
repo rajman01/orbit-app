@@ -31,6 +31,7 @@ import {
   type XpSource,
 } from "./xp/model";
 import { addDays, dayOf } from "@/lib/dates";
+import { newPersonFields, type InteractionType, type PersonFields } from "./people/model";
 
 const now = () => Date.now();
 
@@ -749,6 +750,70 @@ export function createActions(engine: SyncEngine, userId: string) {
     renameTimeBlock: (id: string, title: string) =>
       engine.update("timeBlocks", id, { title: title.trim().slice(0, 500) || "Time block" }),
     deleteTimeBlock: (id: string) => engine.remove("timeBlocks", id),
+
+    // ------------------------------------------------------------ people (Phase 2C)
+
+    /** Adds someone; they go in the Relationships area when there is one. */
+    async createPerson(fields: Partial<PersonFields> & { name: string }) {
+      let areaId = fields.areaId;
+      if (areaId === undefined) {
+        const rel = await db.areas.get(presetAreaId(userId, "relationships"));
+        areaId = rel && !rel.deletedAt && !rel.archivedAt ? rel.id : null;
+      }
+      return engine.create("people", newPersonFields({ ...fields, name: fields.name.trim(), areaId }));
+    },
+    updatePerson: (id: string, patch: Partial<PersonFields>) => engine.update("people", id, patch),
+    archivePerson: (id: string, archived: boolean) =>
+      engine.update("people", id, { archivedAt: archived ? now() : null }),
+    snoozePerson: (id: string, until: string | null) => engine.update("people", id, { snoozedUntil: until }),
+
+    /** Deletes someone with their log and notes; tasks about them stay, without the link. */
+    async deletePerson(id: string) {
+      const [interactions, items, tasks] = await Promise.all([
+        db.interactions.where("personId").equals(id).toArray(),
+        db.personItems.where("personId").equals(id).toArray(),
+        db.tasks.where("personId").equals(id).toArray(),
+      ]);
+      for (const i of interactions) if (!i.deletedAt) await engine.remove("interactions", i.id);
+      for (const i of items) if (!i.deletedAt) await engine.remove("personItems", i.id);
+      for (const t of tasks) if (!t.deletedAt) await engine.update("tasks", t.id, { personId: null });
+      await engine.remove("people", id);
+    },
+
+    /**
+     * Logs a call, message or meeting (REL-4). It resets the keep-in-touch clock and ends a snooze;
+     * a follow-up becomes a task about the person.
+     */
+    async logInteraction(
+      personId: string,
+      fields: { date: string; type: InteractionType; notes: string },
+      followUp?: { title: string; scheduledDate: string | null } | null,
+    ) {
+      const id = await engine.create("interactions", { personId, ...fields, notes: fields.notes.trim() });
+      const person = await db.people.get(personId);
+      if (person?.snoozedUntil) await engine.update("people", personId, { snoozedUntil: null });
+      let taskId: string | null = null;
+      if (followUp?.title.trim()) {
+        taskId = await actions.createTask({
+          title: followUp.title.trim(),
+          status: "todo",
+          personId,
+          areaId: person?.areaId ?? null,
+          scheduledDate: followUp.scheduledDate,
+        });
+      }
+      return { id, taskId };
+    },
+    updateInteraction: (id: string, patch: Partial<EntityFields<"interactions">>) =>
+      engine.update("interactions", id, patch),
+    deleteInteraction: (id: string) => engine.remove("interactions", id),
+
+    addPersonItem: (personId: string, kind: "gift" | "remember", text: string) =>
+      engine.create("personItems", { personId, kind, text: text.trim().slice(0, 500), doneAt: null }),
+    updatePersonItem: (id: string, text: string) =>
+      engine.update("personItems", id, { text: text.trim().slice(0, 500) }),
+    togglePersonItem: (id: string, done: boolean) => engine.update("personItems", id, { doneAt: done ? now() : null }),
+    deletePersonItem: (id: string) => engine.remove("personItems", id),
 
     // ------------------------------------------------------------ coach (Phase 2A)
 

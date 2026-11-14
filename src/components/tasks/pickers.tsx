@@ -1,10 +1,11 @@
 "use client";
 
-import { CalendarDays, Circle, Gauge, Target, X } from "lucide-react";
+import { CalendarDays, Circle, Gauge, Target, Users, X } from "lucide-react";
 import { useState } from "react";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { ChipButton, Picker, Popover, type PickerOption } from "@/components/ui/picker";
-import { type Area, useAreas, useGoals } from "@/features/data";
+import { type Area, useAreas, useGoals, usePeople } from "@/features/data";
+import { PersonAvatar } from "@/components/people/avatar";
 import { PRIORITY_META, STATUS_META, type Priority, type TaskStatus } from "@/features/tasks/model";
 import { addDays, dayLabel, weekday, type Day } from "@/lib/dates";
 import { EFFORTS, PRIORITIES, TASK_STATUSES } from "@/lib/sync/entities";
@@ -241,5 +242,28 @@ export function DatePicker({
         </button>
       ) : null}
     </Popover>
+  );
+}
+
+/** Phase 2C: who a task is about. */
+export function PersonPicker({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
+  const people = (usePeople({ includeArchived: true }) ?? []).filter((p) => !p.archivedAt || p.id === value);
+  const current = people.find((p) => p.id === value);
+  return (
+    <Picker
+      label="Person"
+      value={value}
+      options={[
+        { value: null, label: "No one" },
+        ...people.map((p) => ({ value: p.id, label: p.name, icon: <PersonAvatar person={p} size={20} /> })),
+      ]}
+      onChange={onChange}
+      trigger={
+        <ChipButton aria-label="Person">
+          {current ? <PersonAvatar person={current} size={18} /> : <Users className="size-4 text-label-secondary" strokeWidth={1.75} />}
+          <span className="truncate">{current ? current.name : <span className="text-label-tertiary">No one</span>}</span>
+        </ChipButton>
+      }
+    />
   );
 }

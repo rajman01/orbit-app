@@ -30,6 +30,7 @@ export function newTaskFields(partial: Partial<TaskFields> & { title: string }):
     mustDoDate: null,
     postponeCount: 0,
     cycleId: null,
+    personId: null,
     ...partial,
   };
 }

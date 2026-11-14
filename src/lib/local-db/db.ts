@@ -64,5 +64,13 @@ export function openLocalDb(userId: string): OrbitDB {
   db.version(8).stores({ calendars: "id, accountId", calendarEvents: "id, calendarId, start, startDay" });
   // Phase 2B.2: time blocks.
   db.version(9).stores({ timeBlocks: "id, taskId, start" });
+  // Phase 2C: people.
+  db.version(10).stores({
+    tasks:
+      "id, status, order, deletedAt, serverVersion, goalId, areaId, parentTaskId, milestoneId, dueDate, scheduledDate, personId",
+    people: "id, name",
+    interactions: "id, personId, date",
+    personItems: "id, personId",
+  });
   return db;
 }
