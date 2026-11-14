@@ -195,8 +195,10 @@ function Sidebar() {
         </button>
       </div>
       <nav className="flex flex-col gap-0.5" aria-label="Main">
-        {NAV_MAIN.map((n) => (
-          <NavLink key={n.href} {...n} badge={n.href === "/inbox" ? inbox : undefined} />
+        {NAV_MAIN.map((n, i) => (
+          <div key={n.href} className={i > 0 && NAV_MAIN[i - 1].group !== n.group ? "mt-3" : undefined}>
+            <NavLink href={n.href} label={n.label} icon={n.icon} badge={n.href === "/inbox" ? inbox : undefined} />
+          </div>
         ))}
       </nav>
       <nav className="flex flex-col gap-0.5" aria-label="Areas">

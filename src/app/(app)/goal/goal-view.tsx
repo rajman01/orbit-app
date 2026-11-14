@@ -32,6 +32,7 @@ import { Pill } from "@/components/ui/pill";
 import { GoalPlanet } from "@/components/goals/goal-planet";
 import { GoalPeople } from "@/components/people/goal-people";
 import { GoalValues } from "@/components/goals/goal-values";
+import { GoalUpdates } from "@/components/goals/goal-updates";
 import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
@@ -300,6 +301,8 @@ function GoalDetail({ goal }: { goal: Goal }) {
         >
           <Plus className="size-4" /> Add a task
         </button>
+
+        <GoalUpdates goal={goal} />
       </PageBody>
 
       <NewKeyResultDialog open={addingKr} onOpenChange={setAddingKr} goalId={goal.id} />

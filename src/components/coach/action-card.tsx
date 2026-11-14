@@ -58,6 +58,9 @@ export function actionTarget(
     case "create_habit":
     case "update_habit":
       return { kind: "habits" };
+    case "log_win":
+    case "add_goal_update":
+      return input.goalId ? { kind: "goal", id: input.goalId } : null;
     case "add_person":
       return made("people") ? { kind: "person", id: made("people") } : null;
     case "update_person":

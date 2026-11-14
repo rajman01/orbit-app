@@ -117,8 +117,12 @@ test("G P opens People", async ({ page }) => {
 test("someone overdue shows in Reach out; snooze, undo, log; birthday tomorrow; goal link", async ({ page }) => {
   const r = run();
   const name = `Tolu ${r}`;
+  // Midday, so "tomorrow" is the same day for the browser and the app's timezone.
+  const noon = new Date();
+  noon.setHours(12, 0, 0, 0);
+  await page.clock.install({ time: noon });
   const day = (n: number) => {
-    const d = new Date();
+    const d = new Date(noon);
     d.setDate(d.getDate() + n);
     return d;
   };

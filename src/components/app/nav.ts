@@ -1,6 +1,8 @@
 import {
   BarChart3,
+  Award,
   CalendarClock,
+  NotebookPen,
   CalendarRange,
   Telescope,
   CalendarDays,
@@ -17,21 +19,24 @@ import {
   Users,
 } from "lucide-react";
 
+/** The sidebar, in three groups: the day, planning, and looking back. */
 export const NAV_MAIN = [
-  { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/today", label: "Today", icon: Sun },
-  { href: "/calendar", label: "Calendar", icon: CalendarClock },
-  { href: "/coach", label: "Coach", icon: Sparkles },
-  { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
-  { href: "/tasks", label: "Tasks", icon: LayoutList },
-  { href: "/goals", label: "Goals", icon: Target },
-  { href: "/quarter", label: "Quarter", icon: CalendarRange },
-  { href: "/vision", label: "Vision", icon: Telescope },
-  { href: "/habits", label: "Habits", icon: Repeat },
-  { href: "/people", label: "People", icon: Users },
-  { href: "/cycle", label: "Cycle", icon: CalendarSync },
-  { href: "/report", label: "Report", icon: BarChart3 },
-  { href: "/levels", label: "Levels", icon: Trophy },
+  { href: "/inbox", label: "Inbox", icon: Inbox, group: 0 },
+  { href: "/today", label: "Today", icon: Sun, group: 0 },
+  { href: "/calendar", label: "Calendar", icon: CalendarClock, group: 0 },
+  { href: "/coach", label: "Coach", icon: Sparkles, group: 0 },
+  { href: "/upcoming", label: "Upcoming", icon: CalendarDays, group: 0 },
+  { href: "/tasks", label: "Tasks", icon: LayoutList, group: 0 },
+  { href: "/goals", label: "Goals", icon: Target, group: 1 },
+  { href: "/cycle", label: "Cycle", icon: CalendarSync, group: 1 },
+  { href: "/quarter", label: "Quarter", icon: CalendarRange, group: 1 },
+  { href: "/vision", label: "Vision", icon: Telescope, group: 1 },
+  { href: "/habits", label: "Habits", icon: Repeat, group: 1 },
+  { href: "/people", label: "People", icon: Users, group: 1 },
+  { href: "/journal", label: "Journal", icon: NotebookPen, group: 2 },
+  { href: "/wins", label: "Wins", icon: Award, group: 2 },
+  { href: "/report", label: "Report", icon: BarChart3, group: 2 },
+  { href: "/levels", label: "Levels", icon: Trophy, group: 2 },
 ] as const;
 
 export const NAV_MORE = [
@@ -44,6 +49,8 @@ export const NAV_MORE = [
   { href: "/areas", label: "Areas", icon: Shapes },
   { href: "/quarter", label: "Quarter", icon: CalendarRange },
   { href: "/vision", label: "Vision", icon: Telescope },
+  { href: "/journal", label: "Journal", icon: NotebookPen },
+  { href: "/wins", label: "Wins", icon: Award },
   { href: "/cycle", label: "Cycle", icon: CalendarSync },
   { href: "/report", label: "Weekly report", icon: BarChart3 },
   { href: "/levels", label: "Levels", icon: Trophy },

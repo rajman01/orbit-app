@@ -15,13 +15,22 @@ import {
   burnUp,
   currentCycle,
   cyclePoints,
+  cycleStats,
   cycleState,
   dayOfCycle,
   daysLeft,
   planningTarget,
   type Cycle,
 } from "@/features/cycles/model";
-import { useAllTasks, useCycleAddedAt, useCycles, useGoals, useSettings } from "@/features/data";
+import {
+  useAllTasks,
+  useCycleAddedAt,
+  useCycles,
+  useFocusSessions,
+  useGoals,
+  useSettings,
+  useXpEvents,
+} from "@/features/data";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { dayLabel } from "@/lib/dates";
@@ -223,6 +232,9 @@ function ReviewTab({ cycles, toReview }: { cycles: Cycle[]; toReview?: Cycle }) 
   const ritual = useRitualLauncher();
   const all = useAllTasks() ?? [];
   const past = cycles.filter((c) => c.reviewCompletedAt).sort((a, b) => b.number - a.number);
+  const sessions = useFocusSessions() ?? [];
+  const xpEvents = useXpEvents() ?? [];
+  const { timezone } = useSettings();
   const current = currentCycle(cycles, todayDay);
 
   return (
@@ -255,8 +267,8 @@ function ReviewTab({ cycles, toReview }: { cycles: Cycle[]; toReview?: Cycle }) 
           <SectionLabel count={past.length}>Past cycles</SectionLabel>
           <ul className="flex flex-col gap-2">
             {past.map((c) => {
-              const pts = cyclePoints(all, c);
-              const pct = pts.total ? Math.round((pts.done / pts.total) * 100) : 0;
+              const stats = cycleStats(c, all, sessions, xpEvents, timezone);
+              const pct = Math.round(stats.completion * 100);
               return (
                 <li key={c.id} className="rounded-lg border border-separator p-3">
                   <div className="flex items-center gap-3">
@@ -267,11 +279,27 @@ function ReviewTab({ cycles, toReview }: { cycles: Cycle[]; toReview?: Cycle }) 
                         {c.theme ? <span className="font-normal text-label-secondary"> · {c.theme}</span> : null}
                       </p>
                       <p className="text-footnote text-label-secondary">
-                        {fmt(c.startDate)} – {fmt(c.endDate)} · {pts.done} of {pts.total} pts
+                        {fmt(c.startDate)} – {fmt(c.endDate)}
                       </p>
                     </div>
-                    <span className="text-headline tabular">{pct}%</span>
+                    <span className="text-headline tabular" aria-label={`${pct}% done`}>
+                      {pct}%
+                    </span>
                   </div>
+                  <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
+                    {(
+                      [
+                        ["Points", `${stats.points.done}/${stats.points.total}`],
+                        ["Focus", `${stats.focusHours} h`],
+                        ["XP", String(stats.xp)],
+                      ] as const
+                    ).map(([k, v]) => (
+                      <div key={k} className="rounded-md bg-surface-sunken px-2 py-1.5">
+                        <dt className="text-caption text-label-tertiary">{k}</dt>
+                        <dd className="text-callout font-semibold tabular">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
                   {c.reflection ? (
                     <p className="mt-2 text-footnote whitespace-pre-line text-label-secondary">{c.reflection}</p>
                   ) : null}

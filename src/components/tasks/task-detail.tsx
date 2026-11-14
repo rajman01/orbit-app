@@ -1,6 +1,10 @@
 "use client";
 
-import { CalendarSync, Flag, Play, Plus, Repeat, Sparkles, Timer, Trash2, X } from "lucide-react";
+import { CalendarSync, Flag, Play, Plus, Repeat, Sparkles, Timer, Trash2, Trophy, X } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
+import Link from "next/link";
+import { useSync } from "@/components/app/sync-provider";
+import { taskWinId } from "@/features/wins/model";
 import { askCoach } from "@/components/coach/coach-panel";
 import { currentCycle } from "@/features/cycles/model";
 import { useFocus } from "@/components/focus/focus-mode";
@@ -103,6 +107,8 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
             >
               <Play className="size-3.5" fill="currentColor" aria-hidden /> Start focus
             </button>
+          ) : task.status === "done" && !task.parentTaskId ? (
+            <LogAsWin task={task} />
           ) : null}
           {isOpen(task) && !task.parentTaskId ? (
             <IconButton
@@ -483,5 +489,32 @@ function History({ taskId, todayDay }: { taskId: string; todayDay: string }) {
         ))}
       </ol>
     </section>
+  );
+}
+
+/** CAR-1: a finished task can go in the wins log (once). */
+function LogAsWin({ task }: { task: Task }) {
+  const actions = useActions();
+  const { db } = useSync();
+  const logged = useLiveQuery(async () => {
+    const w = await db.wins.get(taskWinId(task.id));
+    return Boolean(w && !w.deletedAt);
+  }, [db, task.id]);
+  if (logged === undefined) return null;
+  return logged ? (
+    <Link
+      href="/wins"
+      className="mr-1 flex h-8 items-center gap-1.5 rounded-full bg-fill px-3 text-footnote font-semibold text-label-secondary hover:text-label"
+    >
+      <Trophy className="size-3.5 text-warning" aria-hidden /> In your wins
+    </Link>
+  ) : (
+    <button
+      type="button"
+      onClick={() => void actions.logTaskAsWin(task)}
+      className="mr-1 flex h-8 items-center gap-1.5 rounded-full bg-accent-fill px-3 text-footnote font-semibold text-accent-text hover:brightness-95"
+    >
+      <Trophy className="size-3.5" aria-hidden /> Log as win
+    </button>
   );
 }

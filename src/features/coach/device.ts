@@ -412,6 +412,29 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
     return "Forgotten.";
   },
 
+  async get_reflection({ days }, { db, userId, now }) {
+    const s = await loadSettings(db, userId);
+    const day = todayOf(s.timezone, now);
+    const from = addDays(day, -((days ?? 14) - 1));
+    const entries = live(await db.journalEntries.toArray())
+      .filter((e) => e.date >= from && e.date <= day && (e.text.trim() || e.mood || e.energy))
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const wins = live(await db.wins.toArray())
+      .filter((w) => w.date >= from && w.date <= day)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    return {
+      from,
+      to: day,
+      journal: entries.map((e) => ({
+        date: e.date,
+        mood: e.mood ? `${e.mood}/5` : undefined,
+        energy: e.energy ? `${e.energy}/5` : undefined,
+        text: e.text.trim() ? e.text.trim().slice(0, 1500) : undefined,
+      })),
+      wins: wins.map((w) => ({ date: w.date, title: w.title, impact: w.impact || undefined })),
+    };
+  },
+
   async get_people({ query }, { db, userId, now }) {
     const s = await loadSettings(db, userId);
     const day = todayOf(s.timezone, now);

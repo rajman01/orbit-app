@@ -2,7 +2,9 @@
 
 import { Command } from "cmdk";
 import {
+  Award,
   BarChart3,
+  NotebookPen,
   CalendarRange,
   Telescope,
   CalendarDays,
@@ -79,6 +81,8 @@ const GO: Record<string, string> = {
   q: "/quarter",
   v: "/vision",
   y: "/year",
+  j: "/journal",
+  w: "/wins",
 };
 
 /** Quick Add, ⌘K palette and Linear-style keyboard shortcuts (PRD CMD-1 – CMD-3, INB-1). */
@@ -416,6 +420,9 @@ function Palette({
                       <Command.Item className={item} onSelect={() => go("/goals?new=1")}>
                         <Target className="size-4 text-label-secondary" /> <span className="flex-1">New goal</span>
                       </Command.Item>
+                      <Command.Item className={item} onSelect={() => go("/wins?new=1")}>
+                        <Award className="size-4 text-label-secondary" /> <span className="flex-1">Log a win</span>
+                      </Command.Item>
                       <Command.Item className={item} onSelect={() => go("/people?new=1")}>
                         <UserPlus className="size-4 text-label-secondary" /> <span className="flex-1">New person</span>
                       </Command.Item>
@@ -450,6 +457,8 @@ function Palette({
                         ["Quarter", "/quarter", CalendarRange, "G Q"],
                         ["Vision", "/vision", Telescope, "G V"],
                         ["Year", "/year", CalendarRange, "G Y"],
+                        ["Journal", "/journal", NotebookPen, "G J"],
+                        ["Wins", "/wins", Award, "G W"],
                         ["Cycle", "/cycle", CalendarSync, "G C"],
                         ["Settings", "/settings", Settings, "G S"],
                       ].map(([label, href, Icon, keys]) => {
@@ -552,6 +561,8 @@ const SHORTCUTS: [string, string[]][] = [
   ["Go to Quarter", ["G", "Q"]],
   ["Go to Vision", ["G", "V"]],
   ["Go to Year", ["G", "Y"]],
+  ["Go to Journal", ["G", "J"]],
+  ["Go to Wins", ["G", "W"]],
   ["Go to Settings", ["G", "S"]],
   ["Next / previous task", ["J", "K"]],
   ["Open task", ["Enter"]],

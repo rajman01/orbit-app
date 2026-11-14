@@ -185,3 +185,77 @@ export function newHabitFields(partial: Partial<HabitFields> & { name: string })
     ...partial,
   };
 }
+
+// ---------------------------------------------------------------- heatmap and consistency (HAB-4)
+
+/** Is the day a scheduled day (weekly habits: any day counts)? */
+export function plannedOn(s: Schedule, day: Day): boolean {
+  return s.type === "weekly" ? true : scheduledOn(s, day);
+}
+
+export interface HeatCell {
+  day: Day;
+  /** 0 nothing, 1 some (count habits short of the target), 2 done. */
+  level: 0 | 1 | 2;
+  scheduled: boolean;
+  future: boolean;
+}
+
+/** Weeks (columns, oldest first) of days for a GitHub-style heatmap ending this week. */
+export function habitHeatmap(
+  h: Pick<Habit, "schedule" | "targetType" | "targetCount">,
+  logs: Pick<HabitLog, "date" | "value">[],
+  today: Day,
+  opts: { weeks: number; weekStart: number; startDay?: Day },
+): HeatCell[][] {
+  const byDay = new Map(logs.map((l) => [l.date, l]));
+  const start = addDays(weekStartOf(today, opts.weekStart), -7 * (opts.weeks - 1));
+  return Array.from({ length: opts.weeks }, (_, w) =>
+    Array.from({ length: 7 }, (_, d) => {
+      const day = addDays(start, w * 7 + d);
+      const log = byDay.get(day);
+      const level: HeatCell["level"] = doneOn(h, log) ? 2 : log && log.value > 0 ? 1 : 0;
+      const started = !opts.startDay || day >= opts.startDay;
+      return { day, level, scheduled: started && plannedOn(h.schedule, day), future: day > today };
+    }),
+  );
+}
+
+/**
+ * Share of scheduled days (or weeks, for "× a week" habits) done in the last `days` days, counting
+ * from when the habit started. Today counts only once it's done. Null before anything was due.
+ */
+export function consistency(
+  h: Pick<Habit, "schedule" | "targetType" | "targetCount">,
+  logs: Pick<HabitLog, "date" | "value">[],
+  today: Day,
+  days: number,
+  opts: { weekStart: number; startDay: Day },
+): number | null {
+  const byDay = new Map(logs.map((l) => [l.date, l]));
+  const from = [addDays(today, -(days - 1)), opts.startDay].sort().pop()!;
+  const s = h.schedule;
+  if (s.type === "weekly") {
+    let due = 0;
+    let met = 0;
+    for (let w = weekStartOf(from, opts.weekStart); w <= today; w = addDays(w, 7)) {
+      let done = 0;
+      for (let d = 0; d < 7; d++) if (doneOn(h, byDay.get(addDays(w, d)))) done++;
+      const finished = addDays(w, 6) < today;
+      if (!finished && done < s.timesPerWeek) continue; // this week isn't over yet
+      due++;
+      if (done >= s.timesPerWeek) met++;
+    }
+    return due ? met / due : null;
+  }
+  let due = 0;
+  let done = 0;
+  for (let d = from; d <= today; d = addDays(d, 1)) {
+    if (!scheduledOn(s, d)) continue;
+    const ok = doneOn(h, byDay.get(d));
+    if (d === today && !ok) continue;
+    due++;
+    if (ok) done++;
+  }
+  return due ? done / due : null;
+}

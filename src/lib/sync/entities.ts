@@ -401,6 +401,37 @@ export const entitySchemas = {
     reflection: z.string().max(5000).nullable(),
     planningOverride: z.string().trim().max(500).nullable(),
   }),
+  /** Phase 2D.3 (JRN-1): one entry per day (deterministic id); the Shutdown fills in mood, energy and a line. */
+  journalEntries: z.object({
+    date: day,
+    text: z.string().max(50000),
+    mood: z.number().int().min(1).max(5).nullable(),
+    energy: z.number().int().min(1).max(5).nullable(),
+    /** Prompt ids used (JRN-2). */
+    prompts: z.array(z.string().max(40)).max(20),
+  }),
+  /** Phase 2D.3 (CAR-1): the wins log. */
+  wins: z.object({
+    date: day,
+    title: z.string().trim().min(1).max(200),
+    description: z.string().max(5000),
+    impact: z.string().max(2000),
+    areaId: ref,
+    goalId: ref,
+    taskId: ref,
+    links: z.array(z.string().trim().max(500)).max(10),
+    source: z.enum(["manual", "task", "cycle_review", "quarterly_review", "coach"]),
+  }),
+  /** Phase 2D.3 (GOAL-7): status and health changes and notes, for a goal's updates feed. */
+  goalEvents: z.object({
+    goalId: id,
+    type: z.enum(["status", "health", "note"]),
+    from: z.string().max(40).nullable(),
+    to: z.string().max(40).nullable(),
+    text: z.string().max(5000).nullable(),
+    actor: z.enum(["user", "ai", "system"]),
+    at: ms,
+  }),
   /** Phase 2C (REL-1/2): the people who matter. "Last in touch" comes from `interactions`. */
   people: z.object({
     name: z.string().trim().min(1).max(120),
@@ -505,6 +536,8 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   timeBlocks: { taskId: "tasks" },
   people: { areaId: "areas" },
   quarters: { goalIds: "goals" },
+  wins: { areaId: "areas", goalId: "goals", taskId: "tasks" },
+  goalEvents: { goalId: "goals" },
   interactions: { personId: "people" },
   personItems: { personId: "people" },
 };

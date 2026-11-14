@@ -180,6 +180,7 @@ const TOOL_LABELS: Record<string, { icon: typeof Sun; label: (i: Record<string, 
   remember: { icon: NotebookPen, label: () => "Saved a note about you" },
   forget: { icon: NotebookPen, label: () => "Removed a note" },
   get_people: { icon: Users, label: () => "Looked at your people" },
+  get_reflection: { icon: NotebookPen, label: () => "Read your journal and wins" },
   get_person: { icon: Users, label: () => "Opened a person" },
   get_calendar_availability: { icon: CalendarClock, label: () => "Checked your calendar" },
 };

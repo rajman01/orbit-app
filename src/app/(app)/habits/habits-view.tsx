@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/app/empty-state";
 import { HabitsScene } from "@/components/app/scenes";
 import { HabitForm } from "@/components/habits/habit-form";
 import { HabitRow } from "@/components/habits/habit-row";
+import { HabitHistory } from "@/components/habits/habit-history";
 import { SectionLabel, useTaskLookups } from "@/components/tasks/task-list";
 import { Button, IconButton } from "@/components/ui/button";
 import { Menu, MenuItem } from "@/components/ui/menu";
@@ -83,6 +84,9 @@ export function HabitsView() {
             <ul className="flex flex-col">{rest.map(row)}</ul>
           </>
         ) : null}
+        <div className="mt-6">
+          <HabitHistory />
+        </div>
         {archived.length ? (
           <>
             <SectionLabel count={archived.length}>Archived</SectionLabel>

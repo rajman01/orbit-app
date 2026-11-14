@@ -337,3 +337,34 @@ export const RITUAL_META: Record<RitualType, { title: string; blurb: string; min
     minutes: 30,
   },
 };
+
+export interface CycleStats {
+  /** Done ÷ (committed + added), in points; tasks when nothing was estimated. */
+  completion: number;
+  points: CyclePoints;
+  focusHours: number;
+  xp: number;
+}
+
+/** CYC-6: a past cycle's completion rate, points, focus hours and XP earned. */
+export function cycleStats(
+  cycle: Pick<Cycle, "id" | "startDate" | "endDate" | "committedTaskIds" | "committedPts">,
+  tasks: Task[],
+  sessions: { startedAt: number; actualMinutes: number; deletedAt: number | null }[],
+  xp: { at: number; amount: number; deletedAt: number | null }[],
+  timezone: string,
+): CycleStats {
+  const points = cyclePoints(tasks, cycle);
+  const inside = (at: number) => {
+    const d = dayOf(at, timezone);
+    return d >= cycle.startDate && d <= cycle.endDate;
+  };
+  const completion = points.total ? points.done / points.total : points.tasks ? points.doneTasks / points.tasks : 0;
+  const minutes = sessions.filter((s) => !s.deletedAt && inside(s.startedAt)).reduce((n, s) => n + s.actualMinutes, 0);
+  return {
+    completion,
+    points,
+    focusHours: Math.round((minutes / 60) * 10) / 10,
+    xp: xp.filter((e) => !e.deletedAt && inside(e.at)).reduce((n, e) => n + e.amount, 0),
+  };
+}

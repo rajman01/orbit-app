@@ -224,3 +224,33 @@ export function useQuarters(): QuarterDoc[] | undefined {
   const { db } = useSync();
   return useLiveQuery(async () => live(await db.quarters.toArray()).sort((a, b) => a.year - b.year || a.q - b.q), [db]);
 }
+
+export type JournalDoc = SyncedDoc<"journalEntries">;
+export type WinDoc = SyncedDoc<"wins">;
+export type GoalEventDoc = SyncedDoc<"goalEvents">;
+
+/** Journal entries, newest first. */
+export function useJournal(): JournalDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () => live(await db.journalEntries.toArray()).sort((a, b) => b.date.localeCompare(a.date)),
+    [db],
+  );
+}
+
+/** Wins, newest first. */
+export function useWins(): WinDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () => live(await db.wins.toArray()).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt),
+    [db],
+  );
+}
+
+export function useGoalEvents(goalId: string): GoalEventDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () => live(await db.goalEvents.where("goalId").equals(goalId).toArray()).sort((a, b) => b.at - a.at),
+    [db, goalId],
+  );
+}

@@ -32,6 +32,8 @@ import {
 } from "./xp/model";
 import { addDays, dayOf } from "@/lib/dates";
 import { newPersonFields, type InteractionType, type PersonFields } from "./people/model";
+import { emptyEntry, journalId, withLine, type JournalFields } from "./journal/model";
+import { newWinFields, ritualWinId, taskWinId, type WinFields } from "./wins/model";
 import {
   emptyVision,
   newQuarterFields,
@@ -89,6 +91,16 @@ export function createActions(engine: SyncEngine, userId: string) {
     if (gained > 0 && typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("orbit:xp", { detail: { amount: gained, reason } }));
     }
+  }
+
+  async function logGoalEvent(
+    goalId: string,
+    type: "status" | "health" | "note",
+    from: string | null,
+    to: string | null,
+    text: string | null,
+  ) {
+    await engine.create("goalEvents", { goalId, type, from, to, text, actor: "user", at: now() });
   }
 
   const goalArea = async (goalId: string | null | undefined) =>
@@ -170,9 +182,20 @@ export function createActions(engine: SyncEngine, userId: string) {
 
     // ------------------------------------------------------------ goals
     createGoal: (fields: Partial<GoalFields> & { title: string }) => engine.create("goals", newGoalFields(fields)),
-    updateGoal: (id: string, patch: Partial<GoalFields>) => engine.update("goals", id, patch),
+    /** Updates a goal; status and health changes go in its updates feed (GOAL-7). */
+    async updateGoal(id: string, patch: Partial<GoalFields>) {
+      const before = await db.goals.get(id);
+      await engine.update("goals", id, patch);
+      if (!before) return;
+      if (patch.status !== undefined && patch.status !== before.status)
+        await logGoalEvent(id, "status", before.status, patch.status, patch.droppedReason ?? null);
+      if (patch.health !== undefined && patch.health !== before.health)
+        await logGoalEvent(id, "health", before.health, patch.health, null);
+    },
     async completeGoal(id: string) {
+      const before = await db.goals.get(id);
       await engine.update("goals", id, { status: "completed", completedAt: now() });
+      if (before && before.status !== "completed") await logGoalEvent(id, "status", before.status, "completed", null);
       const g = await db.goals.get(id);
       if (!g) return;
       const s = await settings();
@@ -180,10 +203,20 @@ export function createActions(engine: SyncEngine, userId: string) {
       await award("goal", id, goalXp(start, today(s.timezone)), `Goal completed: ${g.title}`.slice(0, 200), g.areaId);
     },
     async reopenGoal(id: string) {
+      const before = await db.goals.get(id);
       await engine.update("goals", id, { status: "active", completedAt: null, droppedReason: null });
+      if (before && before.status !== "active") await logGoalEvent(id, "status", before.status, "active", null);
       await award("goal", id, 0, "Goal reopened", await goalArea(id));
     },
-    dropGoal: (id: string, reason: string) => engine.update("goals", id, { status: "dropped", droppedReason: reason }),
+    async dropGoal(id: string, reason: string) {
+      const before = await db.goals.get(id);
+      await engine.update("goals", id, { status: "dropped", droppedReason: reason });
+      if (before && before.status !== "dropped") await logGoalEvent(id, "status", before.status, "dropped", reason);
+    },
+    /** GOAL-7: a note in the goal's updates feed, like a project update. */
+    addGoalUpdate: (goalId: string, text: string) =>
+      logGoalEvent(goalId, "note", null, null, text.trim().slice(0, 5000)),
+    deleteGoalUpdate: (id: string) => engine.remove("goalEvents", id),
     async deleteGoal(goal: Goal) {
       const [krs, milestones, tasks] = await Promise.all([
         db.keyResults.where("goalId").equals(goal.id).toArray(),
@@ -638,6 +671,15 @@ export function createActions(engine: SyncEngine, userId: string) {
       const wins = Array.isArray(data.wins) ? (data.wins as unknown[]).filter((w) => typeof w === "string" && w) : [];
       for (const [i, w] of wins.slice(0, 3).entries())
         await award("win", `${i}${id}`, WIN_XP, `Win: ${String(w)}`.slice(0, 200));
+      // Review wins go in the wins log too (CAR-1), once each.
+      if (r.type === "cycle_review" || r.type === "quarterly_review") {
+        for (const [i, w] of wins.slice(0, 3).entries()) {
+          const winId = ritualWinId(id, i);
+          const existing = await db.wins.get(winId);
+          if (existing && !existing.deletedAt) await engine.update("wins", winId, { title: String(w).slice(0, 200) });
+          else await actions.createWin({ title: String(w), date: r.date, source: r.type }, winId);
+        }
+      }
     },
 
     // ------------------------------------------------------------ habits (Phase 1D)
@@ -780,6 +822,49 @@ export function createActions(engine: SyncEngine, userId: string) {
     renameTimeBlock: (id: string, title: string) =>
       engine.update("timeBlocks", id, { title: title.trim().slice(0, 500) || "Time block" }),
     deleteTimeBlock: (id: string) => engine.remove("timeBlocks", id),
+
+    // ------------------------------------------------------------ journal and wins (Phase 2D.3)
+
+    /** Saves part of a day's journal entry (JRN-1), creating it the first time. */
+    async saveJournal(date: string, patch: Partial<JournalFields>) {
+      const id = journalId(userId, date);
+      const existing = await db.journalEntries.get(id);
+      if (existing && !existing.deletedAt) await engine.update("journalEntries", id, patch);
+      else await engine.create("journalEntries", { ...emptyEntry(date), ...patch }, id);
+    },
+    /** The Shutdown's mood, energy and line go into that day's entry. */
+    async journalFromShutdown(date: string, f: { mood?: number; energy?: number; note?: string }) {
+      const existing = await db.journalEntries.get(journalId(userId, date));
+      const text = existing && !existing.deletedAt ? existing.text : "";
+      const patch: Partial<JournalFields> = {};
+      if (f.mood) patch.mood = f.mood;
+      if (f.energy) patch.energy = f.energy;
+      if (f.note?.trim() && withLine(text, f.note) !== text) patch.text = withLine(text, f.note);
+      if (Object.keys(patch).length) await actions.saveJournal(date, patch);
+    },
+
+    createWin: (fields: Partial<WinFields> & { title: string; date: string }, id?: string) =>
+      engine.create("wins", newWinFields({ ...fields, title: fields.title.trim().slice(0, 200) }), id),
+    updateWin: (id: string, patch: Partial<WinFields>) => engine.update("wins", id, patch),
+    deleteWin: (id: string) => engine.remove("wins", id),
+    /** CAR-1: "Log as win" on a completed task (once per task). */
+    async logTaskAsWin(task: Task) {
+      const id = taskWinId(task.id);
+      const existing = await db.wins.get(id);
+      if (existing && !existing.deletedAt) return id;
+      const s = await settings();
+      return actions.createWin(
+        {
+          title: task.title,
+          date: task.completedAt ? dayOf(task.completedAt, s.timezone) : today(s.timezone),
+          areaId: task.areaId,
+          goalId: task.goalId,
+          taskId: task.id,
+          source: "task",
+        },
+        id,
+      );
+    },
 
     // ------------------------------------------------------------ vision and quarters (Phase 2D)
 

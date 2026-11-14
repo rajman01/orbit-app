@@ -34,7 +34,8 @@ export function recordingEngine(engine: SyncEngine): { engine: SyncEngine; chang
     db: engine.db,
     async create<E extends EntityName>(entity: E, fields: EntityFields<E>, id: string = ulid()) {
       let f = fields as Record<string, unknown>;
-      if (entity === "taskEvents") f = { ...f, actor: "ai" };
+      if (entity === "taskEvents" || entity === "goalEvents") f = { ...f, actor: "ai" };
+      if (entity === "wins" && f.source === "manual") f = { ...f, source: "coach" };
       if (entity === "tasks") f = { ...f, createdBy: "ai" };
       const existing = await current(engine, entity, id);
       await engine.create(entity, f as EntityFields<E>, id);

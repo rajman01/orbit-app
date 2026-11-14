@@ -1,5 +1,6 @@
 "use client";
 
+import { ENERGY, MOOD } from "@/features/journal/model";
 import { useMemo, useState } from "react";
 import { useSkipFlow } from "@/components/skip/skip-flow";
 import { useTaskLookups } from "@/components/tasks/task-list";
@@ -13,9 +14,6 @@ import { useMinuteNow, useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { addDays, longDayLabel } from "@/lib/dates";
 import { EmptyStepNote, RitualShell, RitualTaskRow, SmallButton, type RitualStep } from "./ritual-flow";
-
-const MOOD = ["Rough", "Meh", "Okay", "Good", "Great"];
-const ENERGY = ["Drained", "Low", "Steady", "Good", "Buzzing"];
 
 /**
  * PRD RIT-2: the evening shutdown. Mark what got done → decide on what's left (through the
@@ -62,7 +60,11 @@ export function DailyShutdownFlow({ ritual, onClose }: { ritual: RitualDoc; onCl
             type="button"
             role="radio"
             aria-checked={on}
-            onClick={() => void actions.saveRitual(ritual.id, { [key]: value })}
+            onClick={() => {
+              void actions.saveRitual(ritual.id, { [key]: value });
+              // JRN-1: the day's journal entry gets the same mood and energy.
+              void actions.journalFromShutdown(ritual.date, { [key]: value });
+            }}
             className={cn(
               "flex flex-col items-center gap-1.5 rounded-lg px-1 py-3 text-footnote font-medium transition-colors",
               on ? "bg-accent text-on-accent" : "bg-fill hover:bg-fill-strong",
@@ -192,13 +194,14 @@ export function DailyShutdownFlow({ ritual, onClose }: { ritual: RitualDoc; onCl
       steps={steps}
       onClose={onClose}
       finishLabel="Close the day"
-      onFinish={() =>
-        actions.completeRitual(ritual.id, {
+      onFinish={async () => {
+        await actions.journalFromShutdown(ritual.date, { mood: data.mood, energy: data.energy, note });
+        await actions.completeRitual(ritual.id, {
           note: note.trim(),
           done: planned.filter((t) => t.status === "done").length,
           planned: planned.length,
-        })
-      }
+        });
+      }}
     />
   );
 }

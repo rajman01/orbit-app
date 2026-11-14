@@ -38,7 +38,9 @@ export type WriteToolName =
   | "add_person"
   | "update_person"
   | "log_interaction"
-  | "add_person_note";
+  | "add_person_note"
+  | "log_win"
+  | "add_goal_update";
 
 type Input<N extends WriteToolName> = z.infer<(typeof COACH_TOOLS)[N]["input"]>;
 
@@ -176,6 +178,10 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       const verb = { call: "Call", text: "Message", in_person: "Meeting", other: "Catch-up" }[p.type];
       return `Log: ${verb} with ${q(await titleOf(db, "people", p.personId))}${p.followUp ? `, follow-up ${q(p.followUp.title)}` : ""}`;
     }
+    case "log_win":
+      return `Log a win: ${q(i.title)}`;
+    case "add_goal_update":
+      return `Update on ${q(await titleOf(db, "goals", i.goalId))}`;
     case "add_person_note": {
       const p = input as Input<"add_person_note">;
       const name = q(await titleOf(db, "people", p.personId));
@@ -460,6 +466,27 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       const p = input as Input<"add_person_note">;
       await person(p.personId);
       return { id: await actions.addPersonItem(p.personId, p.kind, p.text) };
+    }
+    case "log_win": {
+      const p = input as Input<"log_win">;
+      const day = await todayFor(db, userId, deps.now);
+      const g = p.goalId ? await goal(p.goalId) : null;
+      const id = await actions.createWin({
+        title: p.title,
+        date: p.date && p.date <= day ? p.date : day,
+        description: p.description ?? "",
+        impact: p.impact ?? "",
+        goalId: g?.id ?? null,
+        areaId: g?.areaId ?? null,
+        source: "coach",
+      });
+      return { id };
+    }
+    case "add_goal_update": {
+      const p = input as Input<"add_goal_update">;
+      await goal(p.goalId);
+      await actions.addGoalUpdate(p.goalId, p.text);
+      return { posted: true };
     }
     case "complete_ritual": {
       const p = input as Input<"complete_ritual">;

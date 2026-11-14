@@ -409,6 +409,26 @@ export const COACH_TOOLS = {
       text: z.string().trim().min(1).max(500),
     }),
   },
+  get_reflection: {
+    description:
+      "Read the user's journal (mood, energy and what they wrote) and wins log for the last N days, to notice patterns or help with a review. Quote sparingly; it's private writing.",
+    input: z.object({ days: z.number().int().min(1).max(90).optional().describe("How far back; 14 when left out") }),
+  },
+  log_win: {
+    description:
+      "Add a win to the user's wins log (their brag doc) when they tell you about an achievement and want it kept. Use their words for the title.",
+    input: z.object({
+      title: z.string().trim().min(1).max(200),
+      date: day.optional().describe("When it happened; today when left out"),
+      description: z.string().max(5000).optional(),
+      impact: z.string().max(2000).optional().describe("Numbers, who it helped, what it changed"),
+      goalId: id.optional(),
+    }),
+  },
+  add_goal_update: {
+    description: "Post a short update on a goal's feed (progress, a decision, what changed), in the user's words.",
+    input: z.object({ goalId: id, text: z.string().trim().min(1).max(5000) }),
+  },
 } as const;
 
 export type CoachToolName = keyof typeof COACH_TOOLS;
@@ -439,6 +459,8 @@ export const WRITE_TOOLS = new Set<CoachToolName>([
   "update_person",
   "log_interaction",
   "add_person_note",
+  "log_win",
+  "add_goal_update",
 ]);
 
 /** More changes than this in one reply need the user's OK first (PRD §10.5). */
