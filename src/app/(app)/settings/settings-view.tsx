@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/app/app-shell";
 import { clearCachedUser, useCurrentUser } from "@/components/app/auth-gate";
 import { useSync } from "@/components/app/sync-provider";
 import { SyncIndicator } from "@/components/app/sync-indicator";
+import { CalendarSettings } from "@/components/calendar/calendar-settings";
 import { AiActivity } from "@/components/coach/activity";
 import { checkinsEnabled } from "@/features/coach/checkins";
 import { CoachMemories } from "@/components/coach/memories";
@@ -244,6 +245,10 @@ export function SettingsView() {
 
         <Group title="AI activity">
           <AiActivity />
+        </Group>
+
+        <Group title="Calendars">
+          <CalendarSettings />
         </Group>
 
         <Group title="Notifications">

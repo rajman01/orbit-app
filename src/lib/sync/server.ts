@@ -1,6 +1,6 @@
 import "server-only";
 import type { Db, Document } from "mongodb";
-import { entitySchemas, ENTITY_NAMES, REFERENCES, type EntityName } from "./entities";
+import { DEVICE_WRITABLE, entitySchemas, ENTITY_NAMES, REFERENCES, type EntityName } from "./entities";
 import { PULL_LIMIT, type Mutation, type PullChange, type PullResponse, type PushResponse } from "./protocol";
 
 interface StoredDoc extends Document {
@@ -40,7 +40,13 @@ export function ensureSyncIndexes(db: Db): Promise<void> {
  * Idempotent: a mutation id that was already applied is acknowledged without re-applying.
  * Deletes are soft (tombstones) and win over later edits.
  */
-export async function applyMutations(db: Db, userId: string, mutations: Mutation[]): Promise<PushResponse> {
+export async function applyMutations(
+  db: Db,
+  userId: string,
+  mutations: Mutation[],
+  /** Server code applying its own changes (calendar sync, check-ins); devices are never trusted. */
+  opts: { trusted?: boolean } = {},
+): Promise<PushResponse> {
   await ensureSyncIndexes(db);
   const applied: string[] = [];
   const rejected: PushResponse["rejected"] = [];
@@ -55,12 +61,12 @@ export async function applyMutations(db: Db, userId: string, mutations: Mutation
 
     let result: string;
     try {
-      result = await applyOne(db, userId, m);
+      result = await applyOne(db, userId, m, opts.trusted ?? false);
     } catch (err) {
       // Two requests applying the same new document at once (e.g. a page reloaded mid-push):
       // one upsert wins the insert, the other hits the unique _id. Re-run as an update.
       if ((err as { code?: number }).code !== 11000) throw err;
-      result = await applyOne(db, userId, m);
+      result = await applyOne(db, userId, m, opts.trusted ?? false);
     }
     if (result === "ok") {
       await seen.updateOne({ _id: receiptId }, { $setOnInsert: { userId, appliedAt: new Date() } }, { upsert: true });
@@ -86,10 +92,17 @@ async function checkReferences(db: Db, userId: string, entity: EntityName, data:
   return null;
 }
 
-async function applyOne(db: Db, userId: string, m: Mutation): Promise<"ok" | string> {
+async function applyOne(db: Db, userId: string, m: Mutation, trusted: boolean): Promise<"ok" | string> {
   const entity = m.entity as EntityName;
   const coll = db.collection<StoredDoc>(entity);
   const now = Date.now();
+  // Server-owned entities: a device may only change the few fields it's allowed to.
+  const writable = trusted ? undefined : DEVICE_WRITABLE[entity];
+  if (writable) {
+    if (m.op === "delete") return "forbidden";
+    if (Object.keys(m.fields ?? {}).some((f) => !writable.has(f))) return "forbidden";
+    if (!(await coll.findOne({ _id: m.entityId, userId }, { projection: { _id: 1 } }))) return "forbidden";
+  }
   // A device clock in the future must not lock fields forever.
   const t = Math.min(m.clientTime, now);
   const existing = await coll.findOne({ _id: m.entityId });

@@ -303,6 +303,34 @@ export const entitySchemas = {
     at: ms,
     undoneAt: ms.nullable(),
   }),
+  /**
+   * Phase 2B: calendars of the user's connected Google / iCloud accounts. Written by the server;
+   * a device may only change `selected` (which calendars Orbit shows).
+   */
+  calendars: z.object({
+    accountId: z.string().max(60),
+    provider: z.enum(["google", "caldav"]),
+    name: z.string().max(300),
+    color: z.string().max(20),
+    selected: z.boolean(),
+    isOrbit: z.boolean(),
+    readOnly: z.boolean(),
+  }),
+  /** Events from those calendars (read-only in Orbit; the calendar is the source of truth). */
+  calendarEvents: z.object({
+    calendarId: id,
+    title: z.string().max(500),
+    /** Instants (ms). For all-day events, UTC midnight of startDay / endDay. */
+    start: ms,
+    end: ms,
+    allDay: z.boolean(),
+    /** All-day events only: first day, and the day after the last (exclusive). */
+    startDay: day.nullable(),
+    endDay: day.nullable(),
+    location: z.string().max(500).nullable(),
+    status: z.enum(["confirmed", "tentative"]),
+    link: z.string().max(2000).nullable(),
+  }),
   /** What the coach remembers about the user (AI-9); visible and editable. */
   aiMemories: z.object({
     text: z.string().trim().min(1).max(500),
@@ -312,6 +340,15 @@ export const entitySchemas = {
 } as const;
 
 export type EntityName = keyof typeof entitySchemas;
+
+/**
+ * Entities the server owns: devices may only write these fields (and never create or delete).
+ * Server code applying its own changes passes `trusted`.
+ */
+export const DEVICE_WRITABLE: Partial<Record<EntityName, ReadonlySet<string>>> = {
+  calendars: new Set(["selected"]),
+  calendarEvents: new Set(),
+};
 export const ENTITY_NAMES = Object.keys(entitySchemas) as [EntityName, ...EntityName[]];
 
 export type EntityFields<E extends EntityName> = z.infer<(typeof entitySchemas)[E]>;
@@ -356,4 +393,5 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   xpEvents: { areaId: "areas" },
   aiMessages: { threadId: "aiThreads" },
   aiActions: { threadId: "aiThreads" },
+  calendarEvents: { calendarId: "calendars" },
 };

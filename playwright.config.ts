@@ -30,6 +30,8 @@ export default defineConfig({
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       // The coach talks to a scripted fake model in tests: no API key, no cost.
       COACH_FAKE: "1",
+      // Calendars talk to an in-memory fake Google (lib/calendar/google.ts).
+      CALENDAR_FAKE: "1",
     },
   },
 });

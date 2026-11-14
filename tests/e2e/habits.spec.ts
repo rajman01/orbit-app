@@ -135,6 +135,7 @@ test("the reminder job only runs with its secret", async ({ request }) => {
     users: expect.any(Number),
     notifications: expect.any(Number),
     checkins: expect.any(Number), // coach check-ins ride on the same job (Phase 2A.5)
+    calendars: expect.any(Number), // and calendar sync (Phase 2B)
   });
 });
 

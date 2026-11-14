@@ -160,23 +160,28 @@ async function deliver(db: Db, userId: string, c: Checkin, text: string, now: nu
     fields,
     clientTime: now,
   });
-  const result = await applyMutations(db, userId, [
-    m("aiThreads", threadId, { title: c.title.slice(0, 200), lastMessageAt: now, archivedAt: null }),
-    m("aiMessages", idFor("cm", `${threadId}:0`), {
-      threadId,
-      seq: 0,
-      role: "user",
-      content: [{ type: "text", text: `${CHECKIN_MARK} You checked in on your own (${c.kind}). Facts:\n${c.facts}` }],
-      at: now,
-    }),
-    m("aiMessages", idFor("cm", `${threadId}:1`), {
-      threadId,
-      seq: 1,
-      role: "assistant",
-      content: [{ type: "text", text }],
-      at: now,
-    }),
-  ]);
+  const result = await applyMutations(
+    db,
+    userId,
+    [
+      m("aiThreads", threadId, { title: c.title.slice(0, 200), lastMessageAt: now, archivedAt: null }),
+      m("aiMessages", idFor("cm", `${threadId}:0`), {
+        threadId,
+        seq: 0,
+        role: "user",
+        content: [{ type: "text", text: `${CHECKIN_MARK} You checked in on your own (${c.kind}). Facts:\n${c.facts}` }],
+        at: now,
+      }),
+      m("aiMessages", idFor("cm", `${threadId}:1`), {
+        threadId,
+        seq: 1,
+        role: "assistant",
+        content: [{ type: "text", text }],
+        at: now,
+      }),
+    ],
+    { trusted: true },
+  );
   if (result.rejected.length) throw new Error(`check-in not saved: ${result.rejected.map((r) => r.reason).join("; ")}`);
   return threadId;
 }

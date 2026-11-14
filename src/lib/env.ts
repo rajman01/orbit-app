@@ -13,6 +13,9 @@ const schema = z.object({
   VAPID_SUBJECT: z.string().optional(),
   // Shared secret for the per-minute reminder job.
   CRON_SECRET: z.string().min(16).optional(),
+  // Phase 2B: encrypts calendar tokens and passwords at rest (32 bytes, base64). Without it,
+  // connecting calendars is off.
+  CALENDAR_ENCRYPTION_KEY: z.string().min(40).optional(),
 });
 
 let cached: z.infer<typeof schema> | undefined;
@@ -31,6 +34,10 @@ export function env() {
 
 export function googleEnabled(): boolean {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+export function calendarEnabled(): boolean {
+  return process.env.CALENDAR_FAKE === "1" || Boolean(process.env.CALENDAR_ENCRYPTION_KEY);
 }
 
 export function pushEnabled(): boolean {

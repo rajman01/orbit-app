@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db/mongo";
+import { dispatchCalendarSync } from "@/lib/calendar/server";
 import { dispatchCheckins } from "@/lib/coach/checkins";
 import { dispatchReminders, webPushSender } from "@/lib/push/server";
 
@@ -31,7 +32,12 @@ async function handle(request: Request) {
     console.error("coach check-ins failed", err);
     return { checkins: 0 };
   });
-  return NextResponse.json({ ...result, ...checkins });
+  // Calendars (Phase 2B): accounts with pushed changes, or due for their periodic sync.
+  const calendars = await dispatchCalendarSync(db(), now, 30_000).catch((err) => {
+    console.error("calendar sync failed", err);
+    return { calendars: 0 };
+  });
+  return NextResponse.json({ ...result, ...checkins, ...calendars });
 }
 
 export const GET = handle;

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { SettingsView } from "./settings-view";
 
 // Pages behind the client-side AuthGate render after the session check, so the
@@ -8,5 +9,9 @@ export const instant = false;
 export const metadata: Metadata = { title: "Settings" };
 
 export default function Page() {
-  return <SettingsView />;
+  return (
+    <Suspense>
+      <SettingsView />
+    </Suspense>
+  );
 }

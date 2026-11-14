@@ -731,6 +731,11 @@ export function createActions(engine: SyncEngine, userId: string) {
         await award("focus", id, xp, `${Math.round(fields.actualMinutes)} min of focus`, task?.areaId ?? null);
     },
 
+    // ------------------------------------------------------------ calendars (Phase 2B)
+
+    /** Which calendars Orbit shows (the only calendar field a device may change). */
+    showCalendar: (id: string, selected: boolean) => engine.update("calendars", id, { selected }),
+
     // ------------------------------------------------------------ coach (Phase 2A)
 
     createCoachThread: (title: string, at: number = now()) =>

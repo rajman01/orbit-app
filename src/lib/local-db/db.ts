@@ -60,5 +60,7 @@ export function openLocalDb(userId: string): OrbitDB {
   });
   // Phase 2A.2: what the coach did, for cards, the activity feed and undo.
   db.version(7).stores({ aiActions: "id, threadId, toolUseId, at" });
+  // Phase 2B: calendars and their events (written by the server).
+  db.version(8).stores({ calendars: "id, accountId", calendarEvents: "id, calendarId, start, startDay" });
   return db;
 }
