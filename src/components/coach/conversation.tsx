@@ -18,14 +18,26 @@ export function CoachConversation({
   threadId,
   onThread,
   autoFocus,
+  prompt,
+  onPromptSent,
 }: {
   threadId: string | null;
   onThread: (id: string) => void;
   autoFocus?: boolean;
+  /** A message to send right away (once per `n`). */
+  prompt?: { text: string; n: number } | null;
+  onPromptSent?: () => void;
 }) {
   const messages = useCoachMessages(threadId);
   const { send, stop, draft, busy, error } = useCoachChat(threadId, onThread);
   const scroller = useRef<HTMLDivElement>(null);
+  const sentPrompt = useRef(0);
+  useEffect(() => {
+    if (!prompt || prompt.n === sentPrompt.current || busy) return;
+    sentPrompt.current = prompt.n;
+    onPromptSent?.();
+    void send(prompt.text);
+  }, [prompt, busy, send, onPromptSent]);
   const visible = (messages ?? []).filter(isShown);
   // Once the finished reply is saved, it replaces the streamed draft (never both on screen).
   const last = visible.at(-1);
@@ -226,11 +238,21 @@ function Composer({
   useEffect(() => {
     if (autoFocus) input.current?.focus();
   }, [autoFocus]);
+  // Sent while the coach is still finishing a reply: hold it and send as soon as it's free.
+  const queued = useRef<string | null>(null);
+  useEffect(() => {
+    if (!busy && queued.current) {
+      const t = queued.current;
+      queued.current = null;
+      void onSend(t);
+    }
+  }, [busy, onSend]);
   const submit = () => {
-    if (!text.trim() || busy) return;
+    if (!text.trim() || queued.current) return;
     const t = text;
     setText("");
-    void onSend(t);
+    if (busy) queued.current = t;
+    else void onSend(t);
   };
   return (
     <form

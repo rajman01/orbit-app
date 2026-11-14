@@ -19,7 +19,9 @@ export function AiActivity() {
   }, [db]);
   if (!actions) return null;
   if (actions.length === 0) {
-    return <p className="px-4 py-3 text-callout text-label-secondary">Nothing yet. Changes the coach makes show up here.</p>;
+    return (
+      <p className="px-4 py-3 text-callout text-label-secondary">Nothing yet. Changes the coach makes show up here.</p>
+    );
   }
   return (
     <div className="flex flex-col gap-1.5 p-3" aria-label="AI activity">

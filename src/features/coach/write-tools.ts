@@ -27,7 +27,10 @@ export type WriteToolName =
   | "create_habit"
   | "update_habit"
   | "create_reminder"
-  | "cancel_reminder";
+  | "cancel_reminder"
+  | "propose_plan"
+  | "break_down_task"
+  | "plan_cycle";
 
 type Input<N extends WriteToolName> = z.infer<(typeof COACH_TOOLS)[N]["input"]>;
 
@@ -92,7 +95,43 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
     }
     case "cancel_reminder":
       return `Cancel reminder ${q(await titleOf(db, "reminders", i.id))}`;
+    case "propose_plan": {
+      const p = input as Input<"propose_plan">;
+      const title = p.goal?.title ?? (p.goalId ? await titleOf(db, "goals", p.goalId) : "a goal");
+      const ms = p.milestones?.length ?? 0;
+      const tasks = (p.tasks?.length ?? 0) + (p.milestones ?? []).reduce((n, m) => n + (m.tasks?.length ?? 0), 0);
+      const parts = [
+        ms && `${ms} milestone${ms === 1 ? "" : "s"}`,
+        tasks && `${tasks} task${tasks === 1 ? "" : "s"}`,
+      ].filter(Boolean);
+      return `Plan for ${q(title)}${parts.length ? `: ${parts.join(", ")}` : ""}`;
+    }
+    case "break_down_task": {
+      const p = input as Input<"break_down_task">;
+      return `Break ${q(await titleOf(db, "tasks", p.id))} into ${p.steps.length} step${p.steps.length === 1 ? "" : "s"}`;
+    }
+    case "plan_cycle": {
+      const p = input as Input<"plan_cycle">;
+      const add = p.addTaskIds?.length ?? 0;
+      const remove = p.removeTaskIds?.length ?? 0;
+      const parts = [
+        add && `add ${add} task${add === 1 ? "" : "s"}`,
+        remove && `take out ${remove}`,
+        p.theme && `theme ${q(p.theme)}`,
+      ].filter(Boolean);
+      return `Cycle ${p.cycleNumber}: ${parts.join(", ") || "set focus goals"}`;
+    }
   }
+}
+
+/** How many documents a call will create or change, for the bulk limit. */
+function size(name: WriteToolName, input: Record<string, unknown>): number {
+  if (name === "plan_cycle") {
+    const p = input as Input<"plan_cycle">;
+    return (p.addTaskIds?.length ?? 0) + (p.removeTaskIds?.length ?? 0);
+  }
+  if (name === "break_down_task") return (input as Input<"break_down_task">).steps.length;
+  return 1;
 }
 
 /** Runs the tool with actions that write through the recorder. Returns what to tell the model. */
@@ -209,6 +248,62 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       await actions.cancelReminder(id);
       return { id };
     }
+    case "propose_plan": {
+      const p = input as Input<"propose_plan">;
+      let goalId = p.goalId;
+      if (goalId) await goal(goalId);
+      else if (p.goal) goalId = await actions.createGoal({ status: "active", ...stripUndefined(p.goal) });
+      else throw new Error("A plan needs a goal.");
+      const areaId = (await goal(goalId)).areaId;
+      for (const kr of p.keyResults ?? []) {
+        await actions.createKeyResult(goalId, {
+          title: kr.title,
+          type: kr.type,
+          start: kr.start ?? 0,
+          target: kr.target,
+          unit: kr.unit ?? null,
+        });
+      }
+      let created = 0;
+      const addTask = async (
+        t: Input<"propose_plan">["tasks"] extends (infer T)[] | undefined ? T : never,
+        milestoneId: string | null,
+      ) => {
+        await actions.createTask({ status: "todo", ...stripUndefined(t), goalId, milestoneId, areaId });
+        created++;
+      };
+      for (const m of p.milestones ?? []) {
+        const milestoneId = await actions.createMilestone(goalId, m.title, m.dueDate ?? null);
+        for (const t of m.tasks ?? []) await addTask(t, milestoneId);
+      }
+      for (const t of p.tasks ?? []) await addTask(t, null);
+      return { goalId, milestones: p.milestones?.length ?? 0, tasks: created };
+    }
+    case "break_down_task": {
+      const p = input as Input<"break_down_task">;
+      const parent = await task(p.id);
+      for (const title of p.steps) {
+        await actions.createTask({
+          title,
+          parentTaskId: parent.id,
+          status: "todo",
+          areaId: parent.areaId,
+          goalId: parent.goalId,
+        });
+      }
+      if (p.nextStep) await actions.updateTask(await task(p.id), { nextStep: p.nextStep });
+      return { id: p.id, steps: p.steps.length };
+    }
+    case "plan_cycle": {
+      const p = input as Input<"plan_cycle">;
+      const cycle = (await db.cycles.toArray()).find((c) => c.number === p.cycleNumber && c.deletedAt == null);
+      if (!cycle) throw new Error(`No cycle ${p.cycleNumber}.`);
+      for (const id of p.addTaskIds ?? []) await actions.addToCycle(await task(id), cycle);
+      for (const id of p.removeTaskIds ?? []) await actions.removeFromCycle(await task(id));
+      const patch = stripUndefined({ theme: p.theme, focusGoalIds: p.focusGoalIds });
+      if (Object.keys(patch).length) await actions.updateCycle(cycle.id, patch);
+      return { cycle: cycle.number, added: p.addTaskIds?.length ?? 0, removed: p.removeTaskIds?.length ?? 0 };
+    }
   }
 }
 
@@ -235,7 +330,9 @@ export async function runWriteTool(name: WriteToolName, input: Record<string, un
   const summary = await describeWrite(name, input, db, userId);
   const turn = deps.turn ?? { writes: 0 };
   const dropping = name === "update_goal" && input.status === "dropped";
-  const bulk = turn.writes >= BULK_LIMIT;
+  const bulk = turn.writes + size(name, input) > BULK_LIMIT;
+  // A plan is always previewed first: it's many changes, and the user should shape it.
+  const plan = name === "propose_plan";
   const base = {
     threadId: deps.threadId ?? null,
     toolUseId: deps.toolUseId ?? null,
@@ -246,8 +343,14 @@ export async function runWriteTool(name: WriteToolName, input: Record<string, un
     undoneAt: null,
   };
 
-  if (autonomy === "suggest" || dropping || bulk) {
+  if (autonomy === "suggest" || dropping || bulk || plan) {
     const actionId = await engine.create("aiActions", { ...base, status: "proposed", changes: [] });
+    if (plan) {
+      return {
+        actionId,
+        content: `Shown to them as a plan preview (“${summary}”): they can edit it, then Apply or Dismiss. Nothing is created until they apply it. Point them to the preview; don't repeat the whole plan.`,
+      };
+    }
     const why =
       autonomy === "suggest"
         ? "Their settings say suggest only"
@@ -261,17 +364,36 @@ export async function runWriteTool(name: WriteToolName, input: Record<string, un
   }
 
   const { result, changes } = await applyWrite(name, input, deps);
-  turn.writes += 1;
+  turn.writes += size(name, input);
   const actionId = await engine.create("aiActions", { ...base, status: "applied", changes: changes as never });
   return { actionId, content: JSON.stringify({ done: summary, ...result }) };
 }
 
 /** The user accepted a suggestion: apply it now and record the changes. */
-export async function acceptProposal(actionId: string, deps: Omit<WriteDeps, "toolUseId" | "threadId">) {
+export async function acceptProposal(
+  actionId: string,
+  deps: Omit<WriteDeps, "toolUseId" | "threadId">,
+  /** The suggestion as the user edited it (a plan preview). */
+  edited?: Record<string, unknown>,
+) {
   const a = await deps.db.aiActions.get(actionId);
   if (!a || a.status !== "proposed") return;
-  const { changes } = await applyWrite(a.tool as WriteToolName, a.input, deps);
-  await deps.engine.update("aiActions", actionId, { status: "applied", changes: changes as never, at: Date.now() });
+  const tool = a.tool as WriteToolName;
+  let input = a.input;
+  if (edited) {
+    const parsed = COACH_TOOLS[tool].input.safeParse(edited);
+    if (!parsed.success) throw new Error("Something in the plan isn't valid (an empty title?).");
+    input = parsed.data as Record<string, unknown>;
+  }
+  const { changes } = await applyWrite(tool, input, deps);
+  const summary = edited ? await describeWrite(tool, input, deps.db, deps.userId) : a.summary;
+  await deps.engine.update("aiActions", actionId, {
+    status: "applied",
+    changes: changes as never,
+    input,
+    summary,
+    at: Date.now(),
+  });
 }
 
 export const dismissProposal = (engine: SyncEngine, actionId: string) =>

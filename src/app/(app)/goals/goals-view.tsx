@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Target } from "lucide-react";
+import { Plus, Sparkles, Target } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
@@ -9,6 +9,7 @@ import { GoalScene } from "@/components/app/scenes";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { GoalCard } from "@/components/goals/goal-card";
 import { NewGoalDialog } from "@/components/goals/goal-form";
+import { askCoach } from "@/components/coach/coach-panel";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { useAllTasks, useAreas, useGoals, useKeyResults, useSettings } from "@/features/data";
@@ -63,9 +64,22 @@ export function GoalsView() {
       <PageHeader
         title="Goals"
         actions={
-          <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
-            New goal
-          </Button>
+          <span className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              icon={<Sparkles className="size-4" />}
+              onClick={() =>
+                askCoach(
+                  "I'd like to turn an ambition into a plan. Ask me what I want to achieve and by when, then propose a plan.",
+                )
+              }
+            >
+              Plan with coach
+            </Button>
+            <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
+              New goal
+            </Button>
+          </span>
         }
       />
       <PageBody>

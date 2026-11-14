@@ -254,3 +254,126 @@ describe("the coach acting (2A.2)", () => {
     await expect(rec.engine.remove("tasks", "t".repeat(12))).rejects.toThrow(/can't delete/);
   });
 });
+
+describe("planning with the coach (2A.3)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.UTC(2026, 10, 14, 9));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const plan = {
+    goal: { title: "Land a senior engineering role", targetDate: "2027-05-01" },
+    keyResults: [{ title: "Interviews done", type: "number" as const, target: 10 }],
+    milestones: [
+      {
+        title: "CV and portfolio ready",
+        tasks: [
+          { title: "List my top 5 projects", effort: 2 as const },
+          { title: "Rewrite the CV summary", effort: 1 as const },
+        ],
+      },
+      { title: "Applications out" },
+    ],
+    tasks: [{ title: "Tell two friends I'm looking" }],
+  };
+
+  it("a plan is always previewed, applied as edited, and undone in one go", async () => {
+    const { db, engine, actions, deps } = setup();
+    await actions.saveSettings({ timezone: "UTC" }); // Act and tell me
+    const out = await runCoachTool("propose_plan", plan, deps);
+    expect(out.content).toMatch(/plan preview/);
+    expect(await db.goals.count()).toBe(0);
+    const proposal = (await db.aiActions.toArray())[0];
+    expect(proposal).toMatchObject({
+      status: "proposed",
+      summary: "Plan for “Land a senior engineering role”: 2 milestones, 3 tasks",
+    });
+
+    // The user renames the goal and drops a task before applying.
+    const edited = structuredClone(plan) as typeof plan;
+    edited.goal.title = "Senior engineer by May";
+    edited.milestones[0].tasks!.splice(1, 1);
+    await acceptProposal(proposal.id, deps, edited);
+
+    const goals = await db.goals.toArray();
+    expect(goals.map((g) => g.title)).toEqual(["Senior engineer by May"]);
+    const milestones = await db.milestones.toArray();
+    expect(milestones.map((m) => m.title).sort()).toEqual(["Applications out", "CV and portfolio ready"]);
+    const tasks = await db.tasks.toArray();
+    expect(tasks.map((t) => t.title).sort()).toEqual(["List my top 5 projects", "Tell two friends I'm looking"]);
+    const cvMilestone = milestones.find((m) => m.title === "CV and portfolio ready")!;
+    expect(tasks.find((t) => t.title === "List my top 5 projects")).toMatchObject({
+      goalId: goals[0].id,
+      milestoneId: cvMilestone.id,
+      createdBy: "ai",
+    });
+    expect(await db.keyResults.count()).toBe(1);
+    const applied = (await db.aiActions.get(proposal.id))!;
+    expect(applied).toMatchObject({
+      status: "applied",
+      summary: "Plan for “Senior engineer by May”: 2 milestones, 2 tasks",
+    });
+
+    await undoAction(engine, proposal.id);
+    const alive = async (t: "goals" | "milestones" | "tasks" | "keyResults") =>
+      (await db.table(t).toArray()).filter((d: { deletedAt: number | null }) => d.deletedAt == null).length;
+    expect([await alive("goals"), await alive("milestones"), await alive("tasks"), await alive("keyResults")]).toEqual([
+      0, 0, 0, 0,
+    ]);
+  });
+
+  it("an edited plan with an empty title is refused", async () => {
+    const { db, actions, deps } = setup();
+    await actions.saveSettings({ timezone: "UTC" });
+    await runCoachTool("propose_plan", plan, deps);
+    const proposal = (await db.aiActions.toArray())[0];
+    const bad = structuredClone(plan);
+    bad.goal.title = "  ";
+    await expect(acceptProposal(proposal.id, deps, bad)).rejects.toThrow(/isn't valid/);
+    expect(await db.goals.count()).toBe(0);
+  });
+
+  it("breaks a task into steps with a next step", async () => {
+    const { db, actions, deps } = setup();
+    await actions.saveSettings({ timezone: "UTC" });
+    const id = await actions.createTask({ title: "Do my taxes", status: "todo" });
+    await runCoachTool(
+      "break_down_task",
+      {
+        id,
+        steps: ["Find last year's return", "Download bank statements", "Fill in the form"],
+        nextStep: "Search email for 'tax return'",
+      },
+      deps,
+    );
+    const subtasks = (await db.tasks.where("parentTaskId").equals(id).toArray()).map((t) => t.title);
+    expect(subtasks).toHaveLength(3);
+    expect((await db.tasks.get(id))!.nextStep).toBe("Search email for 'tax return'");
+  });
+
+  it("plans a cycle from the candidates, within the bulk limit", async () => {
+    const { db, actions, deps } = setup();
+    await actions.saveSettings({ timezone: "UTC", onboardingCompletedAt: 1 });
+    await actions.ensureCycles("2026-11-14");
+    const ids = [];
+    for (let n = 0; n < 3; n++)
+      ids.push(await actions.createTask({ title: `Cycle task ${n}`, status: "todo", effort: 2 }));
+    const view = JSON.parse((await runCoachTool("get_cycle_plan", {}, deps)).content);
+    expect(view.candidates.map((t: { id: string }) => t.id).sort()).toEqual([...ids].sort());
+    await runCoachTool("plan_cycle", { cycleNumber: view.cycle.number, addTaskIds: ids, theme: "Ship the CV" }, deps);
+    const cycle = (await db.cycles.toArray()).find((c) => c.number === view.cycle.number)!;
+    expect(cycle.theme).toBe("Ship the CV");
+    expect((await db.tasks.bulkGet(ids)).every((t) => t!.cycleId === cycle.id)).toBe(true);
+
+    const many = [];
+    for (let n = 0; n < BULK_LIMIT + 1; n++)
+      many.push(await actions.createTask({ title: `More ${n}`, status: "todo" }));
+    const out = await runCoachTool(
+      "plan_cycle",
+      { cycleNumber: view.cycle.number, addTaskIds: many },
+      { ...deps, turn: { writes: 0 } },
+    );
+    expect(out.content).toMatch(/^Not done yet/);
+  });
+});

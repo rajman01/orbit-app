@@ -24,7 +24,8 @@ export async function* fakeCoachTurn(messages: CoachMessage[]): AsyncGenerator<C
     .filter((b) => b.type === "text")
     .map((b) => String(b.text))
     .join(" ");
-  const call = /\[tool:(\w+)(?:\s+(\{.*?\}))?\]/.exec(said);
+  // Greedy, so nested JSON (a whole plan) is captured up to the last "}]".
+  const call = /\[tool:(\w+)(?:\s+(\{[\s\S]*\}))?\]/.exec(said);
   if (call) {
     const intro = "Let me check.";
     yield { t: "text", v: intro };

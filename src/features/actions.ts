@@ -538,6 +538,10 @@ export function createActions(engine: SyncEngine, userId: string) {
       });
     },
 
+    /** Theme and focus goals (CYC-7), e.g. set while planning with the coach. */
+    updateCycle: (id: string, patch: Partial<Pick<EntityFields<"cycles">, "theme" | "focusGoalIds">>) =>
+      engine.update("cycles", id, patch),
+
     /** Plan anyway although the last cycle wasn't reviewed (Firm strictness only, §8.5). */
     overridePlanning: (cycle: Pick<Cycle, "id">, reason: string) =>
       engine.update("cycles", cycle.id, { planningOverride: reason.trim() }),

@@ -13,11 +13,7 @@ export function AiBadge({ createdAt, show = true }: { createdAt: number; show?: 
   const now = useMinuteNow();
   if (!show || now - createdAt > DAY) return null;
   return (
-    <Sparkles
-      className="inline size-3.5 shrink-0 align-[-2px] text-accent"
-      aria-label="Made by the coach"
-      role="img"
-    />
+    <Sparkles className="inline size-3.5 shrink-0 align-[-2px] text-accent" aria-label="Made by the coach" role="img" />
   );
 }
 
@@ -25,7 +21,10 @@ export function AiBadge({ createdAt, show = true }: { createdAt: number; show?: 
 export function AiMadeBadge({ entity, id }: { entity: "goals" | "habits"; id: string }) {
   const { db } = useSync();
   const createdAt = useLiveQuery(async () => {
-    const recent = await db.aiActions.where("at").above(Date.now() - DAY).toArray();
+    const recent = await db.aiActions
+      .where("at")
+      .above(Date.now() - DAY)
+      .toArray();
     const hit = recent.find(
       (a) =>
         a.status === "applied" &&

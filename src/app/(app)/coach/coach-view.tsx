@@ -3,7 +3,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { ChevronLeft, MessageSquare, SquarePen } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { SyncIndicator } from "@/components/app/sync-indicator";
 import { useSync } from "@/components/app/sync-provider";
 import { CoachConversation } from "@/components/coach/conversation";
@@ -28,6 +28,9 @@ export function CoachView() {
   );
   const select = useCallback((id: string | null) => router.replace(id ? `/coach?t=${id}` : "/coach?new=1"), [router]);
   const showChat = threadId != null || composing;
+  // Another screen asked the coach something ("Break down …"): send it once.
+  const askText = params.get("ask");
+  const prompt = useMemo(() => (askText ? { text: askText, n: 1 } : null), [askText]);
 
   return (
     <div className="flex h-[calc(100dvh-var(--tabbar-space))] lg:h-dvh">
@@ -62,7 +65,12 @@ export function CoachView() {
             {threads?.find((t) => t.id === threadId)?.title || "New chat"}
           </h2>
         </div>
-        <CoachConversation threadId={threadId} onThread={select} autoFocus />
+        <CoachConversation
+          threadId={threadId}
+          onThread={select}
+          autoFocus
+          prompt={prompt}
+        />
       </section>
     </div>
   );

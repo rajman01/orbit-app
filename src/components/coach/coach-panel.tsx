@@ -4,7 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Maximize2, SquarePen, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSync } from "@/components/app/sync-provider";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,21 @@ interface CoachPanelContext {
   open: (threadId?: string | null) => void;
   close: () => void;
   toggle: () => void;
+  /** Opens a new conversation and sends this message (e.g. "Break down …" from a task). */
+  ask: (prompt: string) => void;
 }
 
 const Ctx = createContext<CoachPanelContext | null>(null);
+
+const ASK_EVENT = "orbit:coach-ask";
+
+/**
+ * Opens the coach with a question already sent, from anywhere (the task panel and some dialogs
+ * live outside the coach's provider, so this goes through a window event).
+ */
+export function askCoach(prompt: string) {
+  window.dispatchEvent(new CustomEvent(ASK_EVENT, { detail: prompt }));
+}
 
 /**
  * PRD §10.6: the coach slides in from the right on desktop (⌘J), as a parallel panel with no scrim
@@ -27,16 +39,37 @@ const Ctx = createContext<CoachPanelContext | null>(null);
 export function CoachPanelProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setOpen] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ text: string; n: number } | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
   const open = useCallback((id?: string | null) => {
     if (id !== undefined) setThreadId(id);
     setOpen(true);
   }, []);
   const close = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((o) => !o), []);
-  const value = useMemo(() => ({ open, close, toggle }), [open, close, toggle]);
+  const ask = useCallback(
+    (prompt: string) => {
+      // On the coach page itself the panel is hidden: start the new chat there instead.
+      if (pathname === "/coach") {
+        router.replace(`/coach?new=1&ask=${encodeURIComponent(prompt)}`);
+        return;
+      }
+      setThreadId(null);
+      setPending((p) => ({ text: prompt, n: (p?.n ?? 0) + 1 }));
+      setOpen(true);
+    },
+    [pathname, router],
+  );
+  const value = useMemo(() => ({ open, close, toggle, ask }), [open, close, toggle, ask]);
   // The /coach page is the coach; the panel stays out of its way.
   const shown = isOpen && pathname !== "/coach";
+
+  useEffect(() => {
+    const onAsk = (e: Event) => ask(String((e as CustomEvent).detail));
+    window.addEventListener(ASK_EVENT, onAsk);
+    return () => window.removeEventListener(ASK_EVENT, onAsk);
+  }, [ask]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -55,7 +88,16 @@ export function CoachPanelProvider({ children }: { children: React.ReactNode }) 
     <Ctx.Provider value={value}>
       {children}
       <AnimatePresence>
-        {shown ? <Panel key="coach" threadId={threadId} setThreadId={setThreadId} onClose={close} /> : null}
+        {shown ? (
+          <Panel
+            key="coach"
+            threadId={threadId}
+            setThreadId={setThreadId}
+            onClose={close}
+            pending={pending}
+            onSent={() => setPending(null)}
+          />
+        ) : null}
       </AnimatePresence>
     </Ctx.Provider>
   );
@@ -71,10 +113,14 @@ function Panel({
   threadId,
   setThreadId,
   onClose,
+  pending,
+  onSent,
 }: {
   threadId: string | null;
   setThreadId: (id: string | null) => void;
   onClose: () => void;
+  pending: { text: string; n: number } | null;
+  onSent: () => void;
 }) {
   const isDesktop = useIsDesktop();
   const { transition, reduced } = useOrbitMotion();
@@ -115,7 +161,13 @@ function Panel({
           <X className="size-5" />
         </Button>
       </header>
-      <CoachConversation threadId={threadId} onThread={setThreadId} autoFocus={isDesktop} />
+      <CoachConversation
+        threadId={threadId}
+        onThread={setThreadId}
+        autoFocus={isDesktop}
+        prompt={pending}
+        onPromptSent={onSent}
+      />
     </motion.aside>
   );
 }

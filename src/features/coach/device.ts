@@ -1,5 +1,13 @@
 import type { Actions } from "@/features/actions";
-import { cyclePoints, currentCycle, daysLeft, timeOfDay } from "@/features/cycles/model";
+import {
+  cyclePoints,
+  currentCycle,
+  daysLeft,
+  planningCandidates,
+  planningTarget,
+  suggestedCapacity,
+  timeOfDay,
+} from "@/features/cycles/model";
 import { goalProgress } from "@/features/goals/model";
 import { habitStatus } from "@/features/habits/model";
 import { defaultSettings, settingsId, type Settings } from "@/features/settings/model";
@@ -263,6 +271,41 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
         .map((m) => ({ id: m.id, title: m.title, due: m.dueDate ?? undefined, done: m.doneAt != null })),
       openTasks: tasks.filter((t) => isOpen(t) && !t.parentTaskId).map(taskBrief),
       doneTasks: tasks.filter((t) => t.status === "done" && !t.parentTaskId).length,
+    };
+  },
+
+  async get_cycle_plan(_input, { db, userId, now }) {
+    const s = await loadSettings(db, userId);
+    const day = todayOf(s.timezone, now);
+    const tasks = await allTasks(db);
+    const cycles = live(await db.cycles.toArray());
+    const target = planningTarget(cycles, day);
+    if (!target) return "There's no cycle to plan yet. Cycles are created once onboarding is done.";
+    const learned = suggestedCapacity(cycles, tasks, target.number);
+    const inCycle = tasks.filter((t) => t.cycleId === target.id && !t.parentTaskId && t.status !== "cancelled");
+    const goals = live(await db.goals.toArray()).filter((g) => g.status === "active");
+    const rank = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 } as const;
+    const candidates = planningCandidates(tasks, target.id)
+      .sort((a, b) => rank[a.priority] - rank[b.priority] || a.order - b.order)
+      .slice(0, 60);
+    return {
+      cycle: {
+        number: target.number,
+        start: target.startDate,
+        end: target.endDate,
+        theme: target.theme ?? undefined,
+        committed: target.committedAt != null,
+        focusGoalIds: target.focusGoalIds,
+      },
+      capacity: {
+        setting: s.cycleCapacityPts,
+        finishedOnAverage: learned ? { points: learned.points, overCycles: learned.cycles } : "not enough history yet",
+      },
+      inCycle: inCycle.map(taskBrief),
+      inCyclePoints: inCycle.reduce((n, t) => n + (t.effort ?? 0), 0),
+      activeGoals: goals.map((g) => ({ id: g.id, title: g.title, targetDate: g.targetDate ?? undefined })),
+      candidates: candidates.map((t) => ({ ...taskBrief(t), goalId: t.goalId ?? undefined })),
+      candidatesShown: candidates.length,
     };
   },
 

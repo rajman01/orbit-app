@@ -1,6 +1,7 @@
 "use client";
 
-import { CalendarSync, Flag, Play, Plus, Repeat, Timer, Trash2, X } from "lucide-react";
+import { CalendarSync, Flag, Play, Plus, Repeat, Sparkles, Timer, Trash2, X } from "lucide-react";
+import { askCoach } from "@/components/coach/coach-panel";
 import { currentCycle } from "@/features/cycles/model";
 import { useFocus } from "@/components/focus/focus-mode";
 import { useSkipFlow } from "@/components/skip/skip-flow";
@@ -91,6 +92,19 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
             >
               <Play className="size-3.5" fill="currentColor" aria-hidden /> Start focus
             </button>
+          ) : null}
+          {isOpen(task) && !task.parentTaskId ? (
+            <IconButton
+              label="Break down with the coach"
+              title="Break down with the coach"
+              icon={<Sparkles className="size-4" />}
+              onClick={() => {
+                onClose();
+                askCoach(
+                  `Break down ${code ? `${code} ` : ""}“${task.title}” (task id ${task.id}) into a few small, concrete steps, and suggest a 2-minute next step to get started.`,
+                );
+              }}
+            />
           ) : null}
           <IconButton
             label="Delete task"

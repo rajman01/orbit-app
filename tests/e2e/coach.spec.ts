@@ -147,3 +147,55 @@ test("in Suggest only, the coach's change waits for Accept", async ({ page }, in
     await waitForSynced(page);
   }
 });
+
+test("a plan is previewed, edited, applied as a whole, and undone as a whole", async ({ page }) => {
+  const r = run();
+  const plan = {
+    goal: { title: `Run a 10k ${r}` },
+    milestones: [
+      {
+        title: `Run 5k without stopping ${r}`,
+        tasks: [{ title: `Buy running shoes ${r}`, effort: 1 }, { title: `First 20-minute run ${r}` }],
+      },
+    ],
+  };
+  await page.goto("/coach?new=1");
+  await ask(page, `plan it [tool:propose_plan ${JSON.stringify(plan)}]`);
+  const preview = page.getByRole("region", { name: "Proposed plan" });
+  await expect(preview).toBeVisible();
+
+  // Edit before applying: rename the goal, drop a task.
+  await preview.getByRole("textbox", { name: "Goal" }).fill(`Run my first 10k ${r}`);
+  await preview.getByRole("button", { name: `Remove task First 20-minute run ${r}` }).click();
+  await preview.getByRole("button", { name: "Apply plan" }).click();
+  const card = page
+    .locator("[data-ai-action]")
+    .filter({ hasText: `Plan for “Run my first 10k ${r}”: 1 milestone, 1 task` });
+  await expect(card).toHaveAttribute("data-ai-action", "applied");
+
+  await card.getByRole("link", { name: "View" }).click();
+  await expect(page.getByRole("textbox", { name: "Goal title" })).toHaveValue(`Run my first 10k ${r}`);
+  await expect(page.getByRole("button", { name: `Open Buy running shoes ${r}` })).toBeVisible();
+  await expect(page.getByText(`First 20-minute run ${r}`).filter({ visible: true })).toHaveCount(0);
+
+  // One Undo takes the whole plan back.
+  await page.goto("/settings");
+  await page.getByRole("button", { name: `Undo: Plan for “Run my first 10k ${r}”: 1 milestone, 1 task` }).click();
+  await expect(
+    page.locator("[data-ai-action]").filter({ hasText: `Plan for “Run my first 10k ${r}”` }),
+  ).toHaveAttribute("data-ai-action", "undone");
+  await page.goto("/goals");
+  await expect(page.getByText(`Run my first 10k ${r}`).filter({ visible: true })).toHaveCount(0);
+});
+
+test("Break down in the task panel asks the coach about that task", async ({ page }) => {
+  const r = run();
+  const title = `Do my taxes ${r}`;
+  await page.goto("/today");
+  await waitForSynced(page);
+  await addToday(page, title);
+  await page.getByRole("button", { name: `Open ${title}` }).click();
+  await page.getByRole("button", { name: "Break down with the coach" }).click();
+  const coach = page.getByRole("dialog", { name: "Coach" });
+  await expect(coach.getByText(new RegExp(`You said: Break down .*${title}`))).toBeVisible({ timeout: 15_000 });
+});

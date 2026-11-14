@@ -64,8 +64,27 @@ test("a habit checked in offline keeps its streak after syncing", async ({ page,
   // It's on Today too, and the check-in earned XP.
   await page.goto("/today");
   await expect(page.getByRole("list", { name: "Habits" }).getByText(name)).toBeVisible();
-  await page.goto("/levels");
-  await expect(page.getByText(`Habit: ${name}`)).toBeVisible();
+  // (Checked in the local database: the Levels page lists only the latest 30 entries, and other
+  // tests in the run leave entries dated a week ahead, which push this one off that list.)
+  await expect
+    .poll(() =>
+      page.evaluate(async (reason) => {
+        const dbName = (await indexedDB.databases()).find((d) => d.name?.startsWith("orbit-"))?.name;
+        if (!dbName) return 0;
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const req = indexedDB.open(dbName);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+        const rows = await new Promise<{ reason: string; amount: number; deletedAt: number | null }[]>((resolve) => {
+          const req = db.transaction("xpEvents").objectStore("xpEvents").getAll();
+          req.onsuccess = () => resolve(req.result);
+        });
+        db.close();
+        return rows.filter((e) => e.reason === reason && e.deletedAt == null && e.amount > 0).length;
+      }, `Habit: ${name}`),
+    )
+    .toBe(1);
 });
 
 test("XP for a task is awarded once even if two devices complete it", async ({ page, context, browser }, info) => {

@@ -23,6 +23,14 @@ const schedule = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("weekly"), timesPerWeek: z.number().int().min(1).max(7) }),
 ]);
+const planTask = z.object({
+  title: z.string().trim().min(1).max(500),
+  effort: effort.nullable().optional(),
+  priority: priority.optional(),
+  scheduledDate: day.nullable().optional(),
+  dueDate: day.nullable().optional(),
+  nextStep: z.string().trim().max(300).nullable().optional(),
+});
 const taskFields = {
   description: z.string().max(5000).optional(),
   priority: priority.optional(),
@@ -197,6 +205,71 @@ export const COACH_TOOLS = {
     description: "Cancel a reminder you set (its id is in get_overview's reminders).",
     input: z.object({ id }),
   },
+  propose_plan: {
+    description:
+      "Turn an ambition into a plan: a goal (new, or goalId to add to an existing one) with key results, milestones and tasks. It is shown to the user as a preview they can edit, then apply in one go (and undo in one go). Ask a couple of questions first if the ambition is vague. Keep it realistic: 2–5 milestones, a few concrete tasks for the first milestone, a first task small enough to start today.",
+    input: z.object({
+      goalId: id.optional().describe("Add the plan to this existing goal instead of creating one"),
+      goal: z
+        .object({
+          title: z.string().trim().min(1).max(200),
+          description: z.string().max(5000).optional(),
+          areaId: id.nullable().optional(),
+          startDate: day.nullable().optional(),
+          targetDate: day.nullable().optional(),
+        })
+        .optional()
+        .describe("The new goal (leave out when goalId is given)"),
+      keyResults: z
+        .array(
+          z.object({
+            title: z.string().trim().min(1).max(200),
+            type: z.enum(["number", "percent", "boolean"]),
+            start: z.number().optional(),
+            target: z.number(),
+            unit: z.string().trim().max(20).nullable().optional(),
+          }),
+        )
+        .max(5)
+        .optional(),
+      milestones: z
+        .array(
+          z.object({
+            title: z.string().trim().min(1).max(200),
+            dueDate: day.nullable().optional(),
+            tasks: z.array(planTask).max(15).optional(),
+          }),
+        )
+        .max(10)
+        .optional(),
+      tasks: z.array(planTask).max(20).optional().describe("Tasks for the goal that don't belong to a milestone"),
+    }),
+  },
+  break_down_task: {
+    description:
+      "Split a task into smaller steps (added as its subtasks), each a concrete action, and set a ~2-minute next step to get started.",
+    input: z.object({
+      id,
+      steps: z.array(z.string().trim().min(1).max(300)).min(1).max(10),
+      nextStep: z.string().trim().max(300).optional(),
+    }),
+  },
+  get_cycle_plan: {
+    description:
+      "For planning a cycle: the cycle to plan (number, dates, theme, whether it's committed), capacity in points (setting and what they actually finish), what's already in it, active goals, and open tasks that could go in, with effort.",
+    input: z.object({}),
+  },
+  plan_cycle: {
+    description:
+      "Put tasks into the cycle being planned (or take them out) and set its theme and up to 3 focus goals. They still commit to it themselves in the cycle planner. Stay within capacity; tasks without effort should get an estimate first (update_task).",
+    input: z.object({
+      cycleNumber: z.number().int().min(1),
+      addTaskIds: z.array(id).max(60).optional(),
+      removeTaskIds: z.array(id).max(60).optional(),
+      theme: z.string().trim().max(200).nullable().optional(),
+      focusGoalIds: z.array(id).max(3).optional(),
+    }),
+  },
   remember: {
     description:
       "Save a short note about the user that will help later (a preference, context, what works for them). Only things they would be happy for you to remember; they can see and edit these notes.",
@@ -225,6 +298,9 @@ export const WRITE_TOOLS = new Set<CoachToolName>([
   "update_habit",
   "create_reminder",
   "cancel_reminder",
+  "propose_plan",
+  "break_down_task",
+  "plan_cycle",
 ]);
 
 /** More changes than this in one reply need the user's OK first (PRD §10.5). */

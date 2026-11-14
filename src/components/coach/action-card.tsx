@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import type { Change } from "@/features/coach/record";
 import { acceptProposal, dismissProposal, undoAction } from "@/features/coach/write-tools";
 import { cn } from "@/lib/cn";
+import { PlanCard } from "./plan-card";
 import type { SyncedDoc } from "@/lib/sync/entities";
 
 export type AiAction = SyncedDoc<"aiActions">;
@@ -28,7 +29,7 @@ export function useAiActions(toolUseIds: string[]): AiAction[] | undefined {
 }
 
 /** Where "View" goes for an action: the task or goal it made or changed. */
-export function actionTarget(a: AiAction): { kind: "task" | "goal" | "habits"; id?: string } | null {
+export function actionTarget(a: AiAction): { kind: "task" | "goal" | "habits" | "cycle"; id?: string } | null {
   const changes = a.changes as Change[];
   const made = (entity: string) => changes.find((c) => c.entity === entity && c.before === null)?.id;
   const input = a.input as Record<string, string | undefined>;
@@ -46,6 +47,12 @@ export function actionTarget(a: AiAction): { kind: "task" | "goal" | "habits"; i
     case "add_key_result":
     case "add_milestone":
       return { kind: "goal", id: input.goalId };
+    case "propose_plan":
+      return { kind: "goal", id: made("goals") ?? input.goalId };
+    case "break_down_task":
+      return { kind: "task", id: input.id };
+    case "plan_cycle":
+      return { kind: "cycle" };
     case "create_habit":
     case "update_habit":
       return { kind: "habits" };
@@ -79,6 +86,12 @@ const small =
 
 /** One change the coach made or suggested, with View / Undo or Accept / Dismiss (PRD §10.6). */
 export function ActionCard({ action }: { action: AiAction }) {
+  // A plan waiting for review is an editable preview; once applied it's an ordinary card.
+  if (action.tool === "propose_plan" && action.status === "proposed") return <PlanCard action={action} />;
+  return <ActionRow action={action} />;
+}
+
+function ActionRow({ action }: { action: AiAction }) {
   const controls = useActionControls();
   const panel = useTaskPanel();
   const [working, setWorking] = useState(false);
@@ -118,8 +131,11 @@ export function ActionCard({ action }: { action: AiAction }) {
             <Link href={`/goal?id=${target.id}`} className={cn(small, "text-accent-text hover:bg-accent-fill")}>
               View
             </Link>
-          ) : target?.kind === "habits" ? (
-            <Link href="/habits" className={cn(small, "text-accent-text hover:bg-accent-fill")}>
+          ) : target?.kind === "habits" || target?.kind === "cycle" ? (
+            <Link
+              href={`/${target.kind === "cycle" ? "cycle" : "habits"}`}
+              className={cn(small, "text-accent-text hover:bg-accent-fill")}
+            >
               View
             </Link>
           ) : null}
