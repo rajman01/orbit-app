@@ -31,6 +31,12 @@ const planTask = z.object({
   dueDate: day.nullable().optional(),
   nextStep: z.string().trim().max(300).nullable().optional(),
 });
+const relationship = z.enum(["family", "friend", "partner", "mentor", "colleague", "other"]);
+const personDate = z.object({
+  month: z.number().int().min(1).max(12),
+  day: z.number().int().min(1).max(31),
+  year: z.number().int().min(1800).max(2200).nullable().optional(),
+});
 const taskFields = {
   description: z.string().max(5000).optional(),
   priority: priority.optional(),
@@ -329,6 +335,80 @@ export const COACH_TOOLS = {
     description: "Remove a note you saved with remember (its id is shown in the context).",
     input: z.object({ id }),
   },
+  get_people: {
+    description:
+      "List the people in the user's close circle: relationship, keep-in-touch cadence, when they were last in touch, who is due a catch-up (most overdue first) and important dates in the next 30 days. Optionally filter by name.",
+    input: z.object({
+      query: z.string().trim().max(100).optional().describe("Words in their name"),
+    }),
+  },
+  get_person: {
+    description:
+      "Get one person: notes, how they met, interests, important dates, things to remember, gift ideas, the latest interactions, open tasks about them and linked goals.",
+    input: z.object({ id }),
+  },
+  add_person: {
+    description:
+      "Add someone to the user's people. Only add people the user names; ask for a birthday or cadence only if it matters to what they want.",
+    input: z.object({
+      name: z.string().trim().min(1).max(120),
+      relationship: relationship.optional(),
+      cadenceDays: z
+        .number()
+        .int()
+        .min(1)
+        .max(730)
+        .nullable()
+        .optional()
+        .describe("Keep in touch every N days: 7 weekly, 14, 30 monthly, 91 quarterly; null for no reminder"),
+      birthday: personDate.optional(),
+      notes: z.string().max(5000).optional(),
+      howWeMet: z.string().max(2000).optional(),
+      interests: z.array(z.string().trim().min(1).max(60)).max(30).optional(),
+      phone: z.string().trim().max(40).optional(),
+      email: z.string().trim().max(200).optional(),
+    }),
+  },
+  update_person: {
+    description:
+      "Change someone's details: relationship, cadence, notes (replaces them; read get_person first and keep what's there), how they met, interests, phone, email, birthday, or snooze them out of Reach out until a day. archived: true archives them.",
+    input: z.object({
+      id,
+      name: z.string().trim().min(1).max(120).optional(),
+      relationship: relationship.optional(),
+      cadenceDays: z.number().int().min(1).max(730).nullable().optional(),
+      birthday: personDate.nullable().optional().describe("null removes the birthday"),
+      notes: z.string().max(20000).optional(),
+      howWeMet: z.string().max(2000).optional(),
+      interests: z.array(z.string().trim().min(1).max(60)).max(30).optional(),
+      phone: z.string().trim().max(40).nullable().optional(),
+      email: z.string().trim().max(200).nullable().optional(),
+      snoozedUntil: day.nullable().optional().describe("Out of Reach out until this day; null ends a snooze"),
+      archived: z.boolean().optional(),
+    }),
+  },
+  log_interaction: {
+    description:
+      "Log a call, message or meeting with someone (it resets their keep-in-touch clock). Keep notes in the user's words. A follow-up becomes a task about the person.",
+    input: z.object({
+      personId: id,
+      type: z.enum(["call", "text", "in_person", "other"]).describe("text = any message"),
+      date: day.optional().describe("When it happened; today when left out"),
+      notes: z.string().max(5000).optional(),
+      followUp: z
+        .object({ title: z.string().trim().min(1).max(500), scheduledDate: day.nullable().optional() })
+        .optional(),
+    }),
+  },
+  add_person_note: {
+    description:
+      "Add a thing to remember (a fact, preference or what's going on for them) or a gift idea to someone's page.",
+    input: z.object({
+      personId: id,
+      kind: z.enum(["remember", "gift"]),
+      text: z.string().trim().min(1).max(500),
+    }),
+  },
 } as const;
 
 export type CoachToolName = keyof typeof COACH_TOOLS;
@@ -355,6 +435,10 @@ export const WRITE_TOOLS = new Set<CoachToolName>([
   "complete_ritual",
   "create_time_block",
   "move_time_block",
+  "add_person",
+  "update_person",
+  "log_interaction",
+  "add_person_note",
 ]);
 
 /** More changes than this in one reply need the user's OK first (PRD §10.5). */

@@ -1,9 +1,11 @@
 "use client";
 
-import { ArchiveRestore, ChevronRight, Plus, Search, Users } from "lucide-react";
+import { ArchiveRestore, ChevronRight, Contact, Plus, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ContactImport, IMPORT_URL } from "@/components/people/contact-import";
+import { useToast } from "@/components/ui/toast";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { EmptyState } from "@/components/app/empty-state";
 import { PersonAvatar } from "@/components/people/avatar";
@@ -29,7 +31,24 @@ import { RELATIONSHIPS } from "@/lib/sync/entities";
 export function PeopleView() {
   const actions = useActions();
   const router = useRouter();
-  const startNew = useSearchParams().get("new") === "1";
+  const params = useSearchParams();
+  const startNew = params.get("new") === "1";
+  const importParam = params.get("import");
+  const toast = useToast();
+  // Back from Google: an import id opens the picker; anything else is a message.
+  const importId = importParam && !["setup", "cancelled", "error"].includes(importParam) ? importParam : null;
+  useEffect(() => {
+    if (!importParam || importId) return;
+    toast({
+      message:
+        importParam === "setup"
+          ? "Importing from Google isn't set up on this server yet."
+          : importParam === "cancelled"
+            ? "Import cancelled"
+            : "Couldn't read your Google contacts. Try again.",
+    });
+    router.replace("/people");
+  }, [importParam, importId, toast, router]);
   const people = usePeople();
   const archived = (usePeople({ includeArchived: true }) ?? []).filter((p) => p.archivedAt != null);
   const interactions = useInteractions();
@@ -71,9 +90,19 @@ export function PeopleView() {
         title="People"
         subtitle="Your close circle"
         actions={
-          <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
-            New person
-          </Button>
+          <>
+            <a
+              href={IMPORT_URL}
+              aria-label="Import from Google Contacts"
+              title="Import from Google Contacts"
+              className="grid size-icon-btn place-items-center rounded-md text-label-secondary hover:bg-fill hover:text-label"
+            >
+              <Contact className="size-4" />
+            </a>
+            <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
+              New person
+            </Button>
+          </>
         }
       />
       <PageBody>
@@ -82,7 +111,17 @@ export function PeopleView() {
             icon={Users}
             title="No one here yet"
             body="Add the people you want to stay close to. Orbit remembers birthdays, what you talked about and when you last caught up."
-            action={<Button onClick={() => setCreating(true)}>Add someone</Button>}
+            action={
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button onClick={() => setCreating(true)}>Add someone</Button>
+                <a
+                  href={IMPORT_URL}
+                  className="inline-flex h-control items-center gap-2 rounded-md bg-fill px-4 text-body font-semibold hover:bg-fill-strong"
+                >
+                  <Contact className="size-4" /> Import from Google
+                </a>
+              </div>
+            }
           />
         ) : null}
         {people?.length ? (
@@ -197,6 +236,7 @@ export function PeopleView() {
         ) : null}
       </PageBody>
       <PersonForm open={creating} onClose={closeForm} />
+      <ContactImport importId={importId} onClose={() => router.replace("/people")} />
     </>
   );
 }

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2C.1 and 2C.2 built 2026-11-14; 2C.3 to do |
+| **Status** | Built 2026-11-14; owner setup for Google Contacts and the real-account check pending |
 | **Depends on** | 2A (the coach's people tools), 1D (push reminders) |
 | **PRD** | §7.11 (REL-1 – REL-7), AREA-2 (people on the Relationships area), §13 (People list and person detail) |
 | **Design** | [DESIGN.md](../DESIGN.md) — list rows (person: 52px on phones), long-press menus, `Users` icon, "Delete person" wording |
@@ -59,8 +59,9 @@ Keep the people who matter close without having to remember everything: Orbit kn
 
 - [x] **2C.1 People:** entities and sync; People page (search, sorted by name, relationship filter) and person page (details, dates, cadence, notes, gift ideas, things to remember, interaction log with follow-up → task, linked goals and tasks); add/edit person; Relationships area lists its people; nav, `G P`, command menu
 - [x] **2C.2 Reach out and reminders:** overdue model; Reach out on Today (2 a day) with log/snooze/open; in the Daily Plan; upcoming dates on the People page; push reminders 7 days and 1 day before; goals linking to people
-- [ ] **2C.3 Google Contacts and coach:** one-off import with a picker; coach tools (`get_people`, `get_person`, `add_person`, `update_person`, `log_interaction` with follow-up, `add_person_note`); privacy policy update
-- [ ] Tests, owner setup, deploy
+- [x] **2C.3 Google Contacts and coach:** one-off import with a picker; coach tools (`get_people`, `get_person`, `add_person`, `update_person`, `log_interaction` with follow-up, `add_person_note`); privacy policy update
+- [x] Tests, deploy
+- [ ] Owner: Google Cloud setup below, then a real import and a birthday reminder on your phone
 
 ## Tests
 
@@ -70,7 +71,13 @@ Keep the people who matter close without having to remember everything: Orbit kn
 
 ## One-time setup (owner), needed for 2C.3
 
-**Google Cloud (same project):** APIs & Services → Library → enable **People API**; Google Auth Platform → Data access → add `.../auth/contacts.readonly`. No new redirect URI is needed beyond one for the import callback (`/api/people/google/callback`), which I'll list when it's built.
+**Google Cloud (same project as sign-in and Calendar):**
+
+1. APIs & Services → Library → **People API** → Enable.
+2. Google Auth Platform → **Data access** → Add or remove scopes → add `https://www.googleapis.com/auth/contacts.readonly` (it's a sensitive scope, like Calendar's; fine while the app is used by you and test users, and listed when you submit for verification).
+3. Google Auth Platform → **Clients** → your web client → Authorised redirect URIs → add `https://orbit-app-three-beta.vercel.app/api/people/google/callback` (and `http://localhost:3000/api/people/google/callback` for local use).
+
+No new environment variables: the import uses the existing `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Until steps 1–3 are done, Import shows Google's error page or comes back with "Couldn't read your Google contacts".
 
 ## Risks
 
@@ -84,3 +91,4 @@ Keep the people who matter close without having to remember everything: Orbit kn
 | 2026-11-14 | Plan written; owner chose initials/emoji (no photos), Google Contacts import plus manual entry, full coach help |
 | 2026-11-14 | 2C.1 People: synced `people` (name, emoji or initials on a colour, relationship, cadence, snooze, important dates with optional year, phone/WhatsApp/email, how you met, interests, area, Google id for 2C.3), `interactions` and `personItems` (Dexie v10), tasks gain `personId`. Actions: add (into the Relationships area when there is one), edit, archive, delete (log and items go; tasks stay, unlinked), log an interaction (ends a snooze; an optional follow-up becomes a `todo` task about the person, on a chosen day), gift ideas (tick when given) and things to remember. People page: search (names, interests, notes), relationship filter, "In touch … ago"; archived list with restore. Person page: cadence picker, last in touch, Log / Call / WhatsApp / Email, dates with next occurrence and age ("In 4 weeks · turns 37"; 29 February on the 28th in other years), notes, things to remember, gift ideas, tasks about them (add one with Quick Add), the log (edit/delete); on phones dates and details come first. Task details get a Person picker once you have people; area pages list their people. Nav (People, `Users`), `G P`, palette (People group, "New person"). Dialogs now scroll when taller than the window. Years from 1800. Tests: 7 unit (`people.test.ts`: initials, labels, next occurrence, log with follow-up, delete, server validation and ownership) and 2 browser (`people.spec.ts`: add → remember/gift → log with follow-up → Today and task's person → phone device → delete; `G P`); full suite 166 unit, 89 browser passed, 23 skipped |
 | 2026-11-14 | 2C.2 Reach out and reminders: `reachOut()` (cadence, not archived or snoozed, days since the last interaction or since being added ≥ cadence; ranked by days ÷ cadence). Today: "Reach out" with the top 2 plus birthdays and dates today or tomorrow; each person has Log (opens the log dialog) and Snooze (tomorrow, 3 days, a week, 2 weeks; Undo in the toast). Daily Plan: "Reach out today" on "Your day". People page: "Coming up" (dates in the next 30 days, age) and "Due a catch-up" (everyone overdue). Push reminders a week and a day before each date at Daily Plan time ("Mum's birthday is in a week" — "Saturday, 21 November. They turn 60."), once each, with a Settings switch (`notify.people`). Goals link to people (`goals.personIds`; the server checks every id in a list belongs to the user): chips and "Link a person" on the goal, a Goals section on the person; deleting a person unlinks them. The log dialog now saves before closing. Tests: 4 more unit (ranking with snooze/archive/no log, dates coming up and titles, reminder timing/once/off, server job once; goal unlink) and 1 browser (overdue → People page and Today → snooze/undo → log from Today; birthday tomorrow; goal link). Full suite: 170 unit; 89 browser passed, 23 skipped (two unrelated tests flaky on the full run, pass alone) |
+| 2026-11-14 | 2C.3 Google Contacts and coach: one-off import (`src/lib/people/google-contacts.ts`; routes `/api/people/google/{connect,callback,import}`): its own consent with only `contacts.readonly` (state signed like the calendar flow, cookie on `/api/people`), the People API read (names, birthdays with or without year, anniversaries and other dates, phone, email; up to 5,000 contacts; nameless contacts skipped), the token revoked straight away, and the list kept server-side for 15 minutes (`contactImports`, TTL index, per user) for the picker. People page: Import button (and in the empty state) → picker with search, Select all, people already imported (by Google id) marked and not selectable → chosen people created on the device like any person. Coach: `get_people` (cadence, last in touch, due a catch-up, dates in the next 30 days), `get_person` (notes, dates, items, recent log, open tasks, goals), and write tools `add_person`, `update_person` (incl. birthday, snooze, archive), `log_interaction` (with follow-up task; no future dates), `add_person_note` (remember / gift) — autonomy, cards with View → the person, undo; `get_overview` includes who's due a catch-up and dates soon; prompt explains People. Privacy policy: Google Contacts section, people in "What Orbit stores", the coach seeing people's names and notes when a request needs them. Tests: 4 unit (`people-coach.test.ts`: contact mapping, token always revoked, import list per user and expiry, coach add → get → log with follow-up → note → update → undo) and 2 browser (import from the fake address book, choosing two, then marked on a second import; the coach adds a person, View opens them, Undo removes them). Full suite: 174 unit; 93 browser passed, 24 skipped (one unrelated board test flaky on the full run, passes alone) |

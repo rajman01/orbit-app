@@ -1,6 +1,17 @@
 "use client";
 
-import { ArrowUp, BookOpen, NotebookPen, Search, Sparkles, Square, Sun, Target } from "lucide-react";
+import {
+  ArrowUp,
+  BookOpen,
+  CalendarClock,
+  NotebookPen,
+  Search,
+  Sparkles,
+  Square,
+  Sun,
+  Target,
+  Users,
+} from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CHECKIN_MARK } from "@/features/coach/protocol";
 import { WRITE_TOOLS, type CoachToolName } from "@/features/coach/tools";
@@ -168,6 +179,9 @@ const TOOL_LABELS: Record<string, { icon: typeof Sun; label: (i: Record<string, 
   get_goal: { icon: Target, label: () => "Opened a goal" },
   remember: { icon: NotebookPen, label: () => "Saved a note about you" },
   forget: { icon: NotebookPen, label: () => "Removed a note" },
+  get_people: { icon: Users, label: () => "Looked at your people" },
+  get_person: { icon: Users, label: () => "Opened a person" },
+  get_calendar_availability: { icon: CalendarClock, label: () => "Checked your calendar" },
 };
 
 function ToolChip({ name, input }: { name: string; input: Record<string, unknown> }) {

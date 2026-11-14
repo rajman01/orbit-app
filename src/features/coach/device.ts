@@ -16,6 +16,17 @@ import { buildToday, planDay } from "@/features/today/model";
 import { levelFromXp, totalXp } from "@/features/xp/model";
 import { addDays, dayOf, longDayLabel, timeOf, today as todayOf } from "@/lib/dates";
 import { dayFit, onDay, spanMinutes } from "@/features/calendar/model";
+import {
+  agoLabel,
+  cadenceLabel,
+  dateTitle,
+  formatPersonDate,
+  lastInTouch,
+  reachOut,
+  RELATIONSHIP_META,
+  upcomingDate,
+  upcomingDates,
+} from "@/features/people/model";
 import type { OrbitDB } from "@/lib/local-db/db";
 import type { CoachMessage } from "./protocol";
 import { COACH_TOOLS, isCoachTool, WRITE_TOOLS } from "./tools";
@@ -190,6 +201,7 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
       reminders: live(await db.reminders.toArray())
         .filter((r) => r.kind === "custom" && r.status === "pending" && r.fireAt > now)
         .map((r) => ({ id: r.id, title: r.title, at: new Date(r.fireAt).toISOString() })),
+      ...(await peopleSummary(db, s.timezone, day, 2)),
     };
   },
 
@@ -373,7 +385,103 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
     await actions.forgetMemory(id);
     return "Forgotten.";
   },
+
+  async get_people({ query }, { db, userId, now }) {
+    const s = await loadSettings(db, userId);
+    const day = todayOf(s.timezone, now);
+    const people = live(await db.people.toArray()).filter((p) => p.archivedAt == null);
+    const interactions = live(await db.interactions.toArray());
+    const q = query?.toLowerCase();
+    const shown = people
+      .filter((p) => !q || p.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 100);
+    return {
+      people: shown.map((p) => {
+        const last = lastInTouch(interactions.filter((i) => i.personId === p.id));
+        return {
+          id: p.id,
+          name: p.name,
+          relationship: RELATIONSHIP_META[p.relationship].label,
+          keepInTouch: p.cadenceDays ? cadenceLabel(p.cadenceDays) : undefined,
+          lastInTouch: last ? `${last} (${agoLabel(last, day).toLowerCase()})` : "never logged",
+          snoozedUntil: p.snoozedUntil && p.snoozedUntil > day ? p.snoozedUntil : undefined,
+        };
+      }),
+      total: people.length,
+      ...(await peopleSummary(db, s.timezone, day, 10)),
+    };
+  },
+
+  async get_person({ id }, { db, userId, now }) {
+    const p = await db.people.get(id);
+    if (!p || p.deletedAt != null) return "No such person.";
+    const s = await loadSettings(db, userId);
+    const day = todayOf(s.timezone, now);
+    const interactions = live(await db.interactions.where("personId").equals(id).toArray()).sort((a, b) =>
+      b.date.localeCompare(a.date),
+    );
+    const items = live(await db.personItems.where("personId").equals(id).toArray());
+    const tasks = (await allTasks(db)).filter((t) => t.personId === id && isOpen(t));
+    const goals = live(await db.goals.toArray()).filter((g) => g.personIds?.includes(id));
+    const last = interactions[0]?.date ?? null;
+    return {
+      id: p.id,
+      name: p.name,
+      relationship: RELATIONSHIP_META[p.relationship].label,
+      archived: p.archivedAt != null || undefined,
+      keepInTouch: p.cadenceDays ? cadenceLabel(p.cadenceDays) : "no reminder",
+      lastInTouch: last ? `${last} (${agoLabel(last, day).toLowerCase()})` : "never logged",
+      snoozedUntil: p.snoozedUntil ?? undefined,
+      dates: p.dates.map((d) => {
+        const u = upcomingDate(d, day);
+        return {
+          what: dateTitle(p.name, d),
+          date: formatPersonDate(d),
+          next: u.on,
+          turning: u.turning ?? undefined,
+        };
+      }),
+      notes: p.notes || undefined,
+      howWeMet: p.howWeMet || undefined,
+      interests: p.interests.length ? p.interests : undefined,
+      contact: { phone: p.phone ?? undefined, whatsapp: p.whatsapp ?? undefined, email: p.email ?? undefined },
+      thingsToRemember: items.filter((i) => i.kind === "remember").map((i) => i.text),
+      giftIdeas: items.filter((i) => i.kind === "gift").map((i) => (i.doneAt ? `${i.text} (given)` : i.text)),
+      recentInteractions: interactions
+        .slice(0, 10)
+        .map((i) => ({ date: i.date, type: i.type, notes: i.notes || undefined })),
+      interactionCount: interactions.length,
+      openTasks: tasks.map(taskBrief),
+      goals: goals.map((g) => ({ id: g.id, title: g.title, status: g.status })),
+    };
+  },
 };
+
+/** Who's due a catch-up and dates coming up, for the overview and get_people. */
+async function peopleSummary(db: OrbitDB, timezone: string, day: string, limit: number) {
+  const people = live(await db.people.toArray());
+  if (!people.length) return {};
+  const due = reachOut(people, live(await db.interactions.toArray()), day, timezone);
+  return {
+    dueACatchUp: due.slice(0, limit).map((r) => ({
+      id: r.person.id,
+      name: r.person.name,
+      daysSinceContact: r.days,
+      keepInTouch: cadenceLabel(r.person.cadenceDays),
+    })),
+    dueACatchUpCount: due.length,
+    datesSoon: upcomingDates(people, day, 30)
+      .slice(0, limit)
+      .map((u) => ({
+        personId: u.person.id,
+        what: dateTitle(u.person.name, u.date),
+        on: u.on,
+        inDays: u.inDays,
+        turning: u.turning ?? undefined,
+      })),
+  };
+}
 
 /**
  * The conversation as sent to the API. A context (system) message is only valid right after a

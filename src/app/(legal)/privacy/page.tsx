@@ -24,8 +24,10 @@ export default function Privacy() {
         </li>
         <li>
           <strong>What you put in Orbit:</strong> areas, goals, key results, milestones, tasks, habits, focus sessions,
-          cycles, reviews, reminders, settings, and your conversations with the coach and what it remembers about you.
-          This is kept on your devices (so Orbit works offline) and on Orbit&rsquo;s server (so it syncs between them).
+          cycles, reviews, reminders, settings, the people you add (with what you note about them: dates, contact
+          details, notes, gift ideas and a log of when you were in touch), and your conversations with the coach and
+          what it remembers about you. This is kept on your devices (so Orbit works offline) and on Orbit&rsquo;s server
+          (so it syncs between them).
         </li>
         <li>
           <strong>Notifications:</strong> if you turn them on, the push address your browser gives Orbit, so reminders
@@ -69,14 +71,27 @@ export default function Privacy() {
         .
       </p>
 
+      <h2>Google Contacts</h2>
+      <p>
+        If you choose &ldquo;Import from Google Contacts&rdquo; on the People page, Orbit asks Google for permission to{" "}
+        <strong>see your contacts</strong> (read-only), for that import only. Orbit reads names, birthdays and other
+        dates, phone numbers and email addresses, gives the access back to Google straight away, and keeps the list on
+        its server for at most 15 minutes so you can choose who to bring in. Only the people you choose are saved in
+        Orbit. Orbit never changes your Google contacts and doesn&rsquo;t keep access to them. Contacts data is used
+        only to add the people you pick, under the same Google API Services User Data Policy and Limited Use
+        requirements as calendar data.
+      </p>
+
       <h2>The AI coach</h2>
       <p>
         When you use the coach (chat, brain dump or check-ins), Orbit sends your message and the parts of your plan the
-        coach needs to answer it &mdash; for example your goals, tasks and, once calendar features reach the coach, your
-        free time &mdash; to Anthropic, which provides the Claude AI models. Anthropic processes it to produce the reply
-        and doesn&rsquo;t use it to train its models. Calendar data from Google is sent to the coach only to answer your
-        own requests, as allowed by Google&rsquo;s Limited Use rules. You can turn proactive check-ins off in Settings,
-        and see and delete what the coach remembers about you.
+        coach needs to answer it &mdash; for example your goals, tasks, free time and, when it&rsquo;s about the people
+        in your life, their names and what you&rsquo;ve noted about them &mdash; to Anthropic, which provides the Claude
+        AI models. Anthropic processes it to produce the reply and doesn&rsquo;t use it to train its models. Calendar
+        data from Google is sent to the coach only to answer your own requests, as allowed by Google&rsquo;s Limited Use
+        rules; contacts imported from Google become your own notes in Orbit, and the coach sees them only when your
+        request needs them. You can turn proactive check-ins off in Settings, and see and delete what the coach
+        remembers about you.
       </p>
 
       <h2>Who else processes your data</h2>
@@ -88,7 +103,7 @@ export default function Privacy() {
           <strong>Anthropic</strong> runs the AI coach (above).
         </li>
         <li>
-          <strong>Google</strong>, if you sign in with Google or connect Google Calendar.
+          <strong>Google</strong>, if you sign in with Google, connect Google Calendar or import Google Contacts.
         </li>
         <li>Your browser&rsquo;s push service delivers notifications, if you turn them on.</li>
       </ul>

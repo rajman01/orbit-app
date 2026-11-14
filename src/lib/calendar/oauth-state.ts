@@ -27,7 +27,7 @@ export function checkState(userId: string, state: string | null, cookieNonce: st
 }
 
 /** Where Google sends the user back (must be listed in the OAuth client's redirect URIs). */
-export function redirectUri(request: Request): string {
+export function redirectUri(request: Request, path = "/api/calendar/google/callback"): string {
   const base = process.env.BETTER_AUTH_URL ?? new URL(request.url).origin;
-  return `${base.replace(/\/$/, "")}/api/calendar/google/callback`;
+  return `${base.replace(/\/$/, "")}${path}`;
 }

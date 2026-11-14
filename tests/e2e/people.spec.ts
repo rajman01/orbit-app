@@ -195,3 +195,71 @@ test("someone overdue shows in Reach out; snooze, undo, log; birthday tomorrow; 
   await page.getByRole("button", { name: "Delete person" }).click();
   await expect(page).toHaveURL(/\/people$/);
 });
+
+/** Phase 2C.3: the one-off import from (a fake) Google Contacts. */
+test("import people from Google Contacts, choosing who; importing again marks them", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "One run is enough: the fake address book is shared");
+  await page.goto("/people");
+  await waitForSynced(page);
+  // Earlier runs may have left these (the account is shared): clear them first.
+  for (const name of ["Ada Lovelace", "Grace Hopper"]) {
+    await page.goto("/people");
+    await page.getByRole("searchbox", { name: "Search people" }).fill(name);
+    const link = page.getByRole("list", { name: "People" }).getByRole("link", { name: new RegExp(name) });
+    while (await link.count()) {
+      await link.first().click();
+      await page.getByRole("button", { name: "Person actions" }).click();
+      await page.getByRole("menuitem", { name: "Delete person…" }).click();
+      await page.getByRole("button", { name: "Delete person" }).click();
+      await expect(page).toHaveURL(/\/people$/);
+      await page.getByRole("searchbox", { name: "Search people" }).fill(name);
+    }
+  }
+
+  await page.getByRole("link", { name: "Import from Google Contacts" }).click();
+  const dialog = page.getByRole("dialog", { name: "Import from Google Contacts" });
+  const contacts = dialog.getByRole("list", { name: "Contacts" });
+  await expect(contacts.getByRole("listitem")).toHaveCount(3);
+  await expect(contacts).toContainText("Birthday 10 December 1815");
+  await dialog.getByRole("checkbox", { name: "Ada Lovelace" }).check();
+  await dialog.getByRole("checkbox", { name: "Grace Hopper" }).check();
+  await dialog.getByRole("button", { name: "Import 2" }).click();
+  await expect(page.getByText("Imported 2 people")).toBeVisible();
+  await expect(page).toHaveURL(/\/people$/);
+
+  const list = page.getByRole("list", { name: "People" });
+  await list.getByRole("link", { name: /Ada Lovelace/ }).click();
+  await expect(page.getByText("10 December 1815")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Email" })).toHaveAttribute("href", "mailto:ada@example.com");
+  await waitForSynced(page);
+
+  // Again: the two are marked and can't be picked twice.
+  await page.goto("/people");
+  await page.getByRole("link", { name: "Import from Google Contacts" }).click();
+  await expect(dialog.getByRole("checkbox", { name: "Ada Lovelace" })).toBeDisabled();
+  await expect(dialog).toContainText("2 already in Orbit");
+  await dialog.getByRole("button", { name: "Select all" }).click();
+  await expect(dialog.getByRole("button", { name: "Import 1" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/people$/);
+});
+
+test("the coach adds a person and the card opens them", async ({ page }) => {
+  const r = run();
+  const name = `Coach friend ${r}`;
+  await page.goto("/coach?new=1");
+  const box = page.getByRole("textbox", { name: "Message the coach" });
+  await box.fill(`add them [tool:add_person {"name":"${name}","cadenceDays":30}]`);
+  await box.press("Enter");
+  const card = page.locator("[data-ai-action]").filter({ hasText: `Add “${name}” to People` });
+  await expect(card).toHaveAttribute("data-ai-action", "applied", { timeout: 15_000 });
+  await card.getByRole("link", { name: "View" }).click();
+  await expect(page.getByRole("heading", { name })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Keep in touch" })).toContainText("Every month");
+  // Undo from the chat removes them.
+  await page.goBack();
+  await card.getByRole("button", { name: `Undo: Add “${name}” to People` }).click();
+  await expect(card).toHaveAttribute("data-ai-action", "undone");
+  await page.goto("/people");
+  await expect(page.getByRole("link", { name: new RegExp(name) })).toHaveCount(0);
+});

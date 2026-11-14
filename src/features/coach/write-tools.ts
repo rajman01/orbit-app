@@ -34,7 +34,11 @@ export type WriteToolName =
   | "set_must_dos"
   | "complete_ritual"
   | "create_time_block"
-  | "move_time_block";
+  | "move_time_block"
+  | "add_person"
+  | "update_person"
+  | "log_interaction"
+  | "add_person_note";
 
 type Input<N extends WriteToolName> = z.infer<(typeof COACH_TOOLS)[N]["input"]>;
 
@@ -55,7 +59,11 @@ async function loadSettings(db: OrbitDB, userId: string): Promise<Settings> {
 
 const q = (s: string | undefined | null) => `“${(s ?? "").length > 60 ? `${s!.slice(0, 57)}…` : (s ?? "")}”`;
 
-async function titleOf(db: OrbitDB, entity: "tasks" | "goals" | "habits" | "keyResults" | "reminders", id: string) {
+async function titleOf(
+  db: OrbitDB,
+  entity: "tasks" | "goals" | "habits" | "keyResults" | "reminders" | "people",
+  id: string,
+) {
   const doc = (await db.table(entity).get(id)) as { title?: string; name?: string } | undefined;
   return doc?.title ?? doc?.name ?? "it";
 }
@@ -151,6 +159,28 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
         .join(" ");
       return `Move block ${q(b?.title)}${to ? ` to ${to}` : ""}${p.minutes ? ` (${p.minutes} min)` : ""}`;
     }
+    case "add_person":
+      return `Add ${q(i.name)} to People`;
+    case "update_person": {
+      const p = input as Input<"update_person">;
+      const name = q(await titleOf(db, "people", p.id));
+      if (p.archived === true) return `Archive ${name}`;
+      if (p.snoozedUntil) {
+        const s = await loadSettings(db, userId);
+        return `Snooze ${name} until ${dayLabel(p.snoozedUntil, todayOf(s.timezone)).toLowerCase()}`;
+      }
+      return `Update ${name}`;
+    }
+    case "log_interaction": {
+      const p = input as Input<"log_interaction">;
+      const verb = { call: "Call", text: "Message", in_person: "Meeting", other: "Catch-up" }[p.type];
+      return `Log: ${verb} with ${q(await titleOf(db, "people", p.personId))}${p.followUp ? `, follow-up ${q(p.followUp.title)}` : ""}`;
+    }
+    case "add_person_note": {
+      const p = input as Input<"add_person_note">;
+      const name = q(await titleOf(db, "people", p.personId));
+      return p.kind === "gift" ? `Gift idea for ${name}: ${q(p.text)}` : `Remember about ${name}: ${q(p.text)}`;
+    }
   }
 }
 
@@ -180,6 +210,11 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
     const t = await db.tasks.get(id);
     if (!t || t.deletedAt != null) throw new Error("No such task.");
     return withTaskDefaults(t);
+  };
+  const person = async (id: string) => {
+    const p = await db.people.get(id);
+    if (!p || p.deletedAt != null) throw new Error("No such person.");
+    return p;
   };
   const goal = async (id: string) => {
     const g = await db.goals.get(id);
@@ -378,6 +413,53 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       const end = start + (p.minutes ?? Math.round((b.end - b.start) / 60_000)) * 60_000;
       await actions.moveTimeBlock(b.id, start, end);
       return { id: b.id, start: new Date(start).toISOString(), end: new Date(end).toISOString() };
+    }
+    case "add_person": {
+      const { birthday, phone, email, ...p } = input as Input<"add_person">;
+      const id = await actions.createPerson({
+        ...stripUndefined(p),
+        phone: phone || null,
+        email: email || null,
+        dates: birthday
+          ? [{ kind: "birthday", label: "", month: birthday.month, day: birthday.day, year: birthday.year ?? null }]
+          : [],
+      });
+      return { id };
+    }
+    case "update_person": {
+      const { id, birthday, archived, ...rest } = input as Input<"update_person">;
+      const p = await person(id);
+      const patch: Record<string, unknown> = stripUndefined(rest);
+      if (birthday !== undefined) {
+        const others = p.dates.filter((d) => d.kind !== "birthday");
+        patch.dates = birthday
+          ? [
+              { kind: "birthday", label: "", month: birthday.month, day: birthday.day, year: birthday.year ?? null },
+              ...others,
+            ]
+          : others;
+      }
+      if (Object.keys(patch).length) await actions.updatePerson(id, patch);
+      if (archived !== undefined) await actions.archivePerson(id, archived);
+      return { id };
+    }
+    case "log_interaction": {
+      const p = input as Input<"log_interaction">;
+      await person(p.personId);
+      const date = p.date ?? (await todayFor(db, userId, deps.now));
+      if (date > (await todayFor(db, userId, deps.now)))
+        throw new Error("That date is in the future; log it once it has happened.");
+      const out = await actions.logInteraction(
+        p.personId,
+        { date, type: p.type, notes: p.notes ?? "" },
+        p.followUp ? { title: p.followUp.title, scheduledDate: p.followUp.scheduledDate ?? null } : null,
+      );
+      return { id: out.id, followUpTaskId: out.taskId ?? undefined };
+    }
+    case "add_person_note": {
+      const p = input as Input<"add_person_note">;
+      await person(p.personId);
+      return { id: await actions.addPersonItem(p.personId, p.kind, p.text) };
     }
     case "complete_ritual": {
       const p = input as Input<"complete_ritual">;
