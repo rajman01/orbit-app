@@ -147,3 +147,89 @@ export function placeOnDay<T extends { start: number; end: number }>(
   close();
   return placed;
 }
+
+// ---------------------------------------------------------------- free time (2B.4, CAL-5)
+
+export interface Span {
+  start: number;
+  end: number;
+}
+
+/** Shorter gaps than this aren't worth calling free time. */
+export const MIN_FREE_MINUTES = 15;
+
+/**
+ * Free time on `day` within working hours around the busy spans, from `notBefore` on (now, for
+ * today). Gaps shorter than MIN_FREE_MINUTES are left out.
+ */
+export function freeSlots(
+  day: Day,
+  timezone: string,
+  workingHours: { start: string; end: string },
+  busy: Span[],
+  notBefore = -Infinity,
+): Span[] {
+  let from = instantAt(day, workingHours.start, timezone);
+  const until = instantAt(day, workingHours.end, timezone);
+  from = Math.max(from, Math.ceil(notBefore / 300_000) * 300_000); // from the next 5 minutes
+  if (until <= from) return [];
+  const sorted = busy.filter((b) => b.end > from && b.start < until).sort((a, b) => a.start - b.start);
+  const out: Span[] = [];
+  let cursor = from;
+  for (const b of sorted) {
+    if (b.start > cursor) out.push({ start: cursor, end: Math.min(b.start, until) });
+    cursor = Math.max(cursor, b.end);
+    if (cursor >= until) break;
+  }
+  if (cursor < until) out.push({ start: cursor, end: until });
+  return out.filter((s) => s.end - s.start >= MIN_FREE_MINUTES * 60_000);
+}
+
+export const spanMinutes = (spans: Span[]) => Math.round(spans.reduce((n, s) => n + (s.end - s.start), 0) / 60_000);
+
+/** The first slot with room for `minutes`, starting on a quarter hour. */
+export function firstFit(slots: Span[], minutes: number): Span | null {
+  for (const s of slots) {
+    const start = Math.ceil(s.start / (SNAP_MINUTES * 60_000)) * SNAP_MINUTES * 60_000;
+    if (start + minutes * 60_000 <= s.end) return { start, end: start + minutes * 60_000 };
+  }
+  return null;
+}
+
+/** "3h 15m", "45m", "2h". */
+export function formatMinutes(m: number): string {
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return h ? (r ? `${h}h ${r}m` : `${h}h`) : `${r}m`;
+}
+
+export interface DayFit {
+  /** Free time in working hours (time blocked for the Must-dos counts as free: it's theirs). */
+  slots: Span[];
+  free: number;
+  /** What today's open Must-dos need, from their effort. */
+  need: number;
+  fits: boolean;
+}
+
+/**
+ * CAL-5: do the day's Must-dos fit in the free time? Busy is calendar events (timed) and time
+ * blocks for anything other than the Must-dos.
+ */
+export function dayFit(o: {
+  day: Day;
+  timezone: string;
+  workingHours: { start: string; end: string };
+  events: Pick<CalendarEvent, "start" | "end" | "allDay">[];
+  blocks: Pick<TimeBlock, "start" | "end" | "taskId">[];
+  mustDos: { id: string; effort: number | null }[];
+  now: number;
+}): DayFit {
+  const ids = new Set(o.mustDos.map((t) => t.id));
+  const busy = [...o.events.filter((e) => !e.allDay), ...o.blocks.filter((b) => !b.taskId || !ids.has(b.taskId))];
+  const notBefore = dayOf(o.now, o.timezone) === o.day ? o.now : -Infinity;
+  const slots = freeSlots(o.day, o.timezone, o.workingHours, busy, notBefore);
+  const free = spanMinutes(slots);
+  const need = o.mustDos.reduce((n, t) => n + blockMinutes(t.effort), 0);
+  return { slots, free, need, fits: need <= free };
+}

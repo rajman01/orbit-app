@@ -187,3 +187,39 @@ test("connect iCloud with an app-specific password and see its events on Today",
   await expect(page.getByText("Gym", { exact: true })).toHaveCount(0, { timeout: 20_000 });
   await waitForSynced(page);
 });
+
+/** Phase 2B.4: the private feed link, and free time in the Daily Plan's terms on Today. */
+test("the calendar feed link serves time blocks and can be reset", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "Same on every size");
+  const title = `Feed block ${run()}`;
+  await page.goto("/calendar");
+  const group = page.locator('[role="group"][aria-label]').first();
+  await group.evaluate((el) => {
+    el.closest(".overflow-y-auto")!.scrollTop = 13 * 48;
+  });
+  await group.click({ position: { x: 20, y: 14 * 48 + 10 } });
+  const dialog = page.getByRole("dialog", { name: "Block time" });
+  await dialog.getByPlaceholder(/Find a task/).fill(title);
+  await dialog.getByRole("button", { name: "Block time" }).click();
+  await waitForSynced(page);
+
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Show my calendar link" }).click();
+  const link = page.getByLabel("Calendar feed link");
+  const url = await link.inputValue();
+  expect(url).toMatch(/\/api\/calendar\/feed\/[A-Za-z0-9_-]{40,}\.ics$/);
+  const feed = await page.request.get(url);
+  expect(feed.headers()["content-type"]).toContain("text/calendar");
+  expect(await feed.text()).toContain(`SUMMARY:${title}`);
+
+  await page.getByRole("button", { name: "Reset link" }).click();
+  await page.getByRole("button", { name: "Reset link" }).last().click();
+  await expect(link).not.toHaveValue(url);
+  expect((await page.request.get(url)).status()).toBe(404);
+
+  // Leave the calendar as it was.
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: new RegExp(`^Time block: ${title}`) }).click();
+  await page.getByRole("dialog", { name: "Time block" }).getByRole("button", { name: "Delete block" }).click();
+  await waitForSynced(page);
+});

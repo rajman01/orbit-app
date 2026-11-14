@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { createActions, type Actions } from "@/features/actions";
 import { defaultSettings, settingsId, type Settings } from "@/features/settings/model";
 import { withTaskDefaults } from "@/features/tasks/model";
-import { dayLabel, instantAt, today as todayOf } from "@/lib/dates";
+import { dayLabel, dayOf, instantAt, timeOf, today as todayOf } from "@/lib/dates";
 import type { OrbitDB } from "@/lib/local-db/db";
 import type { SyncEngine } from "@/lib/sync/engine";
 import { recordingEngine, undoChanges, type Change } from "./record";
@@ -32,7 +32,9 @@ export type WriteToolName =
   | "break_down_task"
   | "plan_cycle"
   | "set_must_dos"
-  | "complete_ritual";
+  | "complete_ritual"
+  | "create_time_block"
+  | "move_time_block";
 
 type Input<N extends WriteToolName> = z.infer<(typeof COACH_TOOLS)[N]["input"]>;
 
@@ -133,8 +135,28 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       return (input as Input<"complete_ritual">).type === "daily_plan"
         ? "Finish today's Daily Plan"
         : "Close the day (Shutdown)";
+    case "create_time_block": {
+      const p = input as Input<"create_time_block">;
+      const s = await loadSettings(db, userId);
+      const title = p.taskId ? await titleOf(db, "tasks", p.taskId) : (p.title ?? "time");
+      const end = minutesToTime(timeToMinutes(p.start) + p.minutes);
+      return `Block ${p.start}–${end} ${dayLabel(p.date, todayOf(s.timezone)).toLowerCase()} for ${q(title)}`;
+    }
+    case "move_time_block": {
+      const p = input as Input<"move_time_block">;
+      const b = await db.timeBlocks.get(p.id);
+      const s = await loadSettings(db, userId);
+      const to = [p.date ? dayLabel(p.date, todayOf(s.timezone)).toLowerCase() : null, p.start ? `at ${p.start}` : null]
+        .filter(Boolean)
+        .join(" ");
+      return `Move block ${q(b?.title)}${to ? ` to ${to}` : ""}${p.minutes ? ` (${p.minutes} min)` : ""}`;
+    }
   }
 }
+
+const timeToMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const minutesToTime = (m: number) =>
+  `${String(Math.floor((m / 60) % 24)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 /** Today's day for the user. */
 async function todayFor(db: OrbitDB, userId: string, now: number) {
@@ -333,6 +355,29 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
         if (t.mustDoDate !== day) await actions.setMustDo(t, day, true);
       }
       return { day, mustDos: taskIds };
+    }
+    case "create_time_block": {
+      const p = input as Input<"create_time_block">;
+      const s = await loadSettings(db, userId);
+      const t = p.taskId ? await task(p.taskId) : null;
+      const title = t?.title ?? p.title;
+      if (!title) throw new Error("Give a taskId or a title.");
+      const start = instantAt(p.date, p.start, s.timezone);
+      const end = start + p.minutes * 60_000;
+      const id = await actions.blockTime({ taskId: t?.id ?? null, title, start, end });
+      return { id, start: new Date(start).toISOString(), end: new Date(end).toISOString() };
+    }
+    case "move_time_block": {
+      const p = input as Input<"move_time_block">;
+      const b = await db.timeBlocks.get(p.id);
+      if (!b || b.deletedAt != null) throw new Error("No such time block.");
+      const s = await loadSettings(db, userId);
+      const date = p.date ?? dayOf(b.start, s.timezone);
+      const time = p.start ?? timeOf(b.start, s.timezone);
+      const start = instantAt(date, time, s.timezone);
+      const end = start + (p.minutes ?? Math.round((b.end - b.start) / 60_000)) * 60_000;
+      await actions.moveTimeBlock(b.id, start, end);
+      return { id: b.id, start: new Date(start).toISOString(), end: new Date(end).toISOString() };
     }
     case "complete_ritual": {
       const p = input as Input<"complete_ritual">;

@@ -14,7 +14,8 @@ import { defaultSettings, settingsId, type Settings } from "@/features/settings/
 import { isOpen, taskCode, withTaskDefaults, type Task } from "@/features/tasks/model";
 import { buildToday, planDay } from "@/features/today/model";
 import { levelFromXp, totalXp } from "@/features/xp/model";
-import { dayOf, longDayLabel, today as todayOf } from "@/lib/dates";
+import { addDays, dayOf, longDayLabel, timeOf, today as todayOf } from "@/lib/dates";
+import { dayFit, onDay, spanMinutes } from "@/features/calendar/model";
 import type { OrbitDB } from "@/lib/local-db/db";
 import type { CoachMessage } from "./protocol";
 import { COACH_TOOLS, isCoachTool, WRITE_TOOLS } from "./tools";
@@ -271,6 +272,58 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
         .map((m) => ({ id: m.id, title: m.title, due: m.dueDate ?? undefined, done: m.doneAt != null })),
       openTasks: tasks.filter((t) => isOpen(t) && !t.parentTaskId).map(taskBrief),
       doneTasks: tasks.filter((t) => t.status === "done" && !t.parentTaskId).length,
+    };
+  },
+
+  async get_calendar_availability({ date, days }, { db, userId, now }) {
+    const s = await loadSettings(db, userId);
+    const today = todayOf(s.timezone, now);
+    const first = date ?? today;
+    const calendars = live(await db.calendars.toArray());
+    const shown = new Map(calendars.filter((c) => c.selected && !c.isOrbit).map((c) => [c.id, c.name]));
+    const events = live(await db.calendarEvents.toArray()).filter((e) => shown.has(e.calendarId));
+    const blocks = live(await db.timeBlocks.toArray());
+    const tasks = await allTasks(db);
+    const t = (ms: number) => timeOf(ms, s.timezone);
+    const out = Array.from({ length: days ?? 1 }, (_, i) => {
+      const d = addDays(first, i);
+      const dayEvents = events.filter((e) => onDay(e, d, s.timezone)).sort((a, b) => a.start - b.start);
+      const dayBlocks = blocks.filter((b) => dayOf(b.start, s.timezone) === d).sort((a, b) => a.start - b.start);
+      const mustDos = tasks.filter((x) => x.mustDoDate === d && isOpen(x));
+      const fit = dayFit({
+        day: d,
+        timezone: s.timezone,
+        workingHours: s.workingHours,
+        events: dayEvents,
+        blocks: dayBlocks,
+        mustDos,
+        now,
+      });
+      return {
+        date: d,
+        events: dayEvents.map((e) => ({
+          title: e.title,
+          time: e.allDay ? "all day" : `${t(e.start)}–${t(e.end)}`,
+          calendar: shown.get(e.calendarId),
+          ...(e.status === "tentative" ? { tentative: true } : {}),
+        })),
+        timeBlocks: dayBlocks.map((b) => ({
+          id: b.id,
+          title: b.title,
+          taskId: b.taskId ?? undefined,
+          time: `${t(b.start)}–${t(b.end)}`,
+        })),
+        free: fit.slots.map((x) => `${t(x.start)}–${t(x.end)}`),
+        freeMinutes: spanMinutes(fit.slots),
+        ...(mustDos.length ? { mustDos: { needMinutes: fit.need, fit: fit.fits } } : {}),
+      };
+    });
+    return {
+      timezone: s.timezone,
+      workingHours: s.workingHours,
+      calendarsConnected: shown.size > 0,
+      ...(first === today ? { now: t(now) } : {}),
+      days: out,
     };
   },
 

@@ -284,6 +284,42 @@ export const COACH_TOOLS = {
       wins: z.array(z.string().trim().min(1).max(200)).max(3).optional(),
     }),
   },
+  get_calendar_availability: {
+    description:
+      "The user's calendar for a day or a few days: working hours, events (from their connected calendars), time blocks with ids, free slots within working hours, and for today whether the Must-dos fit. Call this before blocking time or when planning a day.",
+    input: z.object({
+      date: day.optional().describe("First day, YYYY-MM-DD; today when left out"),
+      days: z.number().int().min(1).max(7).optional().describe("How many days, 1–7; 1 when left out"),
+    }),
+  },
+  create_time_block: {
+    description:
+      "Block time on the user's calendar for a task (or just a title). It also goes to their Orbit calendar in Google/iCloud. Use free slots from get_calendar_availability; length from the task's effort if they don't say (1 pt 30 min, 2 pts 1 h, 3 pts 1½ h, 5 pts 2 h, 8 pts 3 h).",
+    input: z.object({
+      taskId: id.optional().describe("The task the time is for"),
+      title: z.string().trim().min(1).max(500).optional().describe("Needed when there's no task"),
+      date: day,
+      start: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .describe("Local start time, HH:MM (24-hour)"),
+      minutes: z.number().int().min(15).max(600),
+    }),
+  },
+  move_time_block: {
+    description:
+      "Move a time block to another day or time, or change its length. Its id comes from get_calendar_availability.",
+    input: z.object({
+      id,
+      date: day.optional().describe("New day; same day when left out"),
+      start: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .optional()
+        .describe("New local start time, HH:MM; same time when left out"),
+      minutes: z.number().int().min(15).max(600).optional().describe("New length; same length when left out"),
+    }),
+  },
   remember: {
     description:
       "Save a short note about the user that will help later (a preference, context, what works for them). Only things they would be happy for you to remember; they can see and edit these notes.",
@@ -317,6 +353,8 @@ export const WRITE_TOOLS = new Set<CoachToolName>([
   "plan_cycle",
   "set_must_dos",
   "complete_ritual",
+  "create_time_block",
+  "move_time_block",
 ]);
 
 /** More changes than this in one reply need the user's OK first (PRD §10.5). */

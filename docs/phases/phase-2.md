@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | In progress — 2A built and deployed 2026-11-14 ([plan](./phase-2a.md)); 2B planned ([plan](./phase-2b.md)) |
+| **Status** | In progress — 2A built and deployed 2026-11-14 ([plan](./phase-2a.md)); 2B built 2026-11-14 ([plan](./phase-2b.md)), real-account check pending |
 | **Depends on** | Phase 1 |
 | **PRD** | §7.1 (VIS), §7.3 (GOAL-7/8), §7.6 (CYC-6/7, QTR-1–6), §7.9 (RIT-7), §7.11, §7.12 (CAR-1), §7.13, §10, §11, §13 |
 

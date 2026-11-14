@@ -366,7 +366,9 @@ test("changing a setting on a new device before its first sync keeps the account
   await expect(page).toHaveURL(/\/today/);
 });
 
-test("on a phone, the tab bar hides while the keyboard is up instead of riding on top of it", async ({ page }, info) => {
+test("on a phone, the tab bar hides while the keyboard is up instead of riding on top of it", async ({
+  page,
+}, info) => {
   test.skip(info.project.name !== "phone", "Only phones have an on-screen keyboard");
   await page.goto("/today");
   const tabBar = page.locator("nav[data-hide-on-keyboard]");

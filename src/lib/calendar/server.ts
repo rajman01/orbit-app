@@ -16,7 +16,7 @@ import {
 } from "./blocks";
 import { caldav, CaldavAuthFailed, ICLOUD_URL, type CaldavCreds } from "./caldav";
 import { parseEvents } from "./ics";
-import { decrypt, encrypt } from "./crypto";
+import { decrypt, encrypt, SecretUnreadable } from "./crypto";
 import { emailFromIdToken, google, GoogleAuthRevoked, SyncTokenExpired, type GoogleTokens } from "./google";
 
 /**
@@ -211,9 +211,12 @@ export async function syncAccount(db: Db, account: CalendarAccount, now = Date.n
         ? "Google disconnected Orbit. Connect again."
         : err instanceof CaldavAuthFailed
           ? "Apple didn't accept the password. Connect again with a new app-specific password."
-          : "Couldn't sync. Orbit will retry.";
-    if (!(err instanceof GoogleAuthRevoked || err instanceof CaldavAuthFailed))
-      console.error("calendar sync failed", err);
+          : err instanceof SecretUnreadable
+            ? "Orbit can't use this connection any more. Disconnect it and connect again."
+            : "Couldn't sync. Orbit will retry.";
+    const expected =
+      err instanceof GoogleAuthRevoked || err instanceof CaldavAuthFailed || err instanceof SecretUnreadable;
+    if (!expected) console.error("calendar sync failed", err);
     await accounts(db).updateOne({ _id: account._id }, { $set: { lastSyncAt: now, error, lockedUntil: 0 } });
   }
 }

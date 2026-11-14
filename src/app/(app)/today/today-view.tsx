@@ -1,6 +1,7 @@
 "use client";
 
 import { TodayAgenda } from "@/components/calendar/agenda";
+import { TodayFreeTime } from "@/components/calendar/free-time";
 import { AlertTriangle, Sun, Target } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -104,6 +105,7 @@ export function TodayView() {
         <PushPrompt />
         <DayOrbit plan={plan} now={now} timezone={settings.timezone} ready={all !== undefined} />
         <CapacityBar capacity={plan.capacity} />
+        <TodayFreeTime day={todayDay} />
         <TodayAgenda />
 
         <form onSubmit={add} className="mb-4">

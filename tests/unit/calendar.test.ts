@@ -5,6 +5,7 @@ import { agenda, eventFields, onDay } from "@/features/calendar/model";
 import { decrypt, encrypt } from "@/lib/calendar/crypto";
 import { fakeGoogleState } from "@/lib/calendar/google";
 import { blockLinks } from "@/lib/calendar/blocks";
+import { feedFor, feedToken, resetFeed } from "@/lib/calendar/feed";
 import { accounts, connectGoogle, disconnectAccount, markChannelDirty, syncAccount } from "@/lib/calendar/server";
 import { applyMutations } from "@/lib/sync/server";
 
@@ -271,5 +272,53 @@ describe("Google calendar sync (server, fake Google)", () => {
     expect(events()).toHaveLength(0);
     expect(await blocks()).toHaveLength(0);
     expect(await blockLinks(db).countDocuments({ userId: user })).toBe(0);
+  });
+
+  it("the feed link is secret and resettable; it lists blocks and open dated tasks", async () => {
+    const user = "user0000000003";
+    const token = await feedToken(db, user);
+    expect(token.length).toBeGreaterThanOrEqual(40);
+    expect(await feedToken(db, user)).toBe(token); // the same link until reset
+    const now = Date.now();
+    await db.collection("timeBlocks").insertOne({
+      _id: "feedblock0001" as never,
+      userId: user,
+      deletedAt: null,
+      title: "Focus",
+      start: now + 3600_000,
+      end: now + 7200_000,
+    });
+    await db.collection("tasks").insertMany([
+      {
+        _id: "feedtask00001" as never,
+        userId: user,
+        deletedAt: null,
+        status: "todo",
+        parentTaskId: null,
+        title: "Pay rent",
+        scheduledDate: null,
+        dueDate: "2026-12-01",
+      },
+      {
+        _id: "feedtask00002" as never,
+        userId: user,
+        deletedAt: null,
+        status: "done",
+        parentTaskId: null,
+        title: "Done one",
+        scheduledDate: "2026-12-01",
+        dueDate: null,
+      },
+    ]);
+    const ics = (await feedFor(db, token, now))!;
+    expect(ics).toContain("SUMMARY:Focus");
+    expect(ics).toContain("SUMMARY:Due: Pay rent");
+    expect(ics).not.toContain("Done one");
+    expect(await feedFor(db, "not-a-token")).toBeNull();
+
+    const fresh = await resetFeed(db, user);
+    expect(fresh).not.toBe(token);
+    expect(await feedFor(db, token)).toBeNull();
+    expect(await feedFor(db, fresh)).toContain("SUMMARY:Focus");
   });
 });

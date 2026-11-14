@@ -20,9 +20,16 @@ export function encrypt(plain: string): string {
   return Buffer.concat([iv, cipher.getAuthTag(), data]).toString("base64");
 }
 
+/** A stored secret can't be read: it was sealed with another key (the key was changed). */
+export class SecretUnreadable extends Error {}
+
 export function decrypt(sealed: string): string {
   const buf = Buffer.from(sealed, "base64");
-  const decipher = createDecipheriv("aes-256-gcm", key(), buf.subarray(0, 12));
-  decipher.setAuthTag(buf.subarray(12, 28));
-  return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString("utf8");
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", key(), buf.subarray(0, 12));
+    decipher.setAuthTag(buf.subarray(12, 28));
+    return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString("utf8");
+  } catch (err) {
+    throw new SecretUnreadable(err instanceof Error ? err.message : "unreadable");
+  }
 }

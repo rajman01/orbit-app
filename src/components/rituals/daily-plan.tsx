@@ -13,11 +13,13 @@ import { isOpen, type Task } from "@/features/tasks/model";
 import { buildToday, MUST_DO_LIMIT, overdueDays } from "@/features/today/model";
 import { useMinuteNow, useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
+import { BlockMustDo, FreeTimeNote, useDayFit } from "@/components/calendar/free-time";
 import { EmptyStepNote, RitualShell, RitualTaskRow, SmallButton, type RitualStep } from "./ritual-flow";
 
 /**
  * PRD RIT-1: the morning plan. Clear yesterday → process the inbox → choose up to 3 Must-dos →
- * give each a first step → commit. (Calendar review and time-blocking arrive with calendars in Phase 2.)
+ * give each a first step → commit, seeing whether they fit the day's free time and blocking time for them
+ * (2B.4, CAL-5).
  */
 export function DailyPlanFlow({ ritual, onClose }: { ritual: RitualDoc; onClose: () => void }) {
   const actions = useActions();
@@ -63,6 +65,7 @@ export function DailyPlanFlow({ ritual, onClose }: { ritual: RitualDoc; onClose:
     return list;
   }, [plan, cycle, all]);
   const mustDos = plan.mustDos.filter(isOpen);
+  const day = useDayFit(todayDay);
   const needSteps = mustDos.filter((t) => !t.nextStep);
 
   const steps: RitualStep[] = [
@@ -151,6 +154,7 @@ export function DailyPlanFlow({ ritual, onClose }: { ritual: RitualDoc; onClose:
           <p className="mb-2 text-footnote font-medium text-label-secondary tabular">
             {mustDos.length} of {MUST_DO_LIMIT} chosen
           </p>
+          {day ? <FreeTimeNote fit={day.fit} className="mb-2" /> : null}
           <ul>
             {candidates.map((t) => {
               const on = t.mustDoDate === todayDay;
@@ -211,6 +215,7 @@ export function DailyPlanFlow({ ritual, onClose }: { ritual: RitualDoc; onClose:
       }.`,
       body: (
         <div className="flex flex-col gap-4">
+          {day && mustDos.length ? <FreeTimeNote fit={day.fit} /> : null}
           {mustDos.length ? (
             <ul className="flex flex-col gap-2">
               {mustDos.map((t, i) => (
@@ -218,9 +223,10 @@ export function DailyPlanFlow({ ritual, onClose }: { ritual: RitualDoc; onClose:
                   <span className="grid size-6 shrink-0 place-items-center rounded-full bg-warning/15 text-footnote font-bold text-warning-text">
                     {i + 1}
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-headline">{t.title}</p>
                     {t.nextStep ? <p className="text-footnote text-label-secondary">↳ {t.nextStep}</p> : null}
+                    <BlockMustDo task={t} day={todayDay} />
                   </div>
                 </li>
               ))}

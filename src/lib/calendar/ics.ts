@@ -173,3 +173,43 @@ export function blockIcs(block: { id: string; title: string; start: number; end:
 }
 
 export const blockUid = (blockId: string) => `${blockId}@orbit`;
+
+/**
+ * CAL-3: the private subscription feed — time blocks, and open tasks on the day they're planned for
+ * (or due), as all-day events. Calendar apps refresh it on their own schedule.
+ */
+export function feedIcs(
+  blocks: { id: string; title: string; start: number; end: number }[],
+  tasks: { id: string; title: string; day: string; due: boolean }[],
+  now = Date.now(),
+): string {
+  const cal = new ICAL.Component(["vcalendar", [], []]);
+  cal.addPropertyWithValue("version", "2.0");
+  cal.addPropertyWithValue("prodid", "-//Orbit//Feed//EN");
+  cal.addPropertyWithValue("calscale", "GREGORIAN");
+  cal.addPropertyWithValue("x-wr-calname", "Orbit");
+  cal.addPropertyWithValue("x-published-ttl", "PT15M");
+  const refresh = cal.addPropertyWithValue("refresh-interval", ICAL.Duration.fromString("PT15M"));
+  refresh.setParameter("value", "DURATION");
+  for (const b of blocks) {
+    const ev = new ICAL.Component("vevent");
+    ev.addPropertyWithValue("uid", blockUid(b.id));
+    ev.addPropertyWithValue("dtstamp", utc(now));
+    ev.addPropertyWithValue("dtstart", utc(b.start));
+    ev.addPropertyWithValue("dtend", utc(b.end));
+    ev.addPropertyWithValue("summary", b.title);
+    ev.addPropertyWithValue("description", "Time blocked in Orbit.");
+    cal.addSubcomponent(ev);
+  }
+  for (const t of tasks) {
+    const ev = new ICAL.Component("vevent");
+    ev.addPropertyWithValue("uid", `task-${t.id}@orbit`);
+    ev.addPropertyWithValue("dtstamp", utc(now));
+    ev.addPropertyWithValue("dtstart", ICAL.Time.fromDateString(t.day));
+    ev.addPropertyWithValue("dtend", ICAL.Time.fromDateString(addDays(t.day, 1)));
+    ev.addPropertyWithValue("summary", t.due ? `Due: ${t.title}` : t.title);
+    ev.addPropertyWithValue("transp", "TRANSPARENT"); // a task on a day doesn't make you busy
+    cal.addSubcomponent(ev);
+  }
+  return cal.toString().replace(/\r?\n/g, "\r\n") + "\r\n";
+}
