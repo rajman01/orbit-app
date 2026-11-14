@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import { useId } from "react";
+import { cn } from "@/lib/cn";
 import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
 
 /** iOS-style segmented control; the selected thumb slides with spring.snappy. */
@@ -10,11 +11,14 @@ export function Segmented<T extends string>({
   onChange,
   options,
   label,
+  compact,
 }: {
   value: T;
   onChange: (v: T) => void;
   options: { value: T; label: string }[];
   label: string;
+  /** Narrower segments, for tight toolbars on phones. */
+  compact?: boolean;
 }) {
   const id = useId();
   const { transition } = useOrbitMotion();
@@ -27,7 +31,10 @@ export function Segmented<T extends string>({
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className="relative h-8 min-w-20 rounded-[8px] px-3 text-footnote font-medium lg:h-7"
+          className={cn(
+            "relative h-8 rounded-[8px] text-footnote font-medium lg:h-7",
+            compact ? "min-w-0 px-2.5 lg:min-w-16 lg:px-3" : "min-w-20 px-3",
+          )}
         >
           {value === o.value ? (
             <motion.span

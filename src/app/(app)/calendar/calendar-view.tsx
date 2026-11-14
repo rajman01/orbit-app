@@ -6,28 +6,29 @@ import { SyncIndicator } from "@/components/app/sync-indicator";
 import { useSync } from "@/components/app/sync-provider";
 import { useCalendarEvents, useTimeBlocks } from "@/components/calendar/agenda";
 import { BlockTimeDialog } from "@/components/calendar/block-time";
+import { MonthView, monthGrid } from "@/components/calendar/month-view";
 import { TASK_DRAG_TYPE, TimeGrid } from "@/components/calendar/time-grid";
 import { IconButton } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
-import { blockMinutes, formatMinutes, onDay, type TimeBlock } from "@/features/calendar/model";
+import { atMinutes, blockMinutes, formatMinutes, onDay, type TimeBlock } from "@/features/calendar/model";
 import { useAllTasks, useSettings } from "@/features/data";
 import { planDay } from "@/features/today/model";
 import { compareTasks, isOpen } from "@/features/tasks/model";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
-import { addDays, dayOf, weekday, type Day } from "@/lib/dates";
+import { addDays, addMonths, dayOf, weekday, type Day } from "@/lib/dates";
 import { useIsDesktop } from "@/lib/use-media-query";
 
-type View = "week" | "day";
+type View = "week" | "day" | "month";
 
 const fmt = (d: Day, o: Intl.DateTimeFormatOptions) =>
   new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { ...o, timeZone: "UTC" });
 
-/** VIEW-3: the week (or one day) with calendar events, time blocks and dated tasks. */
+/** VIEW-3: a day, week or month with calendar events, time blocks and dated tasks. */
 export function CalendarView() {
   const todayDay = useToday();
   const isDesktop = useIsDesktop();
-  const { weekStartDay, timezone } = useSettings();
+  const { weekStartDay, timezone, workingHours } = useSettings();
   const engine = useSync();
   // Changes made in Google arrive on the server within seconds; while this page is open, look often.
   useEffect(() => {
@@ -41,10 +42,11 @@ export function CalendarView() {
   const weekStart = addDays(day, -((weekday(day) - weekStartDay + 7) % 7));
   const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const days = view === "week" ? week : [day];
-
-  // The whole week is loaded either way: the day strip shows which days have something.
-  const events = useCalendarEvents(week[0], addDays(week[6], 1));
-  const blocks = useTimeBlocks(week[0], addDays(week[6], 1));
+  const grid = monthGrid(day, weekStartDay);
+  // Loaded for the whole week (the day strip shows which days have something) or the month grid.
+  const [from, to] = view === "month" ? [grid[0], addDays(grid[41], 1)] : [week[0], addDays(week[6], 1)];
+  const events = useCalendarEvents(from, to);
+  const blocks = useTimeBlocks(from, to);
   const tasks = useAllTasks();
   const busyDays = new Set<Day>([
     ...week.filter((d) => (events ?? []).some((e) => onDay(e, d, timezone))),
@@ -55,8 +57,13 @@ export function CalendarView() {
   const [editing, setEditing] = useState<TimeBlock | null>(null);
 
   const step = view === "week" ? 7 : 1;
-  const first = days[0];
-  const last = days[days.length - 1];
+  const go = (n: number) => setAnchor(view === "month" ? addMonths(day, n) : addDays(day, n * step));
+  const first = view === "month" ? day : days[0];
+  const last = view === "month" ? day : days[days.length - 1];
+  const blockAt = (d: Day) => {
+    const [h, m] = workingHours.start.split(":").map(Number);
+    setSlot(atMinutes(d, h * 60 + m, timezone));
+  };
   const sameMonth = first.slice(0, 7) === last.slice(0, 7);
   const month = sameMonth
     ? fmt(first, { month: isDesktop ? "long" : "short" })
@@ -82,24 +89,18 @@ export function CalendarView() {
           Today
         </button>
         <span className="hidden items-center lg:flex">
-          <IconButton
-            label={view === "week" ? "Previous week" : "Previous day"}
-            icon={<ChevronLeft className="size-5" />}
-            onClick={() => setAnchor(addDays(day, -step))}
-          />
-          <IconButton
-            label={view === "week" ? "Next week" : "Next day"}
-            icon={<ChevronRight className="size-5" />}
-            onClick={() => setAnchor(addDays(day, step))}
-          />
+          <IconButton label={`Previous ${view}`} icon={<ChevronLeft className="size-5" />} onClick={() => go(-1)} />
+          <IconButton label={`Next ${view}`} icon={<ChevronRight className="size-5" />} onClick={() => go(1)} />
         </span>
         <Segmented
           label="View"
           value={view}
           onChange={setView}
+          compact
           options={[
             { value: "day", label: "Day" },
             { value: "week", label: "Week" },
+            { value: "month", label: "Month" },
           ]}
         />
       </header>
@@ -115,19 +116,53 @@ export function CalendarView() {
         />
       ) : null}
 
-      <div className="flex min-h-0 flex-1 gap-5">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-separator/70 pt-2 lg:rounded-xl lg:border lg:bg-surface lg:pt-3 lg:shadow-1">
-          <TimeGrid
-            days={days}
-            events={(events ?? []).filter((e) => days.some((d) => onDay(e, d, timezone)))}
-            blocks={blocks ?? []}
-            tasks={tasks ?? []}
-            onEmptySlot={setSlot}
-            onEditBlock={setEditing}
-          />
+      {view === "month" && !isDesktop ? (
+        <MonthView
+          day={day}
+          events={events ?? []}
+          blocks={blocks ?? []}
+          tasks={tasks ?? []}
+          onOpenDay={(d) => {
+            setAnchor(d);
+            setView("day");
+          }}
+          onPickDay={setAnchor}
+          onEditBlock={setEditing}
+          onBlockAt={blockAt}
+          onMonth={go}
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 gap-5">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-separator/70 pt-2 lg:rounded-xl lg:border lg:bg-surface lg:pt-3 lg:shadow-1">
+            {view === "month" ? (
+              <MonthView
+                day={day}
+                events={events ?? []}
+                blocks={blocks ?? []}
+                tasks={tasks ?? []}
+                onOpenDay={(d) => {
+                  setAnchor(d);
+                  setView("day");
+                }}
+                onPickDay={setAnchor}
+                onEditBlock={setEditing}
+                onBlockAt={blockAt}
+                onMonth={go}
+              />
+            ) : (
+              <TimeGrid
+                days={days}
+                events={(events ?? []).filter((e) => days.some((d) => onDay(e, d, timezone)))}
+                blocks={blocks ?? []}
+                tasks={tasks ?? []}
+                onEmptySlot={setSlot}
+                onEditBlock={setEditing}
+              />
+            )}
+          </div>
+          {isDesktop && view !== "month" ? <ToBlock days={days} blocks={blocks ?? []} /> : null}
         </div>
-        {isDesktop ? <ToBlock days={days} blocks={blocks ?? []} /> : null}
-      </div>
+      )}
       <BlockTimeDialog open={slot != null} onOpenChange={(o) => !o && setSlot(null)} at={slot ?? undefined} />
       <BlockTimeDialog open={editing != null} onOpenChange={(o) => !o && setEditing(null)} block={editing} />
     </div>

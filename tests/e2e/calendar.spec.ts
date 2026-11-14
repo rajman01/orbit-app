@@ -223,3 +223,38 @@ test("the calendar feed link serves time blocks and can be reset", async ({ page
   await page.getByRole("dialog", { name: "Time block" }).getByRole("button", { name: "Delete block" }).click();
   await waitForSynced(page);
 });
+
+test("month view: events on their days; a day opens on desktop, and shows its list on a phone", async ({
+  page,
+}, info) => {
+  // Calendar connected by the earlier test in this file (fake Google: standup and lunch today,
+  // a birthday tomorrow).
+  await page.goto("/settings");
+  await page.getByRole("link", { name: /Connect (another )?Google/ }).click();
+  await expect(page.getByText(/Google Calendar connected/)).toBeVisible();
+  await page.goto("/calendar");
+  await page.getByRole("radio", { name: "Month" }).click();
+  const month = page.getByRole("grid", { name: "Month" });
+  await expect(month).toBeVisible();
+  const today = new Date();
+  const label = (d: Date) =>
+    d.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+  const tomorrow = new Date(today.getTime() + 86_400_000);
+
+  if (info.project.name === "phone") {
+    // Dots in the grid; the chosen day's list underneath.
+    await expect(month.getByRole("gridcell", { name: new RegExp(`^${label(today)}, \\d+ item`) })).toBeVisible({
+      timeout: 15_000,
+    });
+    const list = page.getByRole("region", { name: "Day" });
+    await expect(list.getByText("Team standup")).toBeVisible();
+    await month.getByRole("gridcell", { name: new RegExp(`^${label(tomorrow)}`) }).click();
+    await expect(list.getByText("Mum's birthday")).toBeVisible();
+  } else {
+    const cell = month.getByRole("gridcell", { name: label(tomorrow), exact: true });
+    await expect(cell.getByText("Mum's birthday")).toBeVisible({ timeout: 15_000 });
+    await month.getByRole("button", { name: `Open ${label(today)}` }).click();
+    await expect(page.getByRole("radio", { name: "Day" })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByText("Team standup")).toBeVisible();
+  }
+});
