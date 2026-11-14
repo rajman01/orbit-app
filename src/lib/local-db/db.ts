@@ -58,5 +58,7 @@ export function openLocalDb(userId: string): OrbitDB {
     aiMessages: "id, threadId, [threadId+seq]",
     aiMemories: "id",
   });
+  // Phase 2A.2: what the coach did, for cards, the activity feed and undo.
+  db.version(7).stores({ aiActions: "id, threadId, toolUseId, at" });
   return db;
 }

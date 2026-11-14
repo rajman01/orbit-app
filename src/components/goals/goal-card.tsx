@@ -3,6 +3,7 @@
 import { AlertTriangle, CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { AreaIcon } from "@/components/areas/area-icon";
+import { AiMadeBadge } from "@/components/coach/ai-badge";
 import { Pill } from "@/components/ui/pill";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import type { Area } from "@/features/data";
@@ -48,7 +49,9 @@ export function GoalCard({
               <AreaIcon icon={area.icon} color={area.color} className="size-3" /> {area.name}
             </p>
           ) : null}
-          <h3 className="text-title3">{goal.title}</h3>
+          <h3 className="text-title3">
+            {goal.title} <AiMadeBadge entity="goals" id={goal.id} />
+          </h3>
         </div>
         <ProgressRing
           value={progress}

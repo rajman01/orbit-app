@@ -9,18 +9,16 @@ import { levelFromXp, totalXp } from "@/features/xp/model";
 import { dayOf, longDayLabel, today as todayOf } from "@/lib/dates";
 import type { OrbitDB } from "@/lib/local-db/db";
 import type { CoachMessage } from "./protocol";
-import { COACH_TOOLS, isCoachTool } from "./tools";
+import { COACH_TOOLS, isCoachTool, WRITE_TOOLS } from "./tools";
+import { runWriteTool, type WriteDeps, type WriteToolName } from "./write-tools";
 
 /**
  * The device half of the coach: it builds each turn's context and runs the tools the model asks
  * for against the local database, with the same actions as the UI (docs/phases/phase-2a.md, decision 2).
  */
 
-interface Deps {
-  db: OrbitDB;
-  userId: string;
+interface Deps extends WriteDeps {
   actions: Actions;
-  now: number;
 }
 
 const live = <T extends { deletedAt: number | null }>(rows: T[]) => rows.filter((r) => r.deletedAt == null);
@@ -57,12 +55,19 @@ export async function coachContext(db: OrbitDB, userId: string, now: number): Pr
   const lines = [
     `Now: ${longDayLabel(day)} ${day}, ${timeOfDay(now, s.timezone)} (${s.timezone}).`,
     `Settings: cycles of ${s.cycleLengthDays} days, daily capacity ${s.dailyCapacityPts} pts, strictness ${s.strictness}.`,
+    `Coach autonomy: ${AUTONOMY_TEXT[s.aiAutonomy ?? "act_tell"]}`,
     memories.length
       ? `What you remember about them:\n${memories.map((m) => `- [${m.id}] ${m.text}`).join("\n")}`
       : "You have no saved notes about them yet.",
   ];
   return lines.join("\n");
 }
+
+const AUTONOMY_TEXT = {
+  suggest: "suggest only — your changes are shown to them as suggestions to accept.",
+  act_tell: "act and tell — make changes they ask for and summarise them.",
+  act_silent: "act quietly — make changes they ask for; keep the summary to one line.",
+} as const;
 
 export interface ToolOutcome {
   content: string;
@@ -80,19 +85,25 @@ export async function runCoachTool(name: string, input: unknown, deps: Deps): Pr
     };
   }
   try {
-    const result = await TOOL_RUNNERS[name](parsed.data as never, deps);
+    if (WRITE_TOOLS.has(name)) {
+      const out = await runWriteTool(name as WriteToolName, parsed.data as Record<string, unknown>, deps);
+      return { content: out.content };
+    }
+    const result = await TOOL_RUNNERS[name as ReadToolName](parsed.data as never, deps);
     return { content: typeof result === "string" ? result : JSON.stringify(result) };
   } catch (err) {
     return { content: `Failed: ${err instanceof Error ? err.message : String(err)}`, isError: true };
   }
 }
 
+type ReadToolName = Exclude<keyof typeof COACH_TOOLS, WriteToolName>;
+
 type Runner<N extends keyof typeof COACH_TOOLS> = (
   input: import("zod").infer<(typeof COACH_TOOLS)[N]["input"]>,
   deps: Deps,
 ) => Promise<unknown>;
 
-const TOOL_RUNNERS: { [N in keyof typeof COACH_TOOLS]: Runner<N> } = {
+const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
   async get_overview(_input, { db, userId, now }) {
     const s = await loadSettings(db, userId);
     const day = todayOf(s.timezone, now);
@@ -166,6 +177,10 @@ const TOOL_RUNNERS: { [N in keyof typeof COACH_TOOLS]: Runner<N> } = {
         ),
       })),
       level: { level: level.level, title: level.title, xp: level.total },
+      areas: [...areas].map(([areaId, name]) => ({ id: areaId, name })),
+      reminders: live(await db.reminders.toArray())
+        .filter((r) => r.kind === "custom" && r.status === "pending" && r.fireAt > now)
+        .map((r) => ({ id: r.id, title: r.title, at: new Date(r.fireAt).toISOString() })),
     };
   },
 

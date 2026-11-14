@@ -2,7 +2,9 @@
 
 import { ArrowUp, BookOpen, NotebookPen, Search, Sparkles, Square, Sun, Target } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { WRITE_TOOLS, type CoachToolName } from "@/features/coach/tools";
 import { cn } from "@/lib/cn";
+import { ActionList } from "./action-card";
 import { useCoachChat, useCoachMessages, type StoredCoachMessage } from "./use-coach";
 
 const SUGGESTIONS = [
@@ -124,15 +126,20 @@ function MessageView({ message }: { message: StoredCoachMessage }) {
       </div>
     );
   }
+  // Changes get cards (with Undo or Accept); lookups get a quiet chip.
+  const writes = message.content
+    .filter((b) => b.type === "tool_use" && WRITE_TOOLS.has(String(b.name) as CoachToolName))
+    .map((b) => String(b.id));
   return (
     <div className="flex flex-col gap-2">
       {message.content.map((b, i) =>
         b.type === "text" && String(b.text).trim() ? (
           <AssistantText key={i} text={String(b.text)} />
-        ) : b.type === "tool_use" ? (
+        ) : b.type === "tool_use" && !WRITE_TOOLS.has(String(b.name) as CoachToolName) ? (
           <ToolChip key={i} name={String(b.name)} input={b.input as Record<string, unknown>} />
         ) : null,
       )}
+      {writes.length ? <ActionList toolUseIds={writes} /> : null}
     </div>
   );
 }

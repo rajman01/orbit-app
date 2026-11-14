@@ -71,6 +71,7 @@ export function useCoachChat(threadId: string | null, onThread: (id: string) => 
           { type: "text", text: await coachContext(db, user.id, Date.now()) },
         ]);
 
+        const turn = { writes: 0 };
         for (let round = 0; round < MAX_ROUNDS; round++) {
           const reply = await callCoach(requestMessages(await load(id)), controller.signal, (v) =>
             setDraft((d) => d + v),
@@ -90,10 +91,14 @@ export function useCoachChat(threadId: string | null, onThread: (id: string) => 
           const results = [];
           for (const call of calls) {
             const out = await runCoachTool(String(call.name), call.input, {
+              engine,
               db,
               userId: user.id,
               actions,
               now: Date.now(),
+              threadId: id,
+              toolUseId: String(call.id),
+              turn,
             });
             results.push({
               type: "tool_result",
@@ -118,7 +123,7 @@ export function useCoachChat(threadId: string | null, onThread: (id: string) => 
         abort.current = null;
       }
     },
-    [busy, threadId, actions, onThread, db, user.id, load],
+    [busy, threadId, actions, onThread, db, engine, user.id, load],
   );
 
   const stop = useCallback(() => abort.current?.abort(), []);

@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/app/app-shell";
 import { clearCachedUser, useCurrentUser } from "@/components/app/auth-gate";
 import { useSync } from "@/components/app/sync-provider";
 import { SyncIndicator } from "@/components/app/sync-indicator";
+import { AiActivity } from "@/components/coach/activity";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { useActions } from "@/features/actions";
@@ -206,6 +207,26 @@ export function SettingsView() {
           </Row>
         </Group>
 
+        <Group title="Coach">
+          <div className="flex flex-col gap-2 px-4 py-3">
+            <Segmented
+              label="What the coach may do"
+              value={settings.aiAutonomy ?? "act_tell"}
+              onChange={(v) => save({ aiAutonomy: v })}
+              options={[
+                { value: "suggest", label: "Suggest only" },
+                { value: "act_tell", label: "Act and tell me" },
+                { value: "act_silent", label: "Act quietly" },
+              ]}
+            />
+            <p className="text-footnote text-label-secondary">{AUTONOMY_HELP[settings.aiAutonomy ?? "act_tell"]}</p>
+          </div>
+        </Group>
+
+        <Group title="AI activity">
+          <AiActivity />
+        </Group>
+
         <Group title="Notifications">
           <PushRow />
           {(["plan", "shutdown", "review", "habits", "focus"] as const).map((k) => (
@@ -313,6 +334,15 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     </div>
   );
 }
+
+/** PRD §10.5 */
+const AUTONOMY_HELP = {
+  suggest: "The coach proposes changes; nothing happens until you tap Accept.",
+  act_tell:
+    "The coach makes changes and shows each one with Undo. Dropping a goal or more than 10 changes at once still asks first.",
+  act_silent:
+    "Like Act and tell me, with shorter replies about what changed. Everything is still listed below with Undo.",
+} as const;
 
 /** PRD §8.5 */
 const STRICTNESS_HELP = {

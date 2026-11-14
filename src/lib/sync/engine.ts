@@ -137,6 +137,28 @@ export class SyncEngine {
     return () => this.listeners.delete(fn);
   }
 
+  /**
+   * Resolves once this device has finished a sync (true), or when one fails or `timeoutMs` passes
+   * (false). Used before writes that must not be made from an empty, never-synced database.
+   */
+  whenSynced(timeoutMs = 10_000): Promise<boolean> {
+    if (this.status.lastSyncedAt != null) return Promise.resolve(true);
+    if (this.starts === 0) return Promise.resolve(false); // not running (tests, or before start)
+    return new Promise((resolve) => {
+      const done = (ok: boolean) => {
+        clearTimeout(timer);
+        unsubscribe();
+        resolve(ok);
+      };
+      const timer = setTimeout(() => done(false), timeoutMs);
+      const unsubscribe = this.subscribe((s) => {
+        if (s.lastSyncedAt != null) done(true);
+        else if (s.state === "offline" || s.state === "error" || s.state === "unauthorized") done(false);
+      });
+      this.requestSync(0);
+    });
+  }
+
   requestSync(delay = 0): void {
     clearTimeout(this.debounce);
     this.debounce = setTimeout(() => void this.sync(), delay);

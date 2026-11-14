@@ -4,6 +4,7 @@ import { AlertTriangle, CalendarClock, Check, PanelRight, Play, Repeat, Star, Ta
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/menu";
 import { useIsDesktop } from "@/lib/use-media-query";
 import { AreaDot } from "@/components/areas/area-icon";
+import { AiBadge } from "@/components/coach/ai-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useActions } from "@/features/actions";
 import type { Area } from "@/features/data";
@@ -100,7 +101,7 @@ export function TaskRow({
       ) : null}
       <div className="min-w-0 flex-1 py-1.5">
         <p className={cn("truncate", mustDo && "text-headline", done && "text-label-tertiary line-through")}>
-          {task.title}
+          {task.title} <AiBadge createdAt={task.createdAt} show={task.createdBy === "ai"} />
         </p>
         {staleLabel ? (
           <p className="flex items-center gap-1 text-footnote font-medium text-warning-text">

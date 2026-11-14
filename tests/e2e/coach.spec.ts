@@ -31,8 +31,9 @@ test("the coach panel opens with ⌘J, streams a reply, and looks things up on t
   // A tool call runs here, against this device's data, and the result goes back to the model.
   await box.fill(`find it [tool:search {"query":"lookup ${r}"}]`);
   await box.press("Enter");
-  await expect(panel.getByText(`Searched for “lookup ${r}”`)).toBeVisible();
-  await expect(panel.getByText(new RegExp(`Done: .*${title}`))).toBeVisible();
+  // Two model calls (the tool call, then the answer): allow for a busy test server.
+  await expect(panel.getByText(`Searched for “lookup ${r}”`)).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByText(new RegExp(`Done: .*${title}`))).toBeVisible({ timeout: 15_000 });
   // The context and tool results are for the model only.
   await expect(panel.getByText("Now:")).toHaveCount(0);
 
@@ -76,4 +77,73 @@ test("offline, the coach says it needs a connection", async ({ page, context }) 
   await box.press("Enter");
   await expect(page.getByRole("alert").filter({ hasText: "You're offline" })).toBeVisible();
   await context.setOffline(false);
+});
+
+/** Sends one message on the /coach page and waits for the fake model's reply. */
+async function ask(page: import("@playwright/test").Page, text: string) {
+  const box = page.getByRole("textbox", { name: "Message the coach" });
+  await box.fill(text);
+  await box.press("Enter");
+  await expect(page.getByText(/^(Done:|You said:)/).last()).toBeVisible({ timeout: 15_000 });
+}
+
+test("the coach creates a task: it shows as a card with View and Undo, and Undo takes it back", async ({ page }) => {
+  const r = run();
+  const title = `Coach made ${r}`;
+  await page.goto("/coach?new=1");
+  await ask(page, `add it [tool:create_task {"title":"${title}","status":"todo"}]`);
+  const card = page.locator("[data-ai-action]").filter({ hasText: `Create task “${title}”` });
+  await expect(card).toHaveAttribute("data-ai-action", "applied");
+
+  // It's a real task, marked as the coach's work.
+  await card.getByRole("button", { name: "View" }).click();
+  await expect(page.getByRole("textbox", { name: "Title", exact: true })).toHaveValue(title);
+  await page.keyboard.press("Escape");
+  await page.goto("/tasks");
+  const row = page.getByRole("button", { name: `Open ${title}` });
+  await expect(row).toBeVisible();
+  await expect(row.getByRole("img", { name: "Made by the coach" })).toBeVisible();
+
+  // Undo from Settings → AI activity.
+  await page.goto("/settings");
+  const activity = page.locator("[data-ai-action]").filter({ hasText: `Create task “${title}”` });
+  await activity.getByRole("button", { name: `Undo: Create task “${title}”` }).click();
+  await expect(activity).toHaveAttribute("data-ai-action", "undone");
+  await page.goto("/tasks");
+  await expect(page.getByRole("button", { name: `Open ${title}` })).toHaveCount(0);
+});
+
+test("in Suggest only, the coach's change waits for Accept", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "One run is enough: it changes a shared setting");
+  const r = run();
+  const title = `Suggested goal ${r}`;
+  await page.goto("/settings");
+  const autonomy = page.getByRole("radiogroup", { name: "What the coach may do" });
+  await autonomy.getByRole("radio", { name: "Suggest only" }).click();
+  await expect(autonomy.getByRole("radio", { name: "Suggest only" })).toBeChecked();
+  try {
+    await page.goto("/coach?new=1");
+    await ask(page, `[tool:create_goal {"title":"${title}"}]`);
+    await expect(page.getByText(/Done: Not done yet/)).toBeVisible();
+    const card = page.locator("[data-ai-action]").filter({ hasText: `Create goal “${title}”` });
+    await expect(card).toHaveAttribute("data-ai-action", "proposed");
+    await page.goto("/goals");
+    await expect(page.getByText(title)).toHaveCount(0);
+
+    await page.goto("/settings");
+    await page.getByRole("button", { name: `Accept: Create goal “${title}”` }).click();
+    await expect(page.locator("[data-ai-action]").filter({ hasText: `Create goal “${title}”` })).toHaveAttribute(
+      "data-ai-action",
+      "applied",
+    );
+    await page.goto("/goals");
+    await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
+  } finally {
+    await page.goto("/settings");
+    await page
+      .getByRole("radiogroup", { name: "What the coach may do" })
+      .getByRole("radio", { name: "Act and tell me" })
+      .click();
+    await waitForSynced(page);
+  }
 });

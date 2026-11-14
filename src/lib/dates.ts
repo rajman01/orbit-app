@@ -83,3 +83,30 @@ export function dayLabel(day: Day, todayDay: Day): string {
 export function longDayLabel(day: Day): string {
   return toUtc(day).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 }
+
+/** Minutes the timezone is ahead of UTC at `instant` (e.g. 60 for Africa/Lagos). */
+function offsetMinutes(instant: number, timezone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(instant);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
+  return Math.round((asUtc - Math.floor(instant / 60_000) * 60_000) / 60_000);
+}
+
+/** The instant a wall-clock time (`HH:MM`) on `day` happens in `timezone`. */
+export function instantAt(day: Day, time: string, timezone: string): number {
+  const [y, m, d] = day.split("-").map(Number);
+  const [h, mi] = time.split(":").map(Number);
+  const wall = Date.UTC(y, m - 1, d, h, mi);
+  // Two passes settle the offset even when the guess lands on the other side of a DST change.
+  let t = wall - offsetMinutes(wall, timezone) * 60_000;
+  t = wall - offsetMinutes(t, timezone) * 60_000;
+  return t;
+}

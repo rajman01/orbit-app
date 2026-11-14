@@ -118,7 +118,11 @@ export function createActions(engine: SyncEngine, userId: string) {
     // ------------------------------------------------------------ settings
     async saveSettings(patch: Partial<Settings>) {
       const id = settingsId(userId);
-      const existing = await db.settings.get(id);
+      let existing = await db.settings.get(id);
+      // A device that hasn't synced yet has no settings here, though the account may. Creating a
+      // fresh default document then would overwrite the real settings everywhere (newest write
+      // wins per field), so fetch them first; only a genuinely new account starts from defaults.
+      if (!existing && (await engine.whenSynced?.())) existing = await db.settings.get(id);
       if (existing && !existing.deletedAt) await engine.update("settings", id, patch);
       else await engine.create("settings", { ...defaultSettings(), ...patch }, id);
     },

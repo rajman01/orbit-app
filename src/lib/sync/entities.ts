@@ -278,6 +278,31 @@ export const entitySchemas = {
       .refine((v) => JSON.stringify(v).length <= 200_000, "too large"),
     at: ms,
   }),
+  /**
+   * Phase 2A.2 (PRD §10.5): every change the coach makes or suggests, with before/after snapshots
+   * of each document it touched, so it can be shown, accepted and undone.
+   */
+  aiActions: z.object({
+    threadId: ref,
+    toolUseId: z.string().max(100).nullable(),
+    tool: z.string().max(60),
+    input: z.record(z.string(), z.any()).refine((v) => JSON.stringify(v).length <= 20_000, "too large"),
+    summary: z.string().max(300),
+    status: z.enum(["proposed", "applied", "undone", "dismissed"]),
+    changes: z
+      .array(
+        z.object({
+          entity: z.string().max(40),
+          id,
+          before: z.record(z.string(), z.any()).nullable(),
+          after: z.record(z.string(), z.any()),
+        }),
+      )
+      .max(500)
+      .refine((v) => JSON.stringify(v).length <= 150_000, "too large"),
+    at: ms,
+    undoneAt: ms.nullable(),
+  }),
   /** What the coach remembers about the user (AI-9); visible and editable. */
   aiMemories: z.object({
     text: z.string().trim().min(1).max(500),
@@ -330,4 +355,5 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   habitLogs: { habitId: "habits" },
   xpEvents: { areaId: "areas" },
   aiMessages: { threadId: "aiThreads" },
+  aiActions: { threadId: "aiThreads" },
 };

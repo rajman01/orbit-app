@@ -336,3 +336,32 @@ test("focus mode fits a phone screen: controls stay inside it and notes stay rea
   await focus.getByRole("button", { name: "Just stop" }).click();
   await expect(focus).toHaveCount(0);
 });
+
+test("changing a setting on a new device before its first sync keeps the account's settings", async ({
+  page,
+  context,
+  browser,
+}, info) => {
+  test.skip(info.project.name === "phone", "Uses a second browser context; once is enough");
+  await page.goto("/today");
+  await waitForSynced(page);
+
+  // A brand-new device: open Settings and change something straight away, before anything has synced.
+  const fresh = await browser.newContext();
+  await fresh.addCookies(await context.cookies());
+  const phone = await fresh.newPage();
+  await phone.goto("/settings");
+  await phone
+    .getByRole("radiogroup", { name: "What the coach may do" })
+    .getByRole("radio", { name: "Act and tell me" })
+    .click();
+  await waitForSynced(phone);
+  await fresh.close();
+
+  // The account is still set up: nobody is sent back to onboarding.
+  await page.reload();
+  await waitForSynced(page);
+  await page.goto("/today");
+  await page.waitForTimeout(1500);
+  await expect(page).toHaveURL(/\/today/);
+});
