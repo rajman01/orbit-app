@@ -17,6 +17,17 @@ import { levelFromXp, totalXp } from "@/features/xp/model";
 import { addDays, dayOf, longDayLabel, timeOf, today as todayOf } from "@/lib/dates";
 import { dayFit, onDay, spanMinutes } from "@/features/calendar/model";
 import {
+  elapsedShare,
+  pace,
+  quarterDates,
+  quarterDaysLeft,
+  quarterId,
+  quarterLabel,
+  quarterOf,
+  visionId,
+  yearTheme,
+} from "@/features/quarters/model";
+import {
   agoLabel,
   cadenceLabel,
   dateTitle,
@@ -72,10 +83,17 @@ export async function coachContext(db: OrbitDB, userId: string, now: number): Pr
   const s = await loadSettings(db, userId);
   const day = todayOf(s.timezone, now);
   const memories = live(await db.aiMemories.toArray()).filter((m) => m.archivedAt == null);
+  const vision = await db.vision.get(visionId(userId));
+  const theme = vision && !vision.deletedAt ? yearTheme(vision, Number(day.slice(0, 4))) : "";
+  const values = vision && !vision.deletedAt ? vision.values : [];
   const lines = [
     `Now: ${longDayLabel(day)} ${day}, ${timeOfDay(now, s.timezone)} (${s.timezone}).`,
     `Settings: cycles of ${s.cycleLengthDays} days, daily capacity ${s.dailyCapacityPts} pts, strictness ${s.strictness}.`,
     `Coach autonomy: ${AUTONOMY_TEXT[s.aiAutonomy ?? "act_tell"]}`,
+    ...(theme ? [`Their theme for ${day.slice(0, 4)}: "${theme}".`] : []),
+    ...(values.length
+      ? [`Their values: ${values.map((v) => (v.description ? `${v.name} (${v.description})` : v.name)).join("; ")}.`]
+      : []),
     memories.length
       ? `What you remember about them:\n${memories.map((m) => `- [${m.id}] ${m.text}`).join("\n")}`
       : "You have no saved notes about them yet.",
@@ -201,6 +219,7 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
       reminders: live(await db.reminders.toArray())
         .filter((r) => r.kind === "custom" && r.status === "pending" && r.fireAt > now)
         .map((r) => ({ id: r.id, title: r.title, at: new Date(r.fireAt).toISOString() })),
+      quarter: await quarterSummary(db, userId, day, tasks),
       ...(await peopleSummary(db, s.timezone, day, 2)),
     };
   },
@@ -369,6 +388,13 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
       inCycle: inCycle.map(taskBrief),
       inCyclePoints: inCycle.reduce((n, t) => n + (t.effort ?? 0), 0),
       activeGoals: goals.map((g) => ({ id: g.id, title: g.title, targetDate: g.targetDate ?? undefined })),
+      // QTR-3: the quarter's goals come first; each should have work in the cycle.
+      quarterGoals: await (async () => {
+        const doc = await db.quarters.get(quarterId(userId, quarterOf(target.startDate)));
+        return (doc && !doc.deletedAt ? doc.goalIds : [])
+          .filter((id) => goals.some((g) => g.id === id))
+          .map((id) => ({ id, tasksInCycle: inCycle.filter((t) => t.goalId === id).length }));
+      })(),
       candidates: candidates.map((t) => ({ ...taskBrief(t), goalId: t.goalId ?? undefined })),
       candidatesShown: candidates.length,
     };
@@ -457,6 +483,40 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
     };
   },
 };
+
+/** The current quarter: its goals with progress and pace (QTR-1, QTR-6). */
+async function quarterSummary(db: OrbitDB, userId: string, day: string, tasks: Task[]) {
+  const ref = quarterOf(day);
+  const dates = quarterDates(ref);
+  const doc = await db.quarters.get(quarterId(userId, ref));
+  const elapsed = elapsedShare(dates, day);
+  const krs = live(await db.keyResults.toArray());
+  const goals = live(await db.goals.toArray());
+  const items = (doc && !doc.deletedAt ? doc.goalIds : [])
+    .map((id) => goals.find((g) => g.id === id))
+    .filter((g) => g != null)
+    .map((g) => {
+      const progress = goalProgress(
+        krs.filter((k) => k.goalId === g.id),
+        tasks.filter((t) => t.goalId === g.id),
+      );
+      return {
+        id: g.id,
+        title: g.title,
+        status: g.status,
+        progress: Math.round(progress * 100),
+        pace: g.status === "completed" ? undefined : pace(progress, elapsed) === "behind" ? "behind" : "on pace",
+      };
+    });
+  return {
+    name: quarterLabel(ref),
+    daysLeft: quarterDaysLeft(dates, day),
+    timeGone: Math.round(elapsed * 100),
+    theme: doc?.theme ?? undefined,
+    goals: items,
+    planned: items.length > 0,
+  };
+}
 
 /** Who's due a catch-up and dates coming up, for the overview and get_people. */
 async function peopleSummary(db: OrbitDB, timezone: string, day: string, limit: number) {

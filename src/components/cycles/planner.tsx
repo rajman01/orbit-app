@@ -16,6 +16,9 @@ import { compareTasks, type Task } from "@/features/tasks/model";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { dayLabel } from "@/lib/dates";
+import Link from "next/link";
+import { quarterKey, quarterLabel, quarterOf } from "@/features/quarters/model";
+import { useQuarter } from "@/features/quarters/use-quarter";
 
 /**
  * PRD CYC-2: pull work into a cycle, watch the capacity meter, then commit explicitly.
@@ -41,11 +44,22 @@ export function CyclePlanner({
   const allTasks = useAllTasks();
   const all = useMemo(() => allTasks ?? [], [allTasks]);
   const cycles = useCycles() ?? [];
-  const goals = (useGoals() ?? []).filter((g) => g.status === "active");
+  const quarterRef = useMemo(() => quarterOf(cycle.startDate), [cycle.startDate]);
+  const quarter = useQuarter(quarterRef);
+  // QTR-3: the quarter's goals lead planning.
+  const quarterGoalIds = useMemo(
+    () => (quarter?.items ?? []).filter((i) => i.goal.status === "active").map((i) => i.goal.id),
+    [quarter],
+  );
+  const goals = (useGoals() ?? [])
+    .filter((g) => g.status === "active")
+    .sort((a, b) => Number(quarterGoalIds.includes(b.id)) - Number(quarterGoalIds.includes(a.id)));
   const { areaById, goalById } = useTaskLookups();
   const [query, setQuery] = useState("");
   const [theme, setTheme] = useState(cycle.theme ?? "");
-  const [focus, setFocus] = useState<string[]>(cycle.focusGoalIds);
+  // Focus goals default to the quarter's goals until chosen (CYC-7, QTR-3).
+  const [chosenFocus, setFocus] = useState<string[] | null>(cycle.focusGoalIds.length ? cycle.focusGoalIds : null);
+  const focus = chosenFocus ?? quarterGoalIds.slice(0, 3);
   const [committed, setCommitted] = useState(false);
   const [overCapacityOk, setOverCapacityOk] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
@@ -57,10 +71,21 @@ export function CyclePlanner({
   );
   const candidates = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const forQuarter = (t: Task) => Number(t.goalId != null && quarterGoalIds.includes(t.goalId));
     return planningCandidates(all, cycle.id)
       .filter((t) => !q || t.title.toLowerCase().includes(q))
-      .sort(compareTasks);
-  }, [all, cycle.id, query]);
+      .sort((a, b) => forQuarter(b) - forQuarter(a) || compareTasks(a, b));
+  }, [all, cycle.id, query, quarterGoalIds]);
+  // A quarterly goal with nothing in this cycle is flagged, with its next open task to add.
+  const quarterGaps = quarterGoalIds
+    .filter((gid) => !inCycle.some((t) => t.goalId === gid))
+    .map((gid) => ({
+      goal: goals.find((g) => g.id === gid)!,
+      next: planningCandidates(all, cycle.id)
+        .filter((t) => t.goalId === gid)
+        .sort(compareTasks)[0],
+    }))
+    .filter((x) => x.goal);
 
   const open = inCycle.filter((t) => t.status !== "done");
   const points = open.reduce((s, t) => s + (t.effort ?? 0), 0);
@@ -194,6 +219,11 @@ export function CyclePlanner({
                     )}
                   >
                     <Target className="size-3.5" strokeWidth={1.75} /> {g.title}
+                    {quarterGoalIds.includes(g.id) ? (
+                      <span className={cn("text-caption", on ? "opacity-80" : "text-label-tertiary")}>
+                        Q{quarterRef.q}
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -201,6 +231,45 @@ export function CyclePlanner({
           </div>
         ) : null}
       </section>
+
+      {/* the quarter's goals (QTR-3) */}
+      {quarterGoalIds.length ? (
+        <section aria-label="Quarter goals" className="flex flex-col gap-2">
+          <h3 className="px-1 text-micro text-label-secondary uppercase">
+            <Link href={`/quarter?q=${quarterKey(quarterRef)}`} className="hover:text-label">
+              {quarterLabel(quarterRef)} goals
+            </Link>
+          </h3>
+          {quarterGaps.length ? (
+            <ul className="flex flex-col gap-1.5">
+              {quarterGaps.map(({ goal, next }) => (
+                <li
+                  key={goal.id}
+                  className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-[color-mix(in_srgb,var(--warning)_60%,transparent)] bg-[color-mix(in_srgb,var(--warning)_8%,transparent)] px-3 py-2"
+                >
+                  <AlertTriangle className="size-4 shrink-0 text-warning-text" />
+                  <span className="min-w-0 flex-1 text-callout">
+                    Nothing for <strong className="font-semibold">{goal.title}</strong> in this cycle yet.
+                  </span>
+                  {next ? (
+                    <Button variant="secondary" onClick={() => void actions.addToCycle(next, cycle)}>
+                      Add “{next.title.length > 30 ? `${next.title.slice(0, 28)}…` : next.title}”
+                    </Button>
+                  ) : (
+                    <Link href={`/goal?id=${goal.id}`} className="text-footnote font-semibold text-accent-text">
+                      Add a task to it
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-1 text-footnote text-label-secondary">
+              Every goal for the quarter has work in this cycle.
+            </p>
+          )}
+        </section>
+      ) : null}
 
       {/* in the cycle */}
       <section aria-label={`In cycle ${cycle.number}`}>

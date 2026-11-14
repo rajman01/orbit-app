@@ -115,6 +115,11 @@ export const entitySchemas = {
     order: z.number(),
     /** Phase 2C.2 (REL-7): the people this goal is about. */
     personIds: z.array(id).max(20).optional(),
+    /** Phase 2D.1 (VIS-2): the values this goal serves (ids from the vision). */
+    valueIds: z
+      .array(z.string().regex(/^[0-9A-Za-z]{4,40}$/))
+      .max(10)
+      .optional(),
   }),
   keyResults: z.object({
     goalId: id,
@@ -362,6 +367,38 @@ export const entitySchemas = {
     start: ms,
     end: ms,
   }),
+  /** Phase 2D.1 (VIS-1): one per user (deterministic id): values, the long-term vision, a theme per year. */
+  vision: z.object({
+    values: z
+      .array(
+        z.object({
+          id: z.string().regex(/^[0-9A-Za-z]{4,40}$/),
+          name: z.string().trim().min(1).max(60),
+          description: z.string().max(300),
+        }),
+      )
+      .max(20),
+    oneYear: z.string().max(20000),
+    fiveYear: z.string().max(20000),
+    tenYear: z.string().max(20000),
+    themes: z
+      .array(z.object({ year: z.number().int().min(2000).max(2200), theme: z.string().trim().max(120) }))
+      .max(50),
+  }),
+  /** Phase 2D.1 (QTR-1): calendar quarters, deterministic ids made on the device when first used. */
+  quarters: z.object({
+    year: z.number().int().min(2000).max(2200),
+    q: z.number().int().min(1).max(4),
+    startDate: day,
+    endDate: day,
+    theme: z.string().trim().max(200).nullable(),
+    /** The goals committed for the quarter (3–5 in a full Quarterly Plan). */
+    goalIds: z.array(id).max(10),
+    committedAt: ms.nullable(),
+    reviewCompletedAt: ms.nullable(),
+    reflection: z.string().max(5000).nullable(),
+    planningOverride: z.string().trim().max(500).nullable(),
+  }),
   /** Phase 2C (REL-1/2): the people who matter. "Last in touch" comes from `interactions`. */
   people: z.object({
     name: z.string().trim().min(1).max(120),
@@ -465,6 +502,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   calendarEvents: { calendarId: "calendars" },
   timeBlocks: { taskId: "tasks" },
   people: { areaId: "areas" },
+  quarters: { goalIds: "goals" },
   interactions: { personId: "people" },
   personItems: { personId: "people" },
 };

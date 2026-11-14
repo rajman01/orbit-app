@@ -32,6 +32,15 @@ import {
 } from "./xp/model";
 import { addDays, dayOf } from "@/lib/dates";
 import { newPersonFields, type InteractionType, type PersonFields } from "./people/model";
+import {
+  emptyVision,
+  newQuarterFields,
+  quarterId,
+  visionId,
+  type QuarterFields,
+  type QuarterRef,
+  type VisionFields,
+} from "./quarters/model";
 
 const now = () => Date.now();
 
@@ -750,6 +759,40 @@ export function createActions(engine: SyncEngine, userId: string) {
     renameTimeBlock: (id: string, title: string) =>
       engine.update("timeBlocks", id, { title: title.trim().slice(0, 500) || "Time block" }),
     deleteTimeBlock: (id: string) => engine.remove("timeBlocks", id),
+
+    // ------------------------------------------------------------ vision and quarters (Phase 2D)
+
+    /** Saves part of the vision (VIS-1), creating it the first time. */
+    async saveVision(patch: Partial<VisionFields>) {
+      const id = visionId(userId);
+      const existing = await db.vision.get(id);
+      if (existing && !existing.deletedAt) await engine.update("vision", id, patch);
+      else await engine.create("vision", { ...emptyVision(), ...patch }, id);
+    },
+    async setYearTheme(year: number, theme: string) {
+      const v = await db.vision.get(visionId(userId));
+      const themes = (v && !v.deletedAt ? v.themes : []).filter((t) => t.year !== year);
+      if (theme.trim()) themes.push({ year, theme: theme.trim().slice(0, 120) });
+      await actions.saveVision({ themes: themes.sort((a, b) => a.year - b.year) });
+    },
+
+    /** The quarter's document, made the first time something is saved for it. */
+    async ensureQuarter(ref: QuarterRef) {
+      const id = quarterId(userId, ref);
+      const existing = await db.quarters.get(id);
+      if (!existing || existing.deletedAt) await engine.create("quarters", newQuarterFields(ref), id);
+      return id;
+    },
+    /** One write: a new quarter is created with the change already in it. */
+    async updateQuarter(ref: QuarterRef, patch: Partial<QuarterFields>) {
+      const id = quarterId(userId, ref);
+      const existing = await db.quarters.get(id);
+      if (existing && !existing.deletedAt) await engine.update("quarters", id, patch);
+      else await engine.create("quarters", { ...newQuarterFields(ref), ...patch }, id);
+    },
+    async setQuarterGoals(ref: QuarterRef, goalIds: string[]) {
+      await actions.updateQuarter(ref, { goalIds: [...new Set(goalIds)].slice(0, 10) });
+    },
 
     // ------------------------------------------------------------ people (Phase 2C)
 

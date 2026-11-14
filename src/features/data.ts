@@ -206,3 +206,21 @@ export function usePersonItems(personId: string): PersonItemDoc[] | undefined {
     [db, personId],
   );
 }
+
+export type VisionDoc = SyncedDoc<"vision">;
+export type QuarterDoc = SyncedDoc<"quarters">;
+
+/** The vision (VIS-1), or null before anything is saved. */
+export function useVision(): VisionDoc | null | undefined {
+  const { db } = useSync();
+  const user = useCurrentUser();
+  return useLiveQuery(async () => {
+    const v = await db.vision.get(`v${user.id}`.slice(0, 40));
+    return v && !v.deletedAt ? v : null;
+  }, [db, user.id]);
+}
+
+export function useQuarters(): QuarterDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.quarters.toArray()).sort((a, b) => a.year - b.year || a.q - b.q), [db]);
+}

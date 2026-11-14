@@ -72,5 +72,7 @@ export function openLocalDb(userId: string): OrbitDB {
     interactions: "id, personId, date",
     personItems: "id, personId",
   });
+  // Phase 2D.1: vision and quarters.
+  db.version(11).stores({ vision: "id", quarters: "id, year" });
   return db;
 }

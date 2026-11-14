@@ -31,6 +31,7 @@ import { Picker } from "@/components/ui/picker";
 import { Pill } from "@/components/ui/pill";
 import { GoalPlanet } from "@/components/goals/goal-planet";
 import { GoalPeople } from "@/components/people/goal-people";
+import { GoalValues } from "@/components/goals/goal-values";
 import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
@@ -251,6 +252,8 @@ function GoalDetail({ goal }: { goal: Goal }) {
           placeholder="Why does this matter to you?"
           className="mb-2 field-sizing-content min-h-12 w-full max-w-[68ch] resize-none rounded-md bg-transparent py-1 text-callout text-label-secondary outline-none placeholder:text-label-tertiary focus-visible:bg-surface-sunken focus-visible:px-3"
         />
+
+        <GoalValues goal={goal} />
 
         <SectionLabel count={krs.length}>Key results</SectionLabel>
         <div className="flex flex-col gap-1">

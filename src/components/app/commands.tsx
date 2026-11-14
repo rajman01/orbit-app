@@ -3,6 +3,8 @@
 import { Command } from "cmdk";
 import {
   BarChart3,
+  CalendarRange,
+  Telescope,
   CalendarDays,
   CalendarSync,
   Inbox,
@@ -74,6 +76,8 @@ const GO: Record<string, string> = {
   r: "/report",
   l: "/levels",
   p: "/people",
+  q: "/quarter",
+  v: "/vision",
 };
 
 /** Quick Add, ⌘K palette and Linear-style keyboard shortcuts (PRD CMD-1 – CMD-3, INB-1). */
@@ -442,6 +446,8 @@ function Palette({
                         ["Goals", "/goals", Target, "G G"],
                         ["Areas", "/areas", Shapes, "G A"],
                         ["People", "/people", Users, "G P"],
+                        ["Quarter", "/quarter", CalendarRange, "G Q"],
+                        ["Vision", "/vision", Telescope, "G V"],
                         ["Cycle", "/cycle", CalendarSync, "G C"],
                         ["Settings", "/settings", Settings, "G S"],
                       ].map(([label, href, Icon, keys]) => {
@@ -541,6 +547,8 @@ const SHORTCUTS: [string, string[]][] = [
   ["Go to Goals", ["G", "G"]],
   ["Go to Areas", ["G", "A"]],
   ["Go to People", ["G", "P"]],
+  ["Go to Quarter", ["G", "Q"]],
+  ["Go to Vision", ["G", "V"]],
   ["Go to Settings", ["G", "S"]],
   ["Next / previous task", ["J", "K"]],
   ["Open task", ["Enter"]],

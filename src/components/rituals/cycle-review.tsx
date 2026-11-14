@@ -24,6 +24,9 @@ import { buildToday } from "@/features/today/model";
 import { useMinuteNow, useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { dayOf } from "@/lib/dates";
+import { quarterLabel, quarterOf } from "@/features/quarters/model";
+import { useQuarter } from "@/features/quarters/use-quarter";
+import { Pill } from "@/components/ui/pill";
 import { EmptyStepNote, RitualShell, RitualTaskRow, SmallButton, type RitualStep } from "./ritual-flow";
 
 type ReviewData = { wins?: string[]; wentWell?: string; inTheWay?: string; change?: string };
@@ -48,6 +51,10 @@ export function CycleReviewFlow({ ritual, onClose }: { ritual: RitualDoc; onClos
   const color = (t: Task) => (t.areaId ? areaColorVar(areaById.get(t.areaId)?.color) : undefined);
   const cycle = cycles.find((c) => c.id === ritual.cycleId);
   const next = cycle ? cycles.find((c) => c.number === cycle.number + 1) : undefined;
+  // QTR-6: quarterly goals that are behind the quarter's pace are called out in the check-in.
+  const reviewDay = cycle?.endDate ?? ritual.date;
+  const quarterRef = quarterOf(reviewDay);
+  const quarter = useQuarter(quarterRef);
   const data = ritual.data as ReviewData;
   const [reason, setReason] = useState("");
   const [wins, setWins] = useState<string[]>(() => [...(data.wins ?? []), "", "", ""].slice(0, 3));
@@ -218,6 +225,12 @@ export function CycleReviewFlow({ ritual, onClose }: { ritual: RitualDoc; onClos
                   <span className="min-w-0 flex-1 truncate">{g.title}</span>
                   <span className="text-footnote text-label-secondary tabular">{Math.round(progress * 100)}%</span>
                 </p>
+                {quarter?.items.some((i) => i.goal.id === g.id && i.pace === "behind") ? (
+                  <p className="mt-1 text-footnote text-warning-text">
+                    <Pill tone="warning">Behind</Pill> {Math.round(quarter.elapsed * 100)}% of{" "}
+                    {quarterLabel(quarterRef)} has gone; this goal is at {Math.round(progress * 100)}%.
+                  </p>
+                ) : null}
                 <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={`Health of ${g.title}`}>
                   {(Object.keys(HEALTH_META) as GoalHealth[]).map((h) => (
                     <button
