@@ -1,4 +1,4 @@
-import { addDays, daysBetween, type Day } from "@/lib/dates";
+import { addDays, dayOf, daysBetween, type Day } from "@/lib/dates";
 import {
   AREA_COLORS,
   type EntityFields,
@@ -169,4 +169,78 @@ export function dueOn(p: Pick<Person, "cadenceDays" | "createdAt">, last: Day | 
 /** Phone number digits for wa.me links (keeps a leading country code, drops spaces and symbols). */
 export function whatsappLink(n: string): string {
   return `https://wa.me/${n.replace(/[^\d]/g, "")}`;
+}
+
+/** REL-3: at most this many people in Reach out on Today at a time. */
+export const REACH_OUT_PER_DAY = 2;
+
+export interface ReachOut {
+  person: Person;
+  /** Last interaction, or null when nothing's been logged. */
+  last: Day | null;
+  /** Days since the last interaction (or since they were added). */
+  days: number;
+  /** How far past their cadence: days / cadence (1 = due today, 2 = twice as long as wanted). */
+  ratio: number;
+}
+
+/**
+ * People due a catch-up (REL-3): a cadence, not archived or snoozed, and at least a cadence's worth
+ * of days since the last interaction (or since being added). Most overdue first, relative to their
+ * cadence, so someone weekly who's 2 weeks late ranks above someone quarterly who's 2 weeks late.
+ */
+export function reachOut(
+  people: Person[],
+  interactions: Pick<Interaction, "personId" | "date" | "deletedAt">[],
+  todayDay: Day,
+  timezone: string,
+): ReachOut[] {
+  const lastBy = new Map<string, Day>();
+  for (const i of interactions) {
+    if (i.deletedAt) continue;
+    const prev = lastBy.get(i.personId);
+    if (!prev || i.date > prev) lastBy.set(i.personId, i.date);
+  }
+  const out: ReachOut[] = [];
+  for (const p of people) {
+    if (p.deletedAt || p.archivedAt != null || !p.cadenceDays) continue;
+    if (p.snoozedUntil && p.snoozedUntil > todayDay) continue;
+    const last = lastBy.get(p.id) ?? null;
+    const since = last ?? dayOf(p.createdAt, timezone);
+    const days = daysBetween(since, todayDay);
+    if (days < p.cadenceDays) continue;
+    out.push({ person: p, last, days, ratio: days / p.cadenceDays });
+  }
+  return out.sort((a, b) => b.ratio - a.ratio || b.days - a.days || a.person.name.localeCompare(b.person.name));
+}
+
+export interface PersonDateSoon extends UpcomingDate {
+  person: Pick<Person, "id" | "name" | "emoji" | "color">;
+  index: number;
+}
+
+/** Important dates in the next `withinDays` days (today included), soonest first. */
+export function upcomingDates(
+  people: Pick<Person, "id" | "name" | "emoji" | "color" | "dates" | "archivedAt">[],
+  todayDay: Day,
+  withinDays: number,
+): PersonDateSoon[] {
+  const out: PersonDateSoon[] = [];
+  for (const p of people) {
+    if (p.archivedAt != null) continue;
+    p.dates.forEach((d, index) => {
+      const u = upcomingDate(d, todayDay);
+      if (u.inDays <= withinDays) out.push({ ...u, person: p, index });
+    });
+  }
+  return out.sort((a, b) => a.inDays - b.inDays || a.person.name.localeCompare(b.person.name));
+}
+
+/** "Mum's birthday", "Ada & Tom's anniversary", "Graduation (Ada)". */
+export function dateTitle(name: string, d: PersonDate): string {
+  const first = name.split(" ")[0];
+  const owner = `${first}${first.endsWith("s") ? "'" : "'s"}`;
+  if (d.kind === "birthday") return `${owner} birthday`;
+  if (d.kind === "anniversary") return `${owner} ${(d.label || "anniversary").toLowerCase()}`;
+  return `${d.label || "Date"} (${first})`;
 }

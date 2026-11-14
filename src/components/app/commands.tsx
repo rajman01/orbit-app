@@ -40,7 +40,9 @@ import { cn } from "@/lib/cn";
 import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
 import { useIsDesktop } from "@/lib/use-media-query";
 
-type QuickAddDefaults = Partial<Pick<TaskFields, "areaId" | "goalId" | "milestoneId" | "status" | "dueDate" | "personId">>;
+type QuickAddDefaults = Partial<
+  Pick<TaskFields, "areaId" | "goalId" | "milestoneId" | "status" | "dueDate" | "personId">
+>;
 
 interface CommandsContext {
   openQuickAdd: (defaults?: QuickAddDefaults) => void;

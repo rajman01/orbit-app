@@ -14,6 +14,8 @@ import { buildToday, MUST_DO_LIMIT, overdueDays } from "@/features/today/model";
 import { useMinuteNow, useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { BlockMustDo, FreeTimeNote, useDayFit } from "@/components/calendar/free-time";
+import { ReachOutRow, useReachOut } from "@/components/people/reach-out";
+import { REACH_OUT_PER_DAY } from "@/features/people/model";
 import { EmptyStepNote, RitualShell, RitualTaskRow, SmallButton, type RitualStep } from "./ritual-flow";
 
 /**
@@ -67,6 +69,7 @@ export function DailyPlanFlow({ ritual, onClose }: { ritual: RitualDoc; onClose:
   const mustDos = plan.mustDos.filter(isOpen);
   const day = useDayFit(todayDay);
   const needSteps = mustDos.filter((t) => !t.nextStep);
+  const reach = (useReachOut() ?? []).slice(0, REACH_OUT_PER_DAY);
 
   const steps: RitualStep[] = [
     {
@@ -234,6 +237,16 @@ export function DailyPlanFlow({ ritual, onClose }: { ritual: RitualDoc; onClose:
           ) : (
             <EmptyStepNote>No Must-dos today. Everything planned is on Today.</EmptyStepNote>
           )}
+          {reach.length ? (
+            <section aria-label="Reach out today">
+              <p className="mb-1 text-footnote font-medium text-label-secondary">Reach out today</p>
+              <ul className="-mx-2 flex flex-col">
+                {reach.map((r) => (
+                  <ReachOutRow key={r.person.id} item={r} todayDay={todayDay} compact />
+                ))}
+              </ul>
+            </section>
+          ) : null}
           {mustDos[0] ? (
             <button
               type="button"

@@ -31,7 +31,9 @@ export function LogInteraction({
       onOpenChange={(o) => !o && onClose()}
       title={interaction ? "Edit entry" : `Log time with ${person.name}`}
     >
-      {open ? <Body key={interaction?.id ?? "new"} person={person} interaction={interaction} onClose={onClose} /> : null}
+      {open ? (
+        <Body key={interaction?.id ?? "new"} person={person} interaction={interaction} onClose={onClose} />
+      ) : null}
     </Modal>
   );
 }
@@ -59,9 +61,10 @@ function Body({
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!valid) return;
-    onClose();
+    // Saved locally first (a few milliseconds), so leaving the page right away can't lose it.
     if (interaction) {
       await actions.updateInteraction(interaction.id, { type, date, notes: notes.trim() });
+      onClose();
       return;
     }
     const { taskId } = await actions.logInteraction(
@@ -69,6 +72,7 @@ function Body({
       { type, date, notes },
       following ? { title: followTitle, scheduledDate: followDay } : null,
     );
+    onClose();
     toast({ message: taskId ? "Logged, with a follow-up task" : "Logged" });
   }
 

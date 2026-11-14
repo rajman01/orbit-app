@@ -20,7 +20,7 @@ export function defaultSettings(): Settings {
     breakMinutes: 5,
     ritualTimes: { plan: "07:30", shutdown: "21:00", review: "18:00" },
     quietHours: { start: "22:00", end: "07:00" },
-    notify: { plan: true, shutdown: true, review: true, habits: true, focus: true },
+    notify: { plan: true, shutdown: true, review: true, habits: true, focus: true, people: true },
     strictness: "firm",
     onboardingCompletedAt: null,
   };

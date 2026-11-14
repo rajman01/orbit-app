@@ -777,6 +777,10 @@ export function createActions(engine: SyncEngine, userId: string) {
       for (const i of interactions) if (!i.deletedAt) await engine.remove("interactions", i.id);
       for (const i of items) if (!i.deletedAt) await engine.remove("personItems", i.id);
       for (const t of tasks) if (!t.deletedAt) await engine.update("tasks", t.id, { personId: null });
+      for (const g of await db.goals.toArray()) {
+        if (!g.deletedAt && g.personIds?.includes(id))
+          await engine.update("goals", g.id, { personIds: g.personIds.filter((p) => p !== id) });
+      }
       await engine.remove("people", id);
     },
 

@@ -27,7 +27,10 @@ const control =
   "h-control rounded-md bg-surface-sunken px-2.5 text-body outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 export const chip = (on: boolean) =>
-  cn("h-9 rounded-full px-3.5 text-callout font-medium", on ? "bg-accent text-on-accent" : "bg-fill hover:bg-fill-strong");
+  cn(
+    "h-9 rounded-full px-3.5 text-callout font-medium",
+    on ? "bg-accent text-on-accent" : "bg-fill hover:bg-fill-strong",
+  );
 
 /** REL-1/2: add or edit someone. Notes, gift ideas and the log live on their page. */
 export function PersonForm({
@@ -123,7 +126,11 @@ function PersonFormBody({ person, onClose }: { person?: PersonDoc | null; onClos
         </div>
         <div className="w-20">
           <Field label="Emoji">
-            <Input value={emoji} onChange={(e) => setEmoji([...e.target.value].slice(0, 2).join(""))} placeholder="🙂" />
+            <Input
+              value={emoji}
+              onChange={(e) => setEmoji([...e.target.value].slice(0, 2).join(""))}
+              placeholder="🙂"
+            />
           </Field>
         </div>
       </div>

@@ -85,9 +85,13 @@ export async function applyMutations(
 async function checkReferences(db: Db, userId: string, entity: EntityName, data: Record<string, unknown>) {
   for (const [field, target] of Object.entries(REFERENCES[entity] ?? {})) {
     const value = data[field];
-    if (typeof value !== "string") continue;
-    const ref = await db.collection<StoredDoc>(target).findOne({ _id: value }, { projection: { userId: 1 } });
-    if (ref && ref.userId !== userId) return `forbidden reference: ${field}`;
+    // A single id, or a list of them (a goal's people).
+    const ids =
+      typeof value === "string" ? [value] : Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
+    for (const v of ids) {
+      const ref = await db.collection<StoredDoc>(target).findOne({ _id: v }, { projection: { userId: 1 } });
+      if (ref && ref.userId !== userId) return `forbidden reference: ${field}`;
+    }
   }
   return null;
 }

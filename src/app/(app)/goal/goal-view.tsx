@@ -30,6 +30,7 @@ import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { Picker } from "@/components/ui/picker";
 import { Pill } from "@/components/ui/pill";
 import { GoalPlanet } from "@/components/goals/goal-planet";
+import { GoalPeople } from "@/components/people/goal-people";
 import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
@@ -207,6 +208,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
                 todayDay={todayDay}
                 onChange={(d) => void actions.updateGoal(goal.id, { targetDate: d })}
               />
+              <GoalPeople goal={goal} />
             </div>
           </div>
           <div className="flex flex-col items-center gap-1">

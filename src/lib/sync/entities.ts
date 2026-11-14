@@ -80,6 +80,8 @@ export const entitySchemas = {
         review: z.boolean(),
         habits: z.boolean(),
         focus: z.boolean(),
+        /** Phase 2C.2: birthdays and other dates, a week and a day before. Optional for older documents. */
+        people: z.boolean().optional(),
       })
       .optional(),
     /** Phase 2A: how much the coach may do on its own (PRD §10.5). */
@@ -111,6 +113,8 @@ export const entitySchemas = {
     droppedReason: z.string().max(2000).nullable(),
     completedAt: ms.nullable(),
     order: z.number(),
+    /** Phase 2C.2 (REL-7): the people this goal is about. */
+    personIds: z.array(id).max(20).optional(),
   }),
   keyResults: z.object({
     goalId: id,
@@ -437,7 +441,7 @@ export type SyncedDoc<E extends EntityName> = SyncMeta &
 
 /** Reference fields and the entity they point at — the server checks ownership. */
 export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>> = {
-  goals: { areaId: "areas" },
+  goals: { areaId: "areas", personIds: "people" },
   keyResults: { goalId: "goals" },
   krCheckins: { keyResultId: "keyResults", goalId: "goals" },
   milestones: { goalId: "goals" },

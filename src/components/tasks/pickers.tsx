@@ -260,8 +260,14 @@ export function PersonPicker({ value, onChange }: { value: string | null; onChan
       onChange={onChange}
       trigger={
         <ChipButton aria-label="Person">
-          {current ? <PersonAvatar person={current} size={18} /> : <Users className="size-4 text-label-secondary" strokeWidth={1.75} />}
-          <span className="truncate">{current ? current.name : <span className="text-label-tertiary">No one</span>}</span>
+          {current ? (
+            <PersonAvatar person={current} size={18} />
+          ) : (
+            <Users className="size-4 text-label-secondary" strokeWidth={1.75} />
+          )}
+          <span className="truncate">
+            {current ? current.name : <span className="text-label-tertiary">No one</span>}
+          </span>
         </ChipButton>
       }
     />

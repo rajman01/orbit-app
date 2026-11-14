@@ -13,6 +13,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  Target,
   Trash2,
   Users,
   X,
@@ -37,6 +38,7 @@ import { Pill } from "@/components/ui/pill";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
 import {
+  useGoals,
   useAllTasks,
   useInteractions,
   usePerson,
@@ -106,11 +108,10 @@ function PersonDetail({ person }: { person: PersonDoc }) {
   const [deleting, setDeleting] = useState(false);
   const [notes, setNotes] = useState(person.notes);
   const [showDone, setShowDone] = useState(false);
+  const goals = (useGoals() ?? []).filter((g) => g.personIds?.includes(person.id) && g.status !== "dropped");
 
   const last = lastInTouch(interactions);
-  const dates = person.dates
-    .map((d) => upcomingDate(d, todayDay))
-    .sort((a, b) => a.inDays - b.inDays);
+  const dates = person.dates.map((d) => upcomingDate(d, todayDay)).sort((a, b) => a.inDays - b.inDays);
   const openTasks = tasks.filter(isOpen);
   const contact = [
     person.phone ? { label: "Call", href: `tel:${person.phone}`, icon: Phone } : null,
@@ -239,6 +240,30 @@ function PersonDetail({ person }: { person: PersonDoc }) {
               placeholder="e.g. A book on jazz"
               items={items.filter((i) => i.kind === "gift")}
             />
+
+            {goals.length ? (
+              <section aria-label="Goals">
+                <SectionLabel count={goals.length}>Goals</SectionLabel>
+                <ul className="flex flex-col">
+                  {goals.map((g) => (
+                    <li key={g.id}>
+                      <Link
+                        href={`/goal?id=${g.id}`}
+                        className="flex min-h-row items-center gap-2 rounded-md px-2 text-callout hover:bg-fill"
+                      >
+                        <Target className="size-4 shrink-0 text-label-secondary" strokeWidth={1.75} />
+                        <span
+                          className={cn("min-w-0 flex-1 truncate", g.status === "completed" && "text-label-secondary")}
+                        >
+                          {g.title}
+                        </span>
+                        {g.status === "completed" ? <Pill tone="success">Done</Pill> : null}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
             <div className="mt-6 mb-1 flex items-center justify-between">
               <SectionLabel count={openTasks.length}>Tasks</SectionLabel>

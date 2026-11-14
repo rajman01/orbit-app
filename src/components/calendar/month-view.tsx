@@ -124,14 +124,12 @@ export function MonthView({
   const isDesktop = useIsDesktop();
   const grid = monthGrid(day, weekStartDay);
   const month = day.slice(0, 7);
-  const names = grid
-    .slice(0, 7)
-    .map((d) =>
-      new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, {
-        weekday: isDesktop ? "short" : "narrow",
-        timeZone: "UTC",
-      }),
-    );
+  const names = grid.slice(0, 7).map((d) =>
+    new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, {
+      weekday: isDesktop ? "short" : "narrow",
+      timeZone: "UTC",
+    }),
+  );
   const byDay = new Map(grid.map((d) => [d, itemsOn(d, events, blocks, tasks, timezone)]));
   const swipe = useRef<{ x: number; y: number; id: number } | null>(null);
 

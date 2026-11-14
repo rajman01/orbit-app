@@ -31,6 +31,7 @@ import { DayOrbit } from "./day-orbit";
 import { PushPrompt } from "./push-prompt";
 import { RitualCards } from "./ritual-cards";
 import { HabitRow } from "@/components/habits/habit-row";
+import { ReachOutSection } from "@/components/people/reach-out";
 import { useHabitBoard } from "@/features/habits/use-habit-board";
 import { SortableTasks } from "./sortable-tasks";
 import { NextStepDialog, STALE_ACTIONS, SwapMustDoDialog, useStaleResolver } from "./today-dialogs";
@@ -184,6 +185,8 @@ export function TodayView() {
         ) : null}
 
         <HabitsDue />
+
+        <ReachOutSection />
 
         {stuckGoals.length ? <GoalsNeedingStep goals={stuckGoals} /> : null}
 

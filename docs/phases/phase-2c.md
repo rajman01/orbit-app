@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 2C.1 built 2026-11-14; 2C.2 and 2C.3 to do |
+| **Status** | 2C.1 and 2C.2 built 2026-11-14; 2C.3 to do |
 | **Depends on** | 2A (the coach's people tools), 1D (push reminders) |
 | **PRD** | §7.11 (REL-1 – REL-7), AREA-2 (people on the Relationships area), §13 (People list and person detail) |
 | **Design** | [DESIGN.md](../DESIGN.md) — list rows (person: 52px on phones), long-press menus, `Users` icon, "Delete person" wording |
@@ -41,7 +41,7 @@ Keep the people who matter close without having to remember everything: Orbit kn
 1. **People are ordinary synced data** (Dexie + MongoDB, last-writer-wins per field), so they work offline and on every device like tasks. Important dates live on the person (a short list); gift ideas, things to remember and interactions are their own entities, so edits on two devices don't overwrite each other.
 2. **"Last in touch" is worked out from the interaction log**, not stored, so it can never disagree with it. Logging any interaction resets the clock; snoozing pushes someone out of Reach out until a chosen day without pretending you talked.
 3. **Overdue-ness is days since last contact divided by the cadence**, so someone weekly who's 2 weeks late ranks above someone quarterly who's 2 weeks late. People with no cadence never appear in Reach out.
-4. **Date reminders run on the server**, on the per-minute job like the coach's check-ins: at the user's Daily Plan time, 7 days and 1 day before each date (once each, recorded so they're never sent twice). Birthdays without a year still repeat every year; 29 February falls on 28 February in other years.
+4. **Date reminders run on the server**, on the per-minute job like the other reminders: at the user's Daily Plan time, 7 days and 1 day before each date (once each). They use the reminders' existing sent log (one key per person, date, year and lead time) rather than a separate `peopleReminders` collection. Settings → Notifications → "Birthdays and dates" turns them off. Birthdays without a year still repeat every year; 29 February falls on 28 February in other years.
 5. **Google Contacts is a one-off import, not a connection.** "Import from Google Contacts" asks Google for read-only access to contacts just for that import (`contacts.readonly`), lists them with birthdays, and you tick who to bring in. Orbit keeps no Google Contacts token afterwards; importing again skips people already imported (matched by Google's id).
 6. **Follow-ups are tasks** with a `personId`, so they live in Today/Inbox like any task and show on the person's page.
 
@@ -54,12 +54,11 @@ Keep the people who matter close without having to remember everything: Orbit kn
 | `personItems` | personId, kind (`gift` / `remember`), text, doneAt | Synced |
 | `tasks` (extend) | personId | Follow-ups and tasks about someone |
 | `goals` (extend) | personIds[] | REL-7 |
-| `peopleReminders` | userId, personId, date key, sentAt | **Server-only**: which date reminders went out |
 
 ## Steps
 
 - [x] **2C.1 People:** entities and sync; People page (search, sorted by name, relationship filter) and person page (details, dates, cadence, notes, gift ideas, things to remember, interaction log with follow-up → task, linked goals and tasks); add/edit person; Relationships area lists its people; nav, `G P`, command menu
-- [ ] **2C.2 Reach out and reminders:** overdue model; Reach out on Today (2 a day) with log/snooze/open; in the Daily Plan; upcoming dates on the People page; push reminders 7 days and 1 day before; goals linking to people
+- [x] **2C.2 Reach out and reminders:** overdue model; Reach out on Today (2 a day) with log/snooze/open; in the Daily Plan; upcoming dates on the People page; push reminders 7 days and 1 day before; goals linking to people
 - [ ] **2C.3 Google Contacts and coach:** one-off import with a picker; coach tools (`get_people`, `get_person`, `add_person`, `update_person`, `log_interaction` with follow-up, `add_person_note`); privacy policy update
 - [ ] Tests, owner setup, deploy
 
@@ -84,3 +83,4 @@ Keep the people who matter close without having to remember everything: Orbit kn
 |---|---|
 | 2026-11-14 | Plan written; owner chose initials/emoji (no photos), Google Contacts import plus manual entry, full coach help |
 | 2026-11-14 | 2C.1 People: synced `people` (name, emoji or initials on a colour, relationship, cadence, snooze, important dates with optional year, phone/WhatsApp/email, how you met, interests, area, Google id for 2C.3), `interactions` and `personItems` (Dexie v10), tasks gain `personId`. Actions: add (into the Relationships area when there is one), edit, archive, delete (log and items go; tasks stay, unlinked), log an interaction (ends a snooze; an optional follow-up becomes a `todo` task about the person, on a chosen day), gift ideas (tick when given) and things to remember. People page: search (names, interests, notes), relationship filter, "In touch … ago"; archived list with restore. Person page: cadence picker, last in touch, Log / Call / WhatsApp / Email, dates with next occurrence and age ("In 4 weeks · turns 37"; 29 February on the 28th in other years), notes, things to remember, gift ideas, tasks about them (add one with Quick Add), the log (edit/delete); on phones dates and details come first. Task details get a Person picker once you have people; area pages list their people. Nav (People, `Users`), `G P`, palette (People group, "New person"). Dialogs now scroll when taller than the window. Years from 1800. Tests: 7 unit (`people.test.ts`: initials, labels, next occurrence, log with follow-up, delete, server validation and ownership) and 2 browser (`people.spec.ts`: add → remember/gift → log with follow-up → Today and task's person → phone device → delete; `G P`); full suite 166 unit, 89 browser passed, 23 skipped |
+| 2026-11-14 | 2C.2 Reach out and reminders: `reachOut()` (cadence, not archived or snoozed, days since the last interaction or since being added ≥ cadence; ranked by days ÷ cadence). Today: "Reach out" with the top 2 plus birthdays and dates today or tomorrow; each person has Log (opens the log dialog) and Snooze (tomorrow, 3 days, a week, 2 weeks; Undo in the toast). Daily Plan: "Reach out today" on "Your day". People page: "Coming up" (dates in the next 30 days, age) and "Due a catch-up" (everyone overdue). Push reminders a week and a day before each date at Daily Plan time ("Mum's birthday is in a week" — "Saturday, 21 November. They turn 60."), once each, with a Settings switch (`notify.people`). Goals link to people (`goals.personIds`; the server checks every id in a list belongs to the user): chips and "Link a person" on the goal, a Goals section on the person; deleting a person unlinks them. The log dialog now saves before closing. Tests: 4 more unit (ranking with snooze/archive/no log, dates coming up and titles, reminder timing/once/off, server job once; goal unlink) and 1 browser (overdue → People page and Today → snooze/undo → log from Today; birthday tomorrow; goal link). Full suite: 170 unit; 89 browser passed, 23 skipped (two unrelated tests flaky on the full run, pass alone) |

@@ -12,7 +12,15 @@ import { SectionLabel } from "@/components/tasks/task-list";
 import { Button, IconButton } from "@/components/ui/button";
 import { useActions } from "@/features/actions";
 import { useInteractions, usePeople, type PersonDoc } from "@/features/data";
-import { agoLabel, RELATIONSHIP_META, type Relationship } from "@/features/people/model";
+import {
+  agoLabel,
+  dateLabel,
+  inDaysLabel,
+  RELATIONSHIP_META,
+  upcomingDates,
+  type Relationship,
+} from "@/features/people/model";
+import { ReachOutRow, useReachOut } from "@/components/people/reach-out";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { RELATIONSHIPS } from "@/lib/sync/entities";
@@ -29,6 +37,8 @@ export function PeopleView() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Relationship | null>(null);
   const [creating, setCreating] = useState(startNew);
+  const reach = useReachOut() ?? [];
+  const soon = useMemo(() => upcomingDates(people ?? [], todayDay, 30), [people, todayDay]);
 
   const lastByPerson = useMemo(() => {
     const map = new Map<string, string>();
@@ -90,7 +100,7 @@ export function PeopleView() {
             </label>
             {present.length > 1 ? (
               <div
-                className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0"
+                className="-mx-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 lg:mx-0 lg:px-0"
                 role="radiogroup"
                 aria-label="Relationship"
               >
@@ -112,6 +122,50 @@ export function PeopleView() {
               </div>
             ) : null}
           </div>
+        ) : null}
+        {!q && !filter && soon.length ? (
+          <section aria-label="Coming up" className="mb-4">
+            <SectionLabel count={soon.length}>Coming up</SectionLabel>
+            <ul className="flex flex-col">
+              {soon.map((u) => (
+                <li key={`${u.person.id}:${u.index}`}>
+                  <Link
+                    href={`/person?id=${u.person.id}`}
+                    className="flex min-h-11 items-center gap-3 rounded-md px-2 py-1 hover:bg-fill"
+                  >
+                    <PersonAvatar person={u.person} size={28} />
+                    <span className="min-w-0 flex-1 truncate text-callout">
+                      {u.person.name} · <span className="text-label-secondary">{dateLabel(u.date)}</span>
+                      {u.turning != null && u.turning > 0 && u.date.kind === "birthday" ? (
+                        <span className="text-label-secondary"> · turns {u.turning}</span>
+                      ) : null}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 text-footnote tabular",
+                        u.inDays <= 7 ? "font-semibold text-accent-text" : "text-label-secondary",
+                      )}
+                    >
+                      {inDaysLabel(u.inDays)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        {!q && !filter && reach.length ? (
+          <section aria-label="Due a catch-up" className="mb-4">
+            <SectionLabel count={reach.length}>Due a catch-up</SectionLabel>
+            <ul className="flex flex-col">
+              {reach.map((r) => (
+                <ReachOutRow key={r.person.id} item={r} todayDay={todayDay} />
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        {!q && !filter && (soon.length || reach.length) && shown.length ? (
+          <SectionLabel count={shown.length}>Everyone</SectionLabel>
         ) : null}
         {people?.length && !shown.length ? (
           <p className="px-1 py-6 text-center text-callout text-label-secondary">No one matches.</p>

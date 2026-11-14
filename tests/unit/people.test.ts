@@ -1,11 +1,19 @@
 import "fake-indexeddb/auto";
+import { vi } from "vitest";
+vi.mock("server-only", () => ({}));
 import { MongoClient } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { describe, expect, it } from "vitest";
 import { createActions } from "@/features/actions";
 import { presetAreaId } from "@/features/areas/model";
+import { dueNotifications } from "@/features/reminders/model";
+import { dispatchReminders, type Sender } from "@/lib/push/server";
 import {
   agoLabel,
+  dateTitle,
+  reachOut,
+  upcomingDates,
+  type Person,
   cadenceLabel,
   initials,
   lastInTouch,
@@ -111,7 +119,9 @@ describe("people actions", () => {
     await actions.togglePersonItem(gift, true);
     expect((await db.personItems.get(gift))?.doneAt).toBeTypeOf("number");
 
+    const goal = await actions.createGoal({ title: "Closer to Grace", personIds: [id] });
     await actions.deletePerson(id);
+    expect((await db.goals.get(goal))?.personIds).toEqual([]);
     expect((await db.people.get(id))?.deletedAt).toBeTypeOf("number");
     expect((await db.interactions.where("personId").equals(id).toArray()).every((i) => i.deletedAt)).toBe(true);
     expect((await db.personItems.get(gift))?.deletedAt).toBeTypeOf("number");
@@ -150,9 +160,147 @@ describe("people on the server", () => {
       expect(other.applied).toHaveLength(0);
       // A bad date is refused.
       const bad = await applyMutations(db, "u1", [
-        mut("people", "01PERSON00000002", { ...fields, dates: [{ kind: "birthday", label: "", month: 13, day: 1, year: null }] }, 4),
+        mut(
+          "people",
+          "01PERSON00000002",
+          { ...fields, dates: [{ kind: "birthday", label: "", month: 13, day: 1, year: null }] },
+          4,
+        ),
       ] as never);
       expect(bad.applied).toHaveLength(0);
+    } finally {
+      await client.close();
+      await mongod.stop();
+    }
+  });
+});
+
+const person = (id: string, f: Partial<Person> = {}): Person =>
+  ({
+    ...newPersonFields({ name: id }),
+    id,
+    createdAt: Date.parse("2026-01-01T12:00:00Z"),
+    updatedAt: 0,
+    deletedAt: null,
+    serverVersion: 1,
+    ...f,
+  }) as Person;
+const met = (personId: string, date: string) => ({ personId, date, deletedAt: null });
+
+describe("reach out (REL-3)", () => {
+  const T = "2026-11-14";
+  it("ranks by how far past their cadence, skipping no-cadence, snoozed and archived people", () => {
+    const people = [
+      person("Weekly", { cadenceDays: 7 }), // 14 days: 2×
+      person("Quarterly", { cadenceDays: 91 }), // 105 days: 1.15×
+      person("Fresh", { cadenceDays: 30 }), // 10 days: not due
+      person("NoCadence", { cadenceDays: null }),
+      person("Snoozed", { cadenceDays: 7, snoozedUntil: "2026-11-20" }),
+      person("SnoozeOver", { cadenceDays: 7, snoozedUntil: "2026-11-14" }), // 21 days: 3×
+      person("Archived", { cadenceDays: 7, archivedAt: 1 }),
+      person("Never", { cadenceDays: 14, createdAt: Date.parse("2026-10-31T12:00:00Z") }), // added 14 days ago: 1×
+      person("JustAdded", { cadenceDays: 14, createdAt: Date.parse("2026-11-10T12:00:00Z") }),
+    ];
+    const log = [
+      met("Weekly", "2026-10-31"),
+      met("Weekly", "2026-10-01"),
+      met("Quarterly", "2026-08-01"),
+      met("Fresh", "2026-11-04"),
+      met("SnoozeOver", "2026-10-24"),
+      { personId: "Fresh", date: "2026-01-01", deletedAt: 5 },
+    ];
+    const list = reachOut(people, log, T, "UTC");
+    expect(list.map((r) => [r.person.id, r.days])).toEqual([
+      ["SnoozeOver", 21],
+      ["Weekly", 14],
+      ["Quarterly", 105],
+      ["Never", 14],
+    ]);
+    expect(list.find((r) => r.person.id === "Never")?.last).toBeNull();
+  });
+
+  it("lists dates coming up and names them", () => {
+    const people = [
+      person("Mum", { dates: [{ kind: "birthday", label: "", month: 11, day: 21, year: 1966 }] }),
+      person("Ada Lovelace", {
+        dates: [
+          { kind: "anniversary", label: "", month: 11, day: 14, year: 2020 },
+          { kind: "custom", label: "Graduation", month: 1, day: 5, year: null },
+        ],
+      }),
+    ];
+    const soon = upcomingDates(people, "2026-11-14", 30);
+    expect(soon.map((u) => [u.person.id, u.inDays, u.turning])).toEqual([
+      ["Ada Lovelace", 0, 6],
+      ["Mum", 7, 60],
+    ]);
+    expect(dateTitle("Mum", people[0].dates[0])).toBe("Mum's birthday");
+    expect(dateTitle("James Bond", people[0].dates[0])).toBe("James' birthday");
+    expect(dateTitle("Ada Lovelace", people[1].dates[1])).toBe("Graduation (Ada)");
+  });
+});
+
+describe("date reminders (REL-6)", () => {
+  const base = {
+    settings: { timezone: "UTC" },
+    rituals: [],
+    cycles: [],
+    habits: [],
+    habitLogs: [],
+    reminders: [],
+    dueTodayCount: 0,
+    sent: new Set<string>(),
+  };
+  const people = [
+    person("p1", { name: "Mum", dates: [{ kind: "birthday", label: "", month: 11, day: 21, year: 1966 }] }),
+    person("p2", { name: "Tunde", dates: [{ kind: "birthday", label: "", month: 11, day: 15, year: null }] }),
+    person("p3", { name: "Later", dates: [{ kind: "birthday", label: "", month: 11, day: 18, year: null }] }),
+  ];
+  const at = (t: string) => Date.parse(`2026-11-14T${t}:00Z`);
+
+  it("sends a week and a day before, at Daily Plan time, once each", () => {
+    const keys = (n: number, sent = new Set<string>(), p = people) =>
+      dueNotifications({ ...base, now: n, people: p as never, sent }).filter((x) => x.key.startsWith("date:"));
+    expect(keys(at("07:00"))).toEqual([]); // before the plan time (07:30)
+    const due = keys(at("07:30"));
+    expect(due.map((d) => d.title)).toEqual(["Tunde's birthday is tomorrow", "Mum's birthday is in a week"]);
+    expect(due[1]).toMatchObject({ body: "Saturday, 21 November. They turn 60.", url: "/person?id=p1" });
+    expect(keys(at("07:31"), new Set(due.map((d) => d.key)))).toEqual([]);
+    // Turned off in Settings.
+    expect(
+      dueNotifications({
+        ...base,
+        settings: {
+          timezone: "UTC",
+          notify: { plan: true, shutdown: true, review: true, habits: true, focus: true, people: false },
+        },
+        now: at("07:30"),
+        people: people as never,
+      }).filter((x) => x.key.startsWith("date:")),
+    ).toEqual([]);
+  });
+
+  it("goes out from the server job once", async () => {
+    const mongod = await MongoMemoryServer.create();
+    const client = await MongoClient.connect(mongod.getUri());
+    try {
+      const db = client.db("dates");
+      const userId = "user0000000001";
+      await db
+        .collection("settings")
+        .insertOne({ _id: `s${userId}` as never, userId, timezone: "UTC", deletedAt: null });
+      await db.collection("pushSubscriptions").insertOne({ _id: "https://push.example/ok" as never, userId, keys: {} });
+      await db.collection("people").insertOne({
+        _id: "01PERSON0000000A" as never,
+        userId,
+        ...newPersonFields({ name: "Mum", dates: [{ kind: "birthday", label: "", month: 11, day: 15, year: null }] }),
+        deletedAt: null,
+      });
+      const titles: string[] = [];
+      const send: Sender = async (_s, p) => (titles.push(p.title), { ok: true });
+      await dispatchReminders(db, at("08:00"), send);
+      await dispatchReminders(db, at("08:01"), send);
+      expect(titles.filter((t) => t.includes("Mum"))).toEqual(["Mum's birthday is tomorrow"]);
     } finally {
       await client.close();
       await mongod.stop();
