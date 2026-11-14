@@ -23,8 +23,11 @@ export function dailyLimitUsd(): number {
   return Number.isFinite(n) && n > 0 ? n : 2;
 }
 
-/** USD per million tokens, for the usage estimate (Sonnet 5.5 rates; a fallback model is close enough). */
-const PRICE = { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 };
+/** USD per million tokens, for the usage estimate (a fallback model is close enough). */
+const PRICES = {
+  chat: { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 }, // Sonnet 5.5
+  light: { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 }, // Haiku 5.5
+};
 
 interface UsageDoc {
   _id: string; // `${userId}:${day}`
@@ -46,7 +49,16 @@ export async function spentToday(db: Db, userId: string): Promise<number> {
   return doc?.costUsd ?? 0;
 }
 
-async function recordUsage(db: Db, userId: string, u: Anthropic.Beta.BetaUsage) {
+export async function recordUsage(
+  db: Db,
+  userId: string,
+  u: Pick<
+    Anthropic.Usage,
+    "input_tokens" | "output_tokens" | "cache_read_input_tokens" | "cache_creation_input_tokens"
+  >,
+  model: keyof typeof PRICES = "chat",
+) {
+  const PRICE = PRICES[model];
   const input = u.input_tokens ?? 0;
   const output = u.output_tokens ?? 0;
   const cacheRead = u.cache_read_input_tokens ?? 0;

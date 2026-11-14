@@ -377,3 +377,58 @@ describe("planning with the coach (2A.3)", () => {
     expect(out.content).toMatch(/^Not done yet/);
   });
 });
+
+describe("rituals and capture with the coach (2A.4)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.UTC(2026, 10, 14, 9));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("sets today's Must-dos, replacing the old ones, and undo puts them back", async () => {
+    const { db, engine, actions, deps } = setup();
+    await actions.saveSettings({ timezone: "UTC" });
+    const old = await actions.createTask({ title: "Old must-do", status: "todo" });
+    await actions.setMustDo((await db.tasks.get(old))!, "2026-11-14", true);
+    const a = await actions.createTask({ title: "Write proposal", status: "todo" });
+    const b = await actions.createTask({ title: "Call bank", status: "todo" });
+    await runCoachTool("set_must_dos", { taskIds: [a, b] }, deps);
+    const mustDos = async () =>
+      (await db.tasks.toArray())
+        .filter((t) => t.mustDoDate === "2026-11-14")
+        .map((t) => t.title)
+        .sort();
+    expect(await mustDos()).toEqual(["Call bank", "Write proposal"]);
+    const action = (await db.aiActions.toArray()).find((x) => x.tool === "set_must_dos")!;
+    await undoAction(engine, action.id);
+    expect(await mustDos()).toEqual(["Old must-do"]);
+  });
+
+  it("completes the Daily Plan with today's Must-dos; undo reopens it so it can be done again", async () => {
+    const { db, engine, actions, deps } = setup();
+    await actions.saveSettings({ timezone: "UTC" });
+    const id = await actions.createTask({ title: "Ship it", status: "todo" });
+    await runCoachTool("set_must_dos", { taskIds: [id] }, deps);
+    await runCoachTool("complete_ritual", { type: "daily_plan" }, deps);
+    const ritual = (await db.rituals.toArray())[0];
+    expect(ritual).toMatchObject({ type: "daily_plan", date: "2026-11-14" });
+    expect(ritual.completedAt).not.toBeNull();
+    expect(ritual.data.mustDos).toEqual([id]);
+    expect(totalXp(await db.xpEvents.toArray())).toBe(20);
+
+    const action = (await db.aiActions.toArray()).find((x) => x.tool === "complete_ritual")!;
+    await undoAction(engine, action.id);
+    expect((await db.rituals.get(ritual.id))!).toMatchObject({ completedAt: null, deletedAt: null });
+    expect(totalXp(await db.xpEvents.toArray())).toBe(0);
+    await runCoachTool("complete_ritual", { type: "daily_plan" }, deps);
+    expect((await db.rituals.get(ritual.id))!.completedAt).not.toBeNull();
+  });
+
+  it("the test stand-in for capture splits lines into tasks", async () => {
+    process.env.COACH_FAKE = "1";
+    const { parseCapture } = await import("@/lib/coach/capture");
+    const tasks = await parseCapture({} as never, USER, "- call the landlord\nbook dentist; pay rent", "2026-11-14");
+    expect(tasks.map((t) => t.title)).toEqual(["call the landlord", "book dentist", "pay rent"]);
+    delete process.env.COACH_FAKE;
+  });
+});

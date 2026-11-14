@@ -9,6 +9,7 @@ import { clearCachedUser, useCurrentUser } from "@/components/app/auth-gate";
 import { useSync } from "@/components/app/sync-provider";
 import { SyncIndicator } from "@/components/app/sync-indicator";
 import { AiActivity } from "@/components/coach/activity";
+import { CoachMemories } from "@/components/coach/memories";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { useActions } from "@/features/actions";
@@ -221,6 +222,10 @@ export function SettingsView() {
             />
             <p className="text-footnote text-label-secondary">{AUTONOMY_HELP[settings.aiAutonomy ?? "act_tell"]}</p>
           </div>
+        </Group>
+
+        <Group title="What the coach remembers">
+          <CoachMemories />
         </Group>
 
         <Group title="AI activity">

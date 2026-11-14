@@ -270,6 +270,20 @@ export const COACH_TOOLS = {
       focusGoalIds: z.array(id).max(3).optional(),
     }),
   },
+  set_must_dos: {
+    description:
+      "Set today's Must-dos (at most 3): the tasks that must get done today. Replaces the current Must-dos. Use during a Daily Plan once they've chosen.",
+    input: z.object({ taskIds: z.array(id).max(3) }),
+  },
+  complete_ritual: {
+    description:
+      "Mark today's Daily Plan or Shutdown as done after running it with them. For a Shutdown, pass a short note on how the day went and up to 3 wins in their words.",
+    input: z.object({
+      type: z.enum(["daily_plan", "daily_shutdown"]),
+      note: z.string().trim().max(1000).optional(),
+      wins: z.array(z.string().trim().min(1).max(200)).max(3).optional(),
+    }),
+  },
   remember: {
     description:
       "Save a short note about the user that will help later (a preference, context, what works for them). Only things they would be happy for you to remember; they can see and edit these notes.",
@@ -301,6 +315,8 @@ export const WRITE_TOOLS = new Set<CoachToolName>([
   "propose_plan",
   "break_down_task",
   "plan_cycle",
+  "set_must_dos",
+  "complete_ritual",
 ]);
 
 /** More changes than this in one reply need the user's OK first (PRD §10.5). */

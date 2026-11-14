@@ -30,7 +30,9 @@ export type WriteToolName =
   | "cancel_reminder"
   | "propose_plan"
   | "break_down_task"
-  | "plan_cycle";
+  | "plan_cycle"
+  | "set_must_dos"
+  | "complete_ritual";
 
 type Input<N extends WriteToolName> = z.infer<(typeof COACH_TOOLS)[N]["input"]>;
 
@@ -121,7 +123,22 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       ].filter(Boolean);
       return `Cycle ${p.cycleNumber}: ${parts.join(", ") || "set focus goals"}`;
     }
+    case "set_must_dos": {
+      const ids = (input as Input<"set_must_dos">).taskIds;
+      if (!ids.length) return "Clear today's Must-dos";
+      const titles = await Promise.all(ids.map((id) => titleOf(db, "tasks", id)));
+      return `Must-dos today: ${titles.map((t) => q(t)).join(", ")}`;
+    }
+    case "complete_ritual":
+      return (input as Input<"complete_ritual">).type === "daily_plan"
+        ? "Finish today's Daily Plan"
+        : "Close the day (Shutdown)";
   }
+}
+
+/** Today's day for the user. */
+async function todayFor(db: OrbitDB, userId: string, now: number) {
+  return todayOf((await loadSettings(db, userId)).timezone, now);
 }
 
 /** How many documents a call will create or change, for the bulk limit. */
@@ -303,6 +320,47 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       const patch = stripUndefined({ theme: p.theme, focusGoalIds: p.focusGoalIds });
       if (Object.keys(patch).length) await actions.updateCycle(cycle.id, patch);
       return { cycle: cycle.number, added: p.addTaskIds?.length ?? 0, removed: p.removeTaskIds?.length ?? 0 };
+    }
+    case "set_must_dos": {
+      const { taskIds } = input as Input<"set_must_dos">;
+      const day = await todayFor(db, userId, deps.now);
+      const chosen = new Set(taskIds);
+      for (const t of (await db.tasks.toArray()).filter((x) => x.mustDoDate === day && x.deletedAt == null)) {
+        if (!chosen.has(t.id)) await actions.setMustDo(withTaskDefaults(t), day, false);
+      }
+      for (const id of taskIds) {
+        const t = await task(id);
+        if (t.mustDoDate !== day) await actions.setMustDo(t, day, true);
+      }
+      return { day, mustDos: taskIds };
+    }
+    case "complete_ritual": {
+      const p = input as Input<"complete_ritual">;
+      const day = await todayFor(db, userId, deps.now);
+      const id = await actions.startRitual(p.type, day);
+      const r = await db.rituals.get(id);
+      if (r?.completedAt) return { already: "done today" };
+      if (p.type === "daily_plan") {
+        const mustDos = (await db.tasks.toArray())
+          .filter((t) => t.deletedAt == null && t.mustDoDate === day)
+          .map((t) => t.id);
+        await actions.completeRitual(id, { mustDos, viaCoach: true });
+      } else {
+        const planned = (await db.tasks.toArray()).filter(
+          (t) =>
+            t.deletedAt == null &&
+            !t.parentTaskId &&
+            (t.mustDoDate === day || t.scheduledDate === day || t.dueDate === day),
+        );
+        await actions.completeRitual(id, {
+          note: p.note ?? "",
+          wins: p.wins ?? [],
+          done: planned.filter((t) => t.status === "done").length,
+          planned: planned.length,
+          viaCoach: true,
+        });
+      }
+      return { completed: p.type };
     }
   }
 }

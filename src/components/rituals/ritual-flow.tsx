@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, Sparkles, X } from "lucide-react";
 import { AnimatePresence, motion, type PanInfo } from "motion/react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSync } from "@/components/app/sync-provider";
 import { Button } from "@/components/ui/button";
+import { askCoach } from "@/components/coach/coach-panel";
 import { useActions } from "@/features/actions";
 import { RITUAL_META, type Cycle, type RitualType } from "@/features/cycles/model";
 import type { RitualDoc } from "@/features/data";
@@ -16,6 +17,16 @@ import { Dialog as D } from "radix-ui";
 import { CycleReviewFlow } from "./cycle-review";
 import { DailyPlanFlow } from "./daily-plan";
 import { DailyShutdownFlow } from "./daily-shutdown";
+
+/** AI-6: running a ritual as a conversation instead of the step-by-step flow. */
+const COACH_PROMPTS = {
+  daily_plan:
+    "Let's do my Daily Plan together. Look at today, help me choose up to 3 Must-dos and a first step for each, then finish the Daily Plan.",
+  daily_shutdown:
+    "Let's do my Shutdown together. Look at what I planned and what got done today, ask me how it went, note a win or two, glance at tomorrow, then close the day.",
+  cycle_review:
+    "Help me reflect on this cycle: what got done, what slipped and why, and what to change next cycle. I'll make the decisions in the review itself.",
+} as const;
 
 export interface RitualStep {
   id: string;
@@ -196,6 +207,16 @@ export function RitualShell({
             />
           ))}
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            askCoach(COACH_PROMPTS[ritual.type]);
+          }}
+          className="flex h-9 items-center gap-1.5 rounded-full px-3 text-footnote font-semibold text-accent-text hover:bg-accent-fill"
+        >
+          <Sparkles className="size-4" aria-hidden /> With coach
+        </button>
         <button
           type="button"
           onClick={onClose}

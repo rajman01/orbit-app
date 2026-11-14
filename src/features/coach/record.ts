@@ -67,6 +67,8 @@ export async function undoChanges(engine: SyncEngine, changes: Change[]): Promis
     if (!doc) continue;
     if (c.before === null) {
       if (c.entity === "xpEvents") await engine.update("xpEvents", c.id, { amount: 0 });
+      // A ritual has one fixed id per day; deleting it would block that day's ritual for good.
+      else if (c.entity === "rituals") await engine.update("rituals", c.id, { completedAt: null });
       else await engine.remove(c.entity, c.id);
       continue;
     }

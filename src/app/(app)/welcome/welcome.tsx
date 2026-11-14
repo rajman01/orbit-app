@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, Sparkles, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -50,7 +50,7 @@ export function Welcome() {
     setStep(n);
   };
 
-  const finish = async (withGoal: boolean) => {
+  const finish = async (withGoal: boolean, withCoach = false) => {
     setBusy(true);
     await actions.ensurePresetAreas(areas);
     const colors = ["purple", "mint", "cyan", "yellow", "brown", "indigo"] as const;
@@ -63,7 +63,14 @@ export function Welcome() {
       cycleLengthDays: Number(cycle),
       onboardingCompletedAt: Date.now(),
     });
-    if (withGoal && goal.trim()) {
+    if (withCoach && goal.trim()) {
+      // ONB-3 with AI: the coach asks what it needs, then proposes a plan to review.
+      const areaId = areas.includes(goalArea) ? presetAreaId(user.id, goalArea) : null;
+      const prompt = `I've just set up Orbit. Help me turn my first goal into a plan: “${goal.trim()}”${
+        areaId ? ` (area id ${areaId})` : ""
+      }${firstStep.trim() ? `. A first step I had in mind: “${firstStep.trim()}”` : ""}. Ask me what you need, then propose a plan.`;
+      router.replace(`/coach?new=1&ask=${encodeURIComponent(prompt)}`);
+    } else if (withGoal && goal.trim()) {
       const areaId = areas.includes(goalArea) ? presetAreaId(user.id, goalArea) : null;
       const goalId = await actions.createGoal({ title: goal.trim(), areaId });
       if (firstStep.trim()) await actions.createTask({ title: firstStep.trim(), goalId, areaId, status: "todo" });
@@ -288,6 +295,16 @@ export function Welcome() {
                     </Button>
                   </div>
                 </form>
+                <Button
+                  type="button"
+                  variant="plain"
+                  size="large"
+                  disabled={busy || !goal.trim()}
+                  icon={<Sparkles className="size-4" />}
+                  onClick={() => void finish(false, true)}
+                >
+                  Plan it with the coach
+                </Button>
                 <button
                   type="button"
                   disabled={busy}

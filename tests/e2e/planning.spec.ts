@@ -10,8 +10,13 @@ async function waitForSynced(page: Page) {
 }
 
 async function quickAdd(page: Page, text: string) {
-  await page.locator("body").press("c");
-  const input = page.getByRole("textbox", { name: "New task" });
+  // The shortcut only works once the page has hydrated: press until quick add opens.
+  const dialog = page.getByRole("dialog", { name: "New task" });
+  await expect(async () => {
+    await page.locator("body").press("c");
+    await expect(dialog).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+  const input = dialog.getByRole("textbox", { name: "New task" });
   await input.fill(text);
   await input.press("Enter");
   await input.press("Escape");

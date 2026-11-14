@@ -13,6 +13,7 @@ import {
   Settings,
   Shapes,
   Sun,
+  Sparkles,
   Target,
   Trophy,
   X,
@@ -200,6 +201,7 @@ function QuickAddPanel({
   const { transition } = useOrbitMotion();
   const [text, setText] = useState("");
   const [count, setCount] = useState(0);
+  const router = useRouter();
   const parsed = useMemo(() => parseQuickAdd(text, { areas, goals, timezone }), [text, areas, goals, timezone]);
 
   const save = async (keepOpen: boolean) => {
@@ -275,7 +277,19 @@ function QuickAddPanel({
             </button>
           </span>
         ))}
-        {!parsed.tokens.length ? (
+        {text.trim().length > 60 ? (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              router.push(`/inbox?dump=${encodeURIComponent(text.trim())}`);
+            }}
+            className="inline-flex h-6 items-center gap-1 rounded-sm bg-accent-fill px-2 text-caption font-semibold text-accent-text"
+          >
+            <Sparkles className="size-3" aria-hidden /> Several things? Let the coach sort it
+          </button>
+        ) : null}
+        {!parsed.tokens.length && text.trim().length <= 60 ? (
           <span className="text-footnote text-label-tertiary">
             Try <Kbd>tomorrow</Kbd> <Kbd>!1</Kbd> <Kbd>#area</Kbd> <Kbd>+goal</Kbd>
           </span>
@@ -299,7 +313,9 @@ function QuickAddPanel({
     <motion.div
       {...rest}
       className="fixed top-[18%] left-1/2 z-50 w-[min(560px,calc(100vw-2rem))] rounded-xl p-4 shadow-3 material-popover outline-none"
-      style={{ x: "-50%" }}
+      // Keep the style Radix passes in (pointer-events: auto while the page is blocked);
+      // replacing it made every button in the panel unclickable with a mouse.
+      style={{ ...(rest as { style?: React.CSSProperties }).style, x: "-50%" }}
       initial={{ opacity: 0, scale: 0.98, y: -6 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98, y: -6 }}

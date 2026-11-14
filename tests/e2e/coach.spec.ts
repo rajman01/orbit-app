@@ -140,10 +140,12 @@ test("in Suggest only, the coach's change waits for Accept", async ({ page }, in
     await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
   } finally {
     await page.goto("/settings");
-    await page
+    const act = page
       .getByRole("radiogroup", { name: "What the coach may do" })
-      .getByRole("radio", { name: "Act and tell me" })
-      .click();
+      .getByRole("radio", { name: "Act and tell me" });
+    await act.click();
+    // Saved on this device first (then queued), and only then synced: other tests share this account.
+    await expect(act).toBeChecked();
     await waitForSynced(page);
   }
 });
@@ -198,4 +200,58 @@ test("Break down in the task panel asks the coach about that task", async ({ pag
   await page.getByRole("button", { name: "Break down with the coach" }).click();
   const coach = page.getByRole("dialog", { name: "Coach" });
   await expect(coach.getByText(new RegExp(`You said: Break down .*${title}`))).toBeVisible({ timeout: 15_000 });
+});
+
+test("a brain dump becomes tasks after review", async ({ page }) => {
+  const r = run();
+  await page.goto("/inbox");
+  await page.getByRole("button", { name: /Brain dump/ }).click();
+  const dump = page.getByRole("region", { name: "Brain dump" });
+  await dump.getByRole("textbox").fill(`Call the landlord ${r}\nBook dentist ${r}\nIdeas for the party ${r}`);
+  await dump.getByRole("button", { name: "Turn into tasks" }).click();
+  await expect(dump.getByText("3 tasks found")).toBeVisible({ timeout: 15_000 });
+  await dump.getByRole("checkbox", { name: `Keep Ideas for the party ${r}` }).click();
+  await dump.getByRole("button", { name: "Add 2 to Orbit" }).click();
+  await expect(page.getByRole("button", { name: `Open Call the landlord ${r}` })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Open Book dentist ${r}` })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Open Ideas for the party ${r}` })).toHaveCount(0);
+});
+
+test("long text in quick add can go to the brain dump", async ({ page }) => {
+  const r = run();
+  await page.goto("/upcoming");
+  await waitForSynced(page);
+  await page.keyboard.press("c");
+  const quickAdd = page.getByRole("dialog", { name: "New task" });
+  await expect(quickAdd).toBeVisible();
+  const input = quickAdd.getByRole("textbox", { name: "New task" });
+  const text = `email Sam about the trip ${r}, then renew passport and book the cat sitter`;
+  await input.fill(text);
+  await page.getByRole("button", { name: /Let the coach sort it/ }).click();
+  await expect(page).toHaveURL(/\/inbox\?dump=/);
+  await expect(page.getByRole("region", { name: "Brain dump" }).getByRole("textbox")).toHaveValue(text);
+});
+
+test("what the coach remembers can be added to, edited and forgotten", async ({ page }) => {
+  const r = run();
+  await page.goto("/settings");
+  const add = page.getByRole("textbox", { name: "Tell the coach something about you" });
+  await add.fill(`I train on Tuesdays ${r}`);
+  await add.press("Enter");
+  await expect(page.getByRole("button", { name: `Forget: I train on Tuesdays ${r}` })).toBeVisible();
+  await page.getByRole("button", { name: `Forget: I train on Tuesdays ${r}` }).click();
+  await expect(page.getByRole("button", { name: `Forget: I train on Tuesdays ${r}` })).toHaveCount(0);
+});
+
+test("a ritual can be run with the coach instead", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "The same button on both; once is enough");
+  await page.goto("/today");
+  await page
+    .getByRole("button", { name: /Plan your day/ })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "With coach" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Coach" }).getByText(/You said: Let's do my Daily Plan together/),
+  ).toBeVisible({ timeout: 15_000 });
 });

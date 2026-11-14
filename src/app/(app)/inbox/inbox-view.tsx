@@ -2,7 +2,9 @@
 
 import { ArrowRight, Inbox, Plus, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { BrainDump } from "@/components/coach/brain-dump";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { useCommands } from "@/components/app/commands";
 import { EmptyState } from "@/components/app/empty-state";
@@ -22,6 +24,8 @@ import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
 
 /** Inbox (PRD INB-1 – INB-4): everything captured, waiting for a decision. */
 export function InboxView() {
+  // Quick add sends long, messy text here (?dump=…) to be sorted by the coach.
+  const dump = useSearchParams().get("dump") ?? "";
   const tasks = useAllTasks();
   const inbox = (tasks ?? [])
     .filter((t) => t.status === "inbox" && !t.parentTaskId)
@@ -43,6 +47,7 @@ export function InboxView() {
         }
       />
       <PageBody>
+        {!triaging ? <BrainDump key={dump} initialText={dump} /> : null}
         {triaging && inbox.length ? (
           <Triage tasks={inbox} onDone={() => setTriaging(false)} />
         ) : tasks && !inbox.length ? (
