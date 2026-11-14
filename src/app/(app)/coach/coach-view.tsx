@@ -1,7 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { ChevronLeft, MessageSquare, SquarePen } from "lucide-react";
+import { ChevronLeft, MessageSquare, Sparkles, SquarePen } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import { SyncIndicator } from "@/components/app/sync-indicator";
@@ -65,12 +65,7 @@ export function CoachView() {
             {threads?.find((t) => t.id === threadId)?.title || "New chat"}
           </h2>
         </div>
-        <CoachConversation
-          threadId={threadId}
-          onThread={select}
-          autoFocus
-          prompt={prompt}
-        />
+        <CoachConversation threadId={threadId} onThread={select} autoFocus prompt={prompt} />
       </section>
     </div>
   );
@@ -106,7 +101,11 @@ function ThreadList({
             t.id === selected && "bg-accent-fill",
           )}
         >
-          <MessageSquare className="mt-0.5 size-4 shrink-0 text-label-tertiary" aria-hidden />
+          {t.id.startsWith("ck") ? (
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-accent" aria-label="Check-in from your coach" role="img" />
+          ) : (
+            <MessageSquare className="mt-0.5 size-4 shrink-0 text-label-tertiary" aria-hidden />
+          )}
           <span className="min-w-0 flex-1">
             <span className="block truncate text-body">{t.title || "Untitled"}</span>
             <span className="text-footnote text-label-tertiary">

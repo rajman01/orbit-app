@@ -9,6 +9,7 @@ import { clearCachedUser, useCurrentUser } from "@/components/app/auth-gate";
 import { useSync } from "@/components/app/sync-provider";
 import { SyncIndicator } from "@/components/app/sync-indicator";
 import { AiActivity } from "@/components/coach/activity";
+import { checkinsEnabled } from "@/features/coach/checkins";
 import { CoachMemories } from "@/components/coach/memories";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
@@ -222,6 +223,19 @@ export function SettingsView() {
             />
             <p className="text-footnote text-label-secondary">{AUTONOMY_HELP[settings.aiAutonomy ?? "act_tell"]}</p>
           </div>
+          <Row label="Check-ins">
+            <input
+              type="checkbox"
+              aria-label="Coach check-ins"
+              checked={checkinsEnabled(settings)}
+              onChange={(e) => save({ aiCheckins: e.target.checked })}
+              className="size-5 accent-[var(--accent)]"
+            />
+          </Row>
+          <p className="px-4 pb-3 text-footnote text-label-secondary">
+            The coach reaches out when you miss two days of rituals, keep avoiding a task, a goal goes off track, or a
+            cycle is behind at its midpoint, plus a summary at the end of your week. Never in quiet hours.
+          </p>
         </Group>
 
         <Group title="What the coach remembers">

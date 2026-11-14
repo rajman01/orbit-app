@@ -131,7 +131,11 @@ test("the reminder job only runs with its secret", async ({ request }) => {
   test.skip(!secret, "CRON_SECRET isn't set in .env.local");
   const res = await request.get("/api/cron/dispatch-reminders", { headers: { Authorization: `Bearer ${secret}` } });
   expect(res.status()).toBe(200);
-  expect(await res.json()).toEqual({ users: expect.any(Number), notifications: expect.any(Number) });
+  expect(await res.json()).toEqual({
+    users: expect.any(Number),
+    notifications: expect.any(Number),
+    checkins: expect.any(Number), // coach check-ins ride on the same job (Phase 2A.5)
+  });
 });
 
 test("weekly report and levels pages show where you stand", async ({ page }) => {

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | In progress — 2A.1–2A.3 deployed; 2A.4 built 2026-11-14 |
+| **Status** | Built — 2A.1–2A.4 deployed, 2A.5 built 2026-11-14; exit criterion to be confirmed by the owner with the live model |
 | **Depends on** | Phase 1 (deployed; two-cycle trial still running alongside) |
 | **PRD** | §10 (AI-1 – AI-9), §8.4, §10.5, ONB-3 |
 | **Design** | [DESIGN.md](../DESIGN.md) §11.5 (parallel panel), Sparkles badge for AI-made things |
@@ -83,7 +83,7 @@ Plan proposals (AI-2) use one `propose_plan` tool whose input is the whole goal 
 - [x] **2A.2 Acting safely:** write tools through `useActions()`, `aiActions` with snapshots, Undo, autonomy setting, confirm cards, activity feed, Sparkles badge
 - [x] **2A.3 Planning:** `propose_plan` with editable preview, break down a task, reminders by request, cycle planning assistant
 - [x] **2A.4 Rituals and capture:** coach-led Daily Plan / Shutdown / Review, quick-capture parsing (Haiku), memory screen, AI onboarding
-- [ ] **2A.5 Proactive:** check-ins and weekly summary from the reminder job (§8.4), delivered by push into a "Check-ins" thread
+- [x] **2A.5 Proactive:** check-ins and weekly summary from the reminder job (§8.4), delivered by push into a "Check-ins" thread
 - [ ] Tests, owner setup, deploy
 
 ## Tests
@@ -114,3 +114,5 @@ Plan proposals (AI-2) use one `propose_plan` tool whose input is the whole goal 
 | 2026-11-14 | 2A.4 rituals and capture: "With coach" in the header of every ritual runs it as a conversation; new tools `set_must_dos` (replaces today's Must-dos, ≤ 3) and `complete_ritual` (Daily Plan records today's Must-dos for the accountability score; Shutdown takes a note and up to 3 wins). Undoing a completed ritual reopens it instead of deleting it (one fixed id per day). Brain dump on the Inbox (AI-8): pasted text → Haiku 5.5 with structured output (`/api/coach/capture`, low effort, usage priced separately) → reviewed list (untick, rename) → tasks added (dated ones as To do, the rest to the Inbox); long text in quick add offers "Let the coach sort it". Settings → What the coach remembers (AI-9): add, edit, forget. Onboarding (ONB-3): "Plan it with the coach" on the first-goal step opens the coach with the goal |
 | 2026-11-14 | Bug found while testing (since Phase 1A): nothing in the desktop quick-add panel could be clicked with a mouse (Add, chip ✕): the panel replaced the style Radix passes in to re-enable pointer events while the page behind is blocked. Enter and ⌘Enter worked, which hid it. Styles are now merged; the quick-add browser test clicks inside the panel. Tests: 3 more unit (Must-dos + undo, Daily Plan complete/undo/redo, capture stand-in) and 4 browser (brain dump, quick add → brain dump, memories, ritual with coach) |
 | 2026-11-14 | Full suite clean: 77 passed, 17 skipped; 135 unit. Test fixes: the Suggest-only test now waits for its reset to "Act and tell me" to be saved before syncing (it shares the account with the phone run); the Inbox quick-add helper presses C until quick add opens (the Inbox renders a moment later now that it reads `?dump=`, which exposed a race with hydration). One unexplained timeout in the task-panel test in one full run; it passed alone (3/3), after the coach tests, after every desktop spec before it, and in the next full run |
+| 2026-11-14 | 2A.5 proactive check-ins (§8.4, AI-7): checked by the per-minute reminder job, 10:00–20:00 local and never in quiet hours; on by default except at Gentle (Settings → Coach → Check-ins overrides). Triggers: two days without a Daily Plan or Shutdown after a day with one (once per lapse); a task skipped as "avoiding it" twice (once per task); an active goal marked off track (once each time); a committed cycle past its midpoint with under half its points done (once per cycle); plus a weekly summary on the last day of the week from 18:00 with the week's facts (tasks and points done, skip reasons, most-moved tasks, rituals, XP). Haiku 5.5 writes the message from server-computed facts (plain template if no key, in tests, or on error). Each becomes its own coach conversation written through the sync server (`applyMutations`, deterministic ids) with a hidden opening message holding the facts, then a push that opens it; claims are kept in `coachCheckins` (no expiry) so nothing repeats. Check-ins never change data (§10.5). Tests: 5 unit (`tests/unit/checkins.test.ts`: every trigger and its limits, weekly facts, delivery on an in-memory MongoDB, once only). No browser test: check-ins depend on the time of day and several days of history |
+| 2026-11-14 | Full suite: 75 passed, 17 skipped; 140 unit. The reminder-job test failed on both sizes because the job's reply now also includes `checkins`; updated (2/2) |

@@ -2,6 +2,7 @@
 
 import { ArrowUp, BookOpen, NotebookPen, Search, Sparkles, Square, Sun, Target } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { CHECKIN_MARK } from "@/features/coach/protocol";
 import { WRITE_TOOLS, type CoachToolName } from "@/features/coach/tools";
 import { cn } from "@/lib/cn";
 import { ActionList } from "./action-card";
@@ -94,7 +95,11 @@ export function CoachConversation({
 /** Context messages and tool results are for the model, not the reader. */
 function isShown(m: StoredCoachMessage): boolean {
   if (m.role === "system") return false;
-  if (m.role === "user") return m.content.some((b) => b.type === "text");
+  if (m.role === "user") {
+    // A check-in's opening facts are for the model only.
+    if (m.content.some((b) => b.type === "text" && String(b.text).startsWith(CHECKIN_MARK))) return false;
+    return m.content.some((b) => b.type === "text");
+  }
   return m.content.some((b) => b.type === "text" || b.type === "tool_use");
 }
 

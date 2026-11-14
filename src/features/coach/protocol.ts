@@ -11,6 +11,12 @@ export const coachRequestSchema = z.object({
   messages: z.array(coachMessageSchema).min(1).max(600),
 });
 
+/**
+ * Starts the hidden opening message of a check-in thread (the facts the coach wrote from).
+ * The model reads it; the chat doesn't show it.
+ */
+export const CHECKIN_MARK = "[Orbit check-in]";
+
 /** Largest request body accepted (the device summarises or starts a new thread before this). */
 export const MAX_COACH_REQUEST_BYTES = 1_500_000;
 
