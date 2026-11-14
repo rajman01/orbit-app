@@ -363,7 +363,14 @@ export default function Landing() {
           <span className="flex items-center gap-2">
             <OrbitMark size={18} /> Orbit
           </span>
-          <span>Made for getting things done, not planning to.</span>
+          <span className="flex items-center gap-4">
+            <a href="/privacy" className="hover:text-label">
+              Privacy
+            </a>
+            <a href="/terms" className="hover:text-label">
+              Terms
+            </a>
+          </span>
         </div>
       </footer>
     </div>
