@@ -736,6 +736,20 @@ export function createActions(engine: SyncEngine, userId: string) {
     /** Which calendars Orbit shows (the only calendar field a device may change). */
     showCalendar: (id: string, selected: boolean) => engine.update("calendars", id, { selected }),
 
+    /** Sets time aside for a task (or just a title) — CAL-4. The server puts it on the Orbit calendar. */
+    blockTime: (fields: { taskId: string | null; title: string; start: number; end: number }) =>
+      engine.create("timeBlocks", {
+        taskId: fields.taskId,
+        title: fields.title.trim().slice(0, 500) || "Time block",
+        start: fields.start,
+        end: Math.max(fields.end, fields.start + 5 * 60_000),
+      }),
+    moveTimeBlock: (id: string, start: number, end: number) =>
+      engine.update("timeBlocks", id, { start, end: Math.max(end, start + 5 * 60_000) }),
+    renameTimeBlock: (id: string, title: string) =>
+      engine.update("timeBlocks", id, { title: title.trim().slice(0, 500) || "Time block" }),
+    deleteTimeBlock: (id: string) => engine.remove("timeBlocks", id),
+
     // ------------------------------------------------------------ coach (Phase 2A)
 
     createCoachThread: (title: string, at: number = now()) =>
@@ -767,6 +781,10 @@ export function createActions(engine: SyncEngine, userId: string) {
     async deleteTask(task: Task) {
       for (const sub of await db.tasks.where("parentTaskId").equals(task.id).toArray()) {
         await engine.remove("tasks", sub.id);
+      }
+      // Its time blocks go too (and come off the calendar).
+      for (const b of await db.timeBlocks.where("taskId").equals(task.id).toArray()) {
+        if (!b.deletedAt) await engine.remove("timeBlocks", b.id);
       }
       await engine.remove("tasks", task.id);
     },

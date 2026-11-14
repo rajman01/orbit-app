@@ -5,6 +5,7 @@ import { ulid } from "ulid";
 import { eventFields, WINDOW_AHEAD_DAYS, WINDOW_BACK_DAYS } from "@/features/calendar/model";
 import { applyMutations } from "@/lib/sync/server";
 import type { Mutation } from "@/lib/sync/protocol";
+import { blockLinks, blocksAccountId, syncBlocks } from "./blocks";
 import { decrypt, encrypt } from "./crypto";
 import { emailFromIdToken, google, GoogleAuthRevoked, SyncTokenExpired, type GoogleTokens } from "./google";
 
@@ -27,6 +28,14 @@ export interface CalendarAccount {
   /** Per Google calendar id: push channel. */
   channels: Record<string, { id: string; token: string; resourceId: string; expiration: number }>;
   dirty: boolean;
+  /** Another sync of this account is running until then. */
+  lockedUntil?: number;
+  /** The "Orbit" calendar Orbit created here for time blocks (2B.2), once there was one to write. */
+  orbitCalendarId?: string | null;
+  /** Time blocks pushed up to this sync version. */
+  blocksCursor?: number;
+  /** This account was taking time blocks at its last sync. */
+  blocksActive?: boolean;
   lastSyncAt: number | null;
   error: string | null;
   createdAt: number;
@@ -116,6 +125,19 @@ function webhookAddress(): string | null {
 /** Brings one account's calendars and events up to date. Never throws for one account's errors. */
 export async function syncAccount(db: Db, account: CalendarAccount, now = Date.now()): Promise<void> {
   const g = google();
+  // One sync per account at a time (a push from Google and a new time block can arrive together).
+  // Taking the lock clears `dirty`, so a change that comes in during this sync triggers another.
+  const locked = await accounts(db).findOneAndUpdate(
+    { _id: account._id, $or: [{ lockedUntil: { $exists: false } }, { lockedUntil: { $lt: Date.now() } }] },
+    { $set: { lockedUntil: Date.now() + 90_000, dirty: false } },
+    { returnDocument: "after" },
+  );
+  if (!locked) {
+    await accounts(db).updateOne({ _id: account._id }, { $set: { dirty: true } });
+    return;
+  }
+  account = locked;
+  let more = false;
   try {
     const token = await accessToken(db, account, now);
     const existing = await db
@@ -131,15 +153,16 @@ export async function syncAccount(db: Db, account: CalendarAccount, now = Date.n
     for (const c of remote) {
       const id = calendarDocId(account._id, c.id);
       docIds.set(c.id, id);
+      const isOrbit = c.id === account.orbitCalendarId;
       const fields: Record<string, unknown> = {
         accountId: account._id,
         provider: "google",
         name: (c.summary ?? "Calendar").slice(0, 300),
         color: (c.backgroundColor ?? "#8e8e93").slice(0, 20),
-        isOrbit: false,
+        isOrbit,
         readOnly: !["owner", "writer"].includes(c.accessRole),
       };
-      if (!selected.has(id)) fields.selected = Boolean(c.primary) || c.accessRole === "owner";
+      if (!selected.has(id)) fields.selected = isOrbit || Boolean(c.primary) || c.accessRole === "owner";
       changes.push(upsert("calendars", id, fields, now));
     }
     const remoteIds = new Set(docIds.values());
@@ -157,7 +180,9 @@ export async function syncAccount(db: Db, account: CalendarAccount, now = Date.n
 
     for (const c of remote) {
       const calId = docIds.get(c.id)!;
-      if (!shownIds.has(calId)) {
+      if (c.id === account.orbitCalendarId) {
+        // Its events are time blocks (synced below), not calendar events; it still gets a push channel.
+      } else if (!shownIds.has(calId)) {
         // Hidden: forget its events and stop listening.
         if (syncTokens[c.id] || channels[c.id]) {
           await dropEvents(db, account.userId, calId, now);
@@ -166,8 +191,9 @@ export async function syncAccount(db: Db, account: CalendarAccount, now = Date.n
           delete channels[c.id];
         }
         continue;
+      } else {
+        syncTokens[c.id] = await syncEvents(db, account.userId, token, c.id, calId, syncTokens[c.id], now);
       }
-      syncTokens[c.id] = await syncEvents(db, account.userId, token, c.id, calId, syncTokens[c.id], now);
       const address = webhookAddress();
       const ch = channels[c.id];
       if (address && (!ch || ch.expiration - now < 24 * 3600_000)) {
@@ -181,9 +207,37 @@ export async function syncAccount(db: Db, account: CalendarAccount, now = Date.n
           channels[c.id] = { id: channel.id, token: channel.token, resourceId: w.resourceId, expiration: w.expiration };
       }
     }
+
+    // Time blocks go to one account (2B.2). Switching accounts in Settings moves them all.
+    if ((await blocksAccountId(db, account.userId)) === account._id) {
+      if (!account.blocksActive) {
+        account.blocksCursor = 0;
+        await accounts(db).updateOne({ _id: account._id }, { $set: { blocksActive: true, blocksCursor: 0 } });
+      }
+      ({ more } = await syncBlocks({
+        db,
+        account,
+        token,
+        now,
+        remoteIds: new Set(remote.map((c) => c.id)),
+        syncTokens,
+        write: (m) => write(db, account.userId, m),
+        upsert,
+        remove,
+        calendarDocId: (googleId) => calendarDocId(account._id, googleId),
+      }));
+    } else if (account.blocksActive) {
+      for (const l of await blockLinks(db).find({ accountId: account._id }).toArray()) {
+        await g.deleteEvent(token, l.calendarId, l.eventId);
+      }
+      await blockLinks(db).deleteMany({ accountId: account._id });
+      await accounts(db).updateOne({ _id: account._id }, { $set: { blocksActive: false } });
+    }
     await accounts(db).updateOne(
       { _id: account._id },
-      { $set: { syncTokens, channels, dirty: false, lastSyncAt: now, error: null } },
+      {
+        $set: { syncTokens, channels, lastSyncAt: now, error: null, lockedUntil: 0, ...(more ? { dirty: true } : {}) },
+      },
     );
   } catch (err) {
     const error =
@@ -191,7 +245,7 @@ export async function syncAccount(db: Db, account: CalendarAccount, now = Date.n
         ? "Google disconnected Orbit. Connect again."
         : "Couldn't sync. Orbit will retry.";
     if (!(err instanceof GoogleAuthRevoked)) console.error("calendar sync failed", err);
-    await accounts(db).updateOne({ _id: account._id }, { $set: { dirty: false, lastSyncAt: now, error } });
+    await accounts(db).updateOne({ _id: account._id }, { $set: { lastSyncAt: now, error, lockedUntil: 0 } });
   }
 }
 
@@ -295,7 +349,10 @@ export async function disconnectAccount(db: Db, userId: string, accountId: strin
     userId,
     cals.map((c) => remove("calendars", String(c._id), now)),
   );
+  // Time blocks stay in Orbit; they're written to the next blocks account from scratch.
+  await blockLinks(db).deleteMany({ userId, accountId });
   await accounts(db).deleteOne({ _id: accountId, userId });
+  await resetBlocksCursor(db, userId);
   return true;
 }
 
@@ -322,4 +379,18 @@ export async function markChannelDirty(db: Db, channelId: string, channelToken: 
     }
   }
   return null;
+}
+
+/** Every time block is pushed again (to whichever account now takes them). */
+export async function resetBlocksCursor(db: Db, userId: string) {
+  await accounts(db).updateMany({ userId }, { $set: { blocksCursor: 0, dirty: true } });
+}
+
+/** A device just changed time blocks: sync the account they go to now, rather than next minute. */
+export async function syncBlocksNow(db: Db, userId: string) {
+  const id = await blocksAccountId(db, userId);
+  if (!id) return;
+  await accounts(db).updateOne({ _id: id }, { $set: { dirty: true } });
+  const a = await accounts(db).findOne({ _id: id });
+  if (a) await syncAccount(db, a);
 }

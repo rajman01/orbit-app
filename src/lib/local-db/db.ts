@@ -62,5 +62,7 @@ export function openLocalDb(userId: string): OrbitDB {
   db.version(7).stores({ aiActions: "id, threadId, toolUseId, at" });
   // Phase 2B: calendars and their events (written by the server).
   db.version(8).stores({ calendars: "id, accountId", calendarEvents: "id, calendarId, start, startDay" });
+  // Phase 2B.2: time blocks.
+  db.version(9).stores({ timeBlocks: "id, taskId, start" });
   return db;
 }

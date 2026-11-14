@@ -110,3 +110,14 @@ export function instantAt(day: Day, time: string, timezone: string): number {
   t = wall - offsetMinutes(t, timezone) * 60_000;
   return t;
 }
+
+/** Minutes since local midnight of `instant` in `timezone` (0–1439; DST days can be shorter or longer). */
+export function minutesOfDay(instant: number, timezone: string): number {
+  return Math.round((instant - instantAt(dayOf(instant, timezone), "00:00", timezone)) / 60_000);
+}
+
+/** `HH:MM` wall-clock time of an instant in a timezone. */
+export function timeOf(instant: number, timezone: string): string {
+  const m = minutesOfDay(instant, timezone);
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}

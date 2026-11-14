@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  CalendarClock,
   CalendarDays,
   CalendarSync,
   Repeat,
@@ -16,6 +17,7 @@ import {
 export const NAV_MAIN = [
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/today", label: "Today", icon: Sun },
+  { href: "/calendar", label: "Calendar", icon: CalendarClock },
   { href: "/coach", label: "Coach", icon: Sparkles },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/tasks", label: "Tasks", icon: LayoutList },
@@ -27,6 +29,7 @@ export const NAV_MAIN = [
 ] as const;
 
 export const NAV_MORE = [
+  { href: "/calendar", label: "Calendar", icon: CalendarClock },
   { href: "/coach", label: "Coach", icon: Sparkles },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/habits", label: "Habits", icon: Repeat },

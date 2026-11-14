@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
+import { useSettings } from "@/features/data";
 
 interface Account {
   id: string;
@@ -37,6 +38,7 @@ export function CalendarSettings() {
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
   const [disconnecting, setDisconnecting] = useState<Account | null>(null);
+  const { blocksAccountId } = useSettings();
   const calendars = useLiveQuery(
     async () =>
       (await db.calendars.toArray()).filter((c) => c.deletedAt == null).sort((a, b) => a.name.localeCompare(b.name)),
@@ -151,7 +153,7 @@ export function CalendarSettings() {
           </div>
           <ul className="flex flex-col pl-6" aria-label="Calendars to show">
             {(calendars ?? [])
-              .filter((c) => c.accountId === a.id)
+              .filter((c) => c.accountId === a.id && !c.isOrbit)
               .map((c) => (
                 <li key={c.id}>
                   <label className="flex min-h-9 items-center gap-2.5 text-body">
@@ -170,6 +172,29 @@ export function CalendarSettings() {
           </ul>
         </div>
       ))}
+      {state && state.accounts.length > 1 ? (
+        <label className="flex items-center gap-3 px-4 py-3 text-body">
+          <span className="flex-1">Time blocks go to</span>
+          <select
+            aria-label="Account for time blocks"
+            value={
+              state.accounts.some((a) => a.id === blocksAccountId) ? (blocksAccountId as string) : state.accounts[0].id
+            }
+            onChange={(e) => void actions.saveSettings({ blocksAccountId: e.target.value })}
+            className="h-9 max-w-[60%] truncate rounded-md bg-fill px-2 text-callout"
+          >
+            {state.accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.email}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : state?.accounts.length ? (
+        <p className="px-4 pb-1 text-footnote text-label-secondary">
+          Time blocks go to an &ldquo;Orbit&rdquo; calendar in this account.
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">
         {/* A plain link: the server redirects to Google's consent screen. */}
         <a

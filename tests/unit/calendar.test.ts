@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { agenda, eventFields, onDay } from "@/features/calendar/model";
 import { decrypt, encrypt } from "@/lib/calendar/crypto";
 import { fakeGoogleState } from "@/lib/calendar/google";
+import { blockLinks } from "@/lib/calendar/blocks";
 import { accounts, connectGoogle, disconnectAccount, markChannelDirty, syncAccount } from "@/lib/calendar/server";
 import { applyMutations } from "@/lib/sync/server";
 
@@ -187,5 +188,88 @@ describe("Google calendar sync (server, fake Google)", () => {
     expect(await accounts(db).countDocuments({ userId })).toBe(0);
     expect(await live("calendars")).toHaveLength(0);
     expect(await live("calendarEvents")).toHaveLength(0);
+  });
+  it("time blocks go to an Orbit calendar, and moves and deletes come back both ways", async () => {
+    const user = "user0000000002";
+    const id = await connectGoogle(db, user, {
+      access_token: "fake-access-blocks",
+      refresh_token: "fake-refresh-blocks",
+      expires_in: 3600,
+      id_token: `x.${Buffer.from(JSON.stringify({ email: "blocks@gmail.example" })).toString("base64url")}.x`,
+    });
+    const sync = async () => syncAccount(db, (await accounts(db).findOne({ _id: id }))!);
+    const blocks = () => db.collection("timeBlocks").find({ userId: user, deletedAt: null }).toArray();
+    const mutation = (entityId: string, fields: object | null) => ({
+      mutationId: `m${Math.random().toString(36).slice(2, 14)}`,
+      entity: "timeBlocks" as const,
+      entityId,
+      op: fields ? ("upsert" as const) : ("delete" as const),
+      ...(fields ? { fields: fields as Record<string, unknown> } : {}),
+      clientTime: Date.now(),
+    });
+    await sync();
+    expect((await accounts(db).findOne({ _id: id }))!.orbitCalendarId ?? null).toBeNull(); // made only when needed
+
+    // A block made on a device lands in a new "Orbit" calendar.
+    const start = Date.parse("2026-11-20T09:00:00Z");
+    await applyMutations(db, user, [
+      mutation("block00000001", { taskId: null, title: "Write report", start, end: start + 3600_000 }),
+    ]);
+    await sync();
+    const orbitCal = (await accounts(db).findOne({ _id: id }))!.orbitCalendarId!;
+    expect(orbitCal).toBeTruthy();
+    const events = () => fakeGoogleState.events.get(orbitCal)!.filter((e) => e.status !== "cancelled");
+    expect(events().map((e) => [e.summary, e.start?.dateTime])).toEqual([["Write report", "2026-11-20T09:00:00.000Z"]]);
+    const cal = await db.collection("calendars").findOne({ userId: user, isOrbit: true });
+    expect(cal?.name).toBe("Orbit");
+    await sync(); // nothing changed: nothing written again
+    expect(fakeGoogleState.events.get(orbitCal)).toHaveLength(1);
+
+    // Dragged in Google an hour later: the block moves in Orbit.
+    const ev = events()[0];
+    Object.assign(ev, {
+      start: { dateTime: "2026-11-20T10:00:00.000Z" },
+      end: { dateTime: "2026-11-20T11:30:00.000Z" },
+      updated: new Date(Date.now() + 1000).toISOString(),
+    });
+    fakeGoogleState.version++;
+    await new Promise((r) => setTimeout(r, 5));
+    await sync();
+    expect((await blocks()).map((b) => [b.start, b.end])).toEqual([
+      [Date.parse("2026-11-20T10:00:00Z"), Date.parse("2026-11-20T11:30:00Z")],
+    ]);
+
+    // Moved in Orbit afterwards: Google follows.
+    await new Promise((r) => setTimeout(r, 5));
+    await applyMutations(db, user, [mutation("block00000001", { start: start + 7200_000, end: start + 10800_000 })]);
+    await sync();
+    expect(events()[0].start?.dateTime).toBe("2026-11-20T11:00:00.000Z");
+
+    // An event added to the Orbit calendar in Google becomes a block of its own.
+    fakeGoogleState.events.get(orbitCal)!.push({
+      id: "ev-made-in-google",
+      status: "confirmed",
+      summary: "Deep work",
+      start: { dateTime: "2026-11-21T08:00:00Z" },
+      end: { dateTime: "2026-11-21T09:00:00Z" },
+      updated: new Date().toISOString(),
+    });
+    fakeGoogleState.version++;
+    await sync();
+    expect((await blocks()).map((b) => b.title).sort()).toEqual(["Deep work", "Write report"]);
+    // Orbit calendar events never show up as ordinary calendar events.
+    expect(await db.collection("calendarEvents").countDocuments({ userId: user, title: "Deep work" })).toBe(0);
+
+    // Deleted in Google: gone from Orbit. Deleted in Orbit: gone from Google.
+    const deep = fakeGoogleState.events.get(orbitCal)!.find((e) => e.id === "ev-made-in-google")!;
+    Object.assign(deep, { status: "cancelled", updated: new Date(Date.now() + 1000).toISOString() });
+    fakeGoogleState.version++;
+    await sync();
+    expect((await blocks()).map((b) => b.title)).toEqual(["Write report"]);
+    await applyMutations(db, user, [mutation("block00000001", null)]);
+    await sync();
+    expect(events()).toHaveLength(0);
+    expect(await blocks()).toHaveLength(0);
+    expect(await blockLinks(db).countDocuments({ userId: user })).toBe(0);
   });
 });

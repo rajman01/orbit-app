@@ -4,7 +4,8 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { MapPin } from "lucide-react";
 import { useSync } from "@/components/app/sync-provider";
 import { SectionLabel } from "@/components/tasks/task-list";
-import { agenda, type CalendarEvent } from "@/features/calendar/model";
+import { agenda, type CalendarEvent, type TimeBlock } from "@/features/calendar/model";
+import { useTaskPanel } from "@/components/tasks/task-panel";
 import { useSettings } from "@/features/data";
 import { useMinuteNow, useToday } from "@/features/use-today";
 import { addDays, type Day } from "@/lib/dates";
@@ -32,6 +33,20 @@ export function useCalendarEvents(from: Day, to: Day): ShownEvent[] | undefined 
   }, [db, from, to]);
 }
 
+/** Time blocks overlapping [from, to) days (CAL-4). */
+export function useTimeBlocks(from: Day, to: Day): TimeBlock[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => {
+    const lo = Date.parse(`${addDays(from, -1)}T00:00:00Z`);
+    const hi = Date.parse(`${addDays(to, 1)}T00:00:00Z`);
+    const rows = await db.timeBlocks.where("start").below(hi).toArray();
+    return rows.filter((b) => b.deletedAt == null && b.end > lo).sort((a, b) => a.start - b.start);
+  }, [db, from, to]);
+}
+
+/** The colour time blocks use everywhere (they live on the Orbit calendar). */
+export const BLOCK_COLOR = "var(--accent)";
+
 export const clock = (ms: number, timezone: string) =>
   new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: timezone });
 
@@ -46,9 +61,23 @@ export function TodayAgenda() {
   const todayDay = useToday();
   const { timezone } = useSettings();
   const now = useMinuteNow();
+  const panel = useTaskPanel();
   const events = useCalendarEvents(todayDay, addDays(todayDay, 1));
-  if (!events?.length) return null;
-  const today = agenda(events, todayDay, timezone);
+  const blocks = useTimeBlocks(todayDay, addDays(todayDay, 1));
+  const items = [
+    ...(events ?? []),
+    ...(blocks ?? []).map((b) => ({
+      ...b,
+      allDay: false,
+      startDay: null,
+      endDay: null,
+      color: BLOCK_COLOR,
+      location: null,
+      status: "confirmed" as const,
+      block: true,
+    })),
+  ];
+  const today = agenda(items, todayDay, timezone);
   if (!today.length) return null;
   return (
     <section aria-label="Calendar today" className="mb-4">
@@ -72,7 +101,14 @@ export function TodayAgenda() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className={cn("block truncate text-body", happening && "font-semibold")}>
-                  {e.title}
+                  {"block" in e && e.taskId ? (
+                    <button type="button" className="text-left hover:underline" onClick={() => panel.open(e.taskId!)}>
+                      {e.title}
+                    </button>
+                  ) : (
+                    e.title
+                  )}
+                  {"block" in e ? <span className="text-label-tertiary"> · Time block</span> : null}
                   {e.status === "tentative" ? <span className="text-label-tertiary"> (maybe)</span> : null}
                 </span>
                 {e.location ? (

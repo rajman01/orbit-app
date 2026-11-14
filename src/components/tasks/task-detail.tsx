@@ -6,6 +6,7 @@ import { currentCycle } from "@/features/cycles/model";
 import { useFocus } from "@/components/focus/focus-mode";
 import { useSkipFlow } from "@/components/skip/skip-flow";
 import { useTaskPanel } from "./task-panel";
+import { TaskTimeBlocks } from "@/components/calendar/block-time";
 import { useState } from "react";
 import { IconButton } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -218,6 +219,7 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
         />
       </label>
 
+      {!task.parentTaskId ? <TaskTimeBlocks task={task} /> : null}
       {!task.parentTaskId ? <Subtasks task={task} /> : null}
       <FocusSummary taskId={task.id} />
       <History taskId={task.id} todayDay={todayDay} />

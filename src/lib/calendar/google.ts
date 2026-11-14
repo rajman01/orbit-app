@@ -38,7 +38,22 @@ export interface GoogleEvent {
   start?: { date?: string; dateTime?: string; timeZone?: string };
   end?: { date?: string; dateTime?: string; timeZone?: string };
   transparency?: string;
+  /** RFC 3339: when the event last changed (used for last-write-wins with Orbit). */
+  updated?: string;
+  extendedProperties?: { private?: Record<string, string> };
 }
+
+/** What Orbit writes for a time block. */
+export interface EventBody {
+  summary: string;
+  description?: string;
+  start: { dateTime: string; timeZone?: string };
+  end: { dateTime: string; timeZone?: string };
+  extendedProperties?: { private: Record<string, string> };
+}
+
+/** Thrown when an event or calendar is gone (404/410 on a single resource). */
+export class GoogleNotFound extends Error {}
 
 export interface EventPage {
   items: GoogleEvent[];
@@ -68,6 +83,11 @@ export interface GoogleApi {
   ): Promise<{ resourceId: string; expiration: number }>;
   stopChannel(accessToken: string, channelId: string, resourceId: string): Promise<void>;
   revoke(token: string): Promise<void>;
+  /** Creates a secondary calendar owned by Orbit (scope calendar.app.created). */
+  insertCalendar(accessToken: string, summary: string, timeZone: string): Promise<{ id: string }>;
+  insertEvent(accessToken: string, calendarId: string, body: EventBody): Promise<GoogleEvent>;
+  patchEvent(accessToken: string, calendarId: string, eventId: string, body: EventBody): Promise<GoogleEvent>;
+  deleteEvent(accessToken: string, calendarId: string, eventId: string): Promise<void>;
 }
 
 const API = "https://www.googleapis.com/calendar/v3";
@@ -173,22 +193,74 @@ const realGoogle: GoogleApi = {
       () => {},
     );
   },
+  async insertCalendar(accessToken, summary, timeZone) {
+    return json(
+      await fetch(`${API}/calendars`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ summary, timeZone }),
+      }),
+    );
+  },
+  async insertEvent(accessToken, calendarId, body) {
+    return one(
+      await fetch(`${API}/calendars/${encodeURIComponent(calendarId)}/events`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+  },
+  async patchEvent(accessToken, calendarId, eventId, body) {
+    return one(
+      await fetch(`${API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+  },
+  async deleteEvent(accessToken, calendarId, eventId) {
+    const res = await fetch(
+      `${API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (res.ok || res.status === 404 || res.status === 410) return; // already gone
+    await json(res);
+  },
 };
+
+/** A single resource: 404/410 means it's gone (not an expired sync token). */
+async function one<T>(res: Response): Promise<T> {
+  if (res.status === 404 || res.status === 410) throw new GoogleNotFound(await res.text().catch(() => ""));
+  return json(res);
+}
 
 // ---------------------------------------------------------------- fake (tests)
 
 const DAY = 86_400_000;
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-/** Two calendars; a few events around "today" (UTC). Tests can add or change events. */
-export const fakeGoogleState = {
+/**
+ * Two calendars; a few events around "today" (UTC). Tests can add or change events. Kept on
+ * globalThis: Next bundles each route separately, and they must all see one fake Google.
+ */
+type FakeState = {
+  calendars: (GoogleCalendar & { owner?: string })[];
+  events: Map<string, GoogleEvent[]>;
+  version: number;
+  seq: number;
+};
+const g = globalThis as unknown as { __orbitFakeGoogle?: FakeState };
+export const fakeGoogleState: FakeState = (g.__orbitFakeGoogle ??= {
   calendars: [
     { id: "primary-cal", summary: "Personal", backgroundColor: "#4285f4", primary: true, accessRole: "owner" },
     { id: "work-cal", summary: "Work", backgroundColor: "#0b8043", accessRole: "owner" },
-  ] as GoogleCalendar[],
-  events: new Map<string, GoogleEvent[]>(),
+  ],
+  events: new Map(),
   version: 0,
-};
+  seq: 0,
+});
 
 function seedFakeEvents() {
   if (fakeGoogleState.events.size) return;
@@ -223,14 +295,15 @@ function seedFakeEvents() {
 
 const fakeGoogle: GoogleApi = {
   authUrl: (state, redirectUri) => `${redirectUri}?code=fake-code&state=${encodeURIComponent(state)}`,
+  // Each connection gets its own tokens, so calendars Orbit creates stay with that account.
   exchangeCode: async () => ({
-    access_token: "fake-access",
-    refresh_token: "fake-refresh",
+    access_token: `fake-access-${++fakeGoogleState.seq}`,
+    refresh_token: `fake-refresh-${fakeGoogleState.seq}`,
     expires_in: 3600,
     id_token: `x.${Buffer.from(JSON.stringify({ email: "you@gmail.example" })).toString("base64url")}.x`,
   }),
-  refresh: async () => ({ access_token: "fake-access", expires_in: 3600 }),
-  listCalendars: async () => fakeGoogleState.calendars,
+  refresh: async (refreshToken) => ({ access_token: refreshToken.replace("refresh", "access"), expires_in: 3600 }),
+  listCalendars: async (token) => fakeGoogleState.calendars.filter((c) => !c.owner || c.owner === token),
   async listEvents(_token, calendarId, opts) {
     seedFakeEvents();
     // A sync token from this fake is the version it was issued at; everything is returned again.
@@ -243,6 +316,42 @@ const fakeGoogle: GoogleApi = {
   watch: async () => ({ resourceId: "fake-resource", expiration: Date.now() + 7 * DAY }),
   stopChannel: async () => {},
   revoke: async () => {},
+  async insertCalendar(token, summary) {
+    const id = `orbit-cal-${++fakeGoogleState.seq}`;
+    fakeGoogleState.calendars = [
+      ...fakeGoogleState.calendars,
+      { id, summary, backgroundColor: "#ff9500", accessRole: "owner", owner: token },
+    ];
+    fakeGoogleState.events.set(id, []);
+    return { id };
+  },
+  async insertEvent(_token, calendarId, body) {
+    const list = fakeGoogleState.events.get(calendarId);
+    if (!list) throw new GoogleNotFound(calendarId);
+    const e: GoogleEvent = {
+      id: `ev${++fakeGoogleState.seq}`,
+      status: "confirmed",
+      updated: new Date().toISOString(),
+      ...body,
+    };
+    list.push(e);
+    fakeGoogleState.version++;
+    return e;
+  },
+  async patchEvent(_token, calendarId, eventId, body) {
+    const list = fakeGoogleState.events.get(calendarId) ?? [];
+    const i = list.findIndex((e) => e.id === eventId && e.status !== "cancelled");
+    if (i < 0) throw new GoogleNotFound(eventId);
+    list[i] = { ...list[i], ...body, updated: new Date().toISOString() };
+    fakeGoogleState.version++;
+    return list[i];
+  },
+  async deleteEvent(_token, calendarId, eventId) {
+    const list = fakeGoogleState.events.get(calendarId) ?? [];
+    const i = list.findIndex((e) => e.id === eventId);
+    if (i >= 0) list[i] = { ...list[i], status: "cancelled", updated: new Date().toISOString() };
+    fakeGoogleState.version++;
+  },
 };
 
 export function google(): GoogleApi {

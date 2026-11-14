@@ -73,6 +73,8 @@ export const entitySchemas = {
     aiAutonomy: z.enum(["suggest", "act_tell", "act_silent"]).optional(),
     /** Phase 2A: proactive check-ins from the coach (§8.4). */
     aiCheckins: z.boolean().optional(),
+    /** Phase 2B.2: the calendar account time blocks go to (null: the first one connected). */
+    blocksAccountId: z.string().max(60).nullable().optional(),
     strictness: z.enum(["gentle", "firm", "strict"]),
     onboardingCompletedAt: ms.nullable(),
   }),
@@ -331,6 +333,16 @@ export const entitySchemas = {
     status: z.enum(["confirmed", "tentative"]),
     link: z.string().max(2000).nullable(),
   }),
+  /**
+   * Phase 2B.2: time set aside for a task (CAL-4). Made on any device; the server mirrors each one
+   * to the "Orbit" calendar, and a block moved or deleted there comes back here.
+   */
+  timeBlocks: z.object({
+    taskId: ref,
+    title: z.string().trim().min(1).max(500),
+    start: ms,
+    end: ms,
+  }),
   /** What the coach remembers about the user (AI-9); visible and editable. */
   aiMemories: z.object({
     text: z.string().trim().min(1).max(500),
@@ -394,4 +406,5 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   aiMessages: { threadId: "aiThreads" },
   aiActions: { threadId: "aiThreads" },
   calendarEvents: { calendarId: "calendars" },
+  timeBlocks: { taskId: "tasks" },
 };

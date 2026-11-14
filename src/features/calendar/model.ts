@@ -1,9 +1,10 @@
 import type { EntityFields, SyncedDoc } from "@/lib/sync/entities";
-import { addDays, dayOf, type Day } from "@/lib/dates";
+import { addDays, dayOf, instantAt, minutesOfDay, type Day } from "@/lib/dates";
 
 export type CalendarDoc = SyncedDoc<"calendars">;
 export type CalendarEvent = SyncedDoc<"calendarEvents">;
 export type EventFields = EntityFields<"calendarEvents">;
+export type TimeBlock = SyncedDoc<"timeBlocks">;
 
 /** Events kept in Orbit: two weeks back, three months ahead (docs/phases/phase-2b.md, decision 5). */
 export const WINDOW_BACK_DAYS = 14;
@@ -66,4 +67,83 @@ export function agenda<E extends Pick<CalendarEvent, "allDay" | "start" | "end" 
   return events
     .filter((e) => onDay(e, day, timezone))
     .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start - b.start || a.title.localeCompare(b.title));
+}
+
+// ---------------------------------------------------------------- time blocks (2B.2)
+
+/** Default block length for a task's effort (points → minutes). */
+export function blockMinutes(effort: number | null | undefined): number {
+  return ({ 1: 30, 2: 60, 3: 90, 5: 120, 8: 180 } as Record<number, number>)[effort ?? 0] ?? 60;
+}
+
+/** Blocks snap to quarter hours. */
+export const SNAP_MINUTES = 15;
+
+/** The next quarter hour from now, as a day and minutes after midnight. */
+export function nextSlot(now: number, timezone: string): { day: Day; minutes: number } {
+  const day = dayOf(now, timezone);
+  const m = Math.ceil(minutesOfDay(now, timezone) / SNAP_MINUTES) * SNAP_MINUTES;
+  return m >= 24 * 60 ? { day: addDays(day, 1), minutes: 9 * 60 } : { day, minutes: m };
+}
+
+/** The instant `minutes` after local midnight on `day` (minutes may run past midnight). */
+export function atMinutes(day: Day, minutes: number, timezone: string): number {
+  const extraDays = Math.floor(minutes / 1440);
+  const m = minutes - extraDays * 1440;
+  const hhmm = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  return instantAt(addDays(day, extraDays), hhmm, timezone);
+}
+
+export interface Placed<T> {
+  item: T;
+  /** Minutes after local midnight, clipped to the day. */
+  top: number;
+  bottom: number;
+  /** Side-by-side position when items overlap. */
+  col: number;
+  cols: number;
+}
+
+/**
+ * Timed items on one day of a time grid: clipped to the day, and overlapping ones placed side by
+ * side (each cluster of overlaps shares its column count).
+ */
+export function placeOnDay<T extends { start: number; end: number }>(
+  items: T[],
+  day: Day,
+  timezone: string,
+): Placed<T>[] {
+  const dayStart = instantAt(day, "00:00", timezone);
+  const dayEnd = instantAt(addDays(day, 1), "00:00", timezone);
+  const placed = items
+    .filter((i) => i.start < dayEnd && Math.max(i.end, i.start + 1) > dayStart)
+    .map((item) => ({
+      item,
+      top: Math.max(0, Math.round((item.start - dayStart) / 60_000)),
+      bottom: Math.min(Math.round((dayEnd - dayStart) / 60_000), Math.round((item.end - dayStart) / 60_000)),
+      col: 0,
+      cols: 1,
+    }))
+    .map((p) => ({ ...p, bottom: Math.max(p.bottom, p.top + SNAP_MINUTES) }))
+    .sort((a, b) => a.top - b.top || b.bottom - a.bottom);
+
+  let cluster: typeof placed = [];
+  let clusterEnd = -1;
+  const columnsEnd: number[] = [];
+  const close = () => {
+    for (const p of cluster) p.cols = columnsEnd.length;
+    cluster = [];
+    columnsEnd.length = 0;
+  };
+  for (const p of placed) {
+    if (p.top >= clusterEnd) close();
+    let col = columnsEnd.findIndex((end) => end <= p.top);
+    if (col < 0) col = columnsEnd.push(0) - 1;
+    columnsEnd[col] = p.bottom;
+    p.col = col;
+    cluster.push(p);
+    clusterEnd = Math.max(clusterEnd, p.bottom);
+  }
+  close();
+  return placed;
 }
