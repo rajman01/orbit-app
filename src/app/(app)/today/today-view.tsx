@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { EmptyState } from "@/components/app/empty-state";
+import { NotificationBell } from "@/components/notifications/bell";
 import { ClearSkyScene } from "@/components/app/scenes";
 import { useSkipFlow } from "@/components/skip/skip-flow";
 import { SectionLabel, TaskList, useTaskLookups } from "@/components/tasks/task-list";
@@ -100,7 +101,11 @@ export function TodayView() {
 
   return (
     <>
-      <PageHeader title="Today" subtitle={longDayLabel(todayDay)} />
+      <PageHeader
+        title="Today"
+        subtitle={longDayLabel(todayDay)}
+        actions={<NotificationBell className="size-9 lg:hidden" />}
+      />
       <PageBody>
         <RitualCards />
         <PushPrompt />

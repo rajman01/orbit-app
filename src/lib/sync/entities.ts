@@ -469,6 +469,33 @@ export const entitySchemas = {
     text: z.string().trim().min(1).max(500),
     doneAt: ms.nullable(),
   }),
+  /** Phase 2D.5 (CMD-4): the Tasks page's filters, saved under a name. */
+  savedViews: z.object({
+    name: z.string().trim().min(1).max(60),
+    filters: z.object({
+      areaId: ref,
+      goalId: ref,
+      priorities: z.array(z.enum(PRIORITIES)).max(5),
+      /** any; in the current cycle; in no cycle. */
+      cycle: z.enum(["any", "current", "none"]),
+      showDone: z.boolean(),
+      groupBy: z.enum(["status", "priority", "area", "goal", "none"]),
+      view: z.enum(["list", "board"]),
+    }),
+    order: z.number(),
+  }),
+  /** Phase 2D.5 (NOT-5): what Orbit sent, written by the server; devices only mark it read. */
+  notifications: z.object({
+    title: z.string().max(200),
+    body: z.string().max(500),
+    url: z.string().max(300),
+    tag: z.string().max(100),
+    /** What it's about, for actions (NOT-3): a habit or a reminder, with its id. */
+    kind: z.enum(["plan", "shutdown", "review", "habit", "quarter", "date", "reminder", "other"]),
+    ref: z.string().max(40).nullable(),
+    sentAt: ms,
+    readAt: ms.nullable(),
+  }),
   /** What the coach remembers about the user (AI-9); visible and editable. */
   aiMemories: z.object({
     text: z.string().trim().min(1).max(500),
@@ -486,6 +513,7 @@ export type EntityName = keyof typeof entitySchemas;
 export const DEVICE_WRITABLE: Partial<Record<EntityName, ReadonlySet<string>>> = {
   calendars: new Set(["selected"]),
   calendarEvents: new Set(),
+  notifications: new Set(["readAt"]),
 };
 export const ENTITY_NAMES = Object.keys(entitySchemas) as [EntityName, ...EntityName[]];
 

@@ -23,6 +23,8 @@ import {
   UserPlus,
   Users,
   X,
+  Bell,
+  ListFilter,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
@@ -36,7 +38,7 @@ import { Kbd } from "@/components/ui/pill";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
-import { useAllTasks, useAreas, useGoals, usePeople, useSettings } from "@/features/data";
+import { useAllTasks, useAreas, useGoals, usePeople, useSavedViews, useSettings } from "@/features/data";
 import { PersonAvatar } from "@/components/people/avatar";
 import { parseQuickAdd, type QuickAddToken } from "@/features/quick-add/parse";
 import { isOpen, taskCode, type TaskFields } from "@/features/tasks/model";
@@ -361,6 +363,7 @@ function Palette({
   const areas = useAreas() ?? [];
   const goals = useGoals() ?? [];
   const people = usePeople() ?? [];
+  const views = useSavedViews() ?? [];
   const tasks = (useAllTasks() ?? []).filter((t) => !t.parentTaskId && isOpen(t)).slice(0, 300);
   const { transition } = useOrbitMotion();
 
@@ -460,6 +463,7 @@ function Palette({
                         ["Journal", "/journal", NotebookPen, "G J"],
                         ["Wins", "/wins", Award, "G W"],
                         ["Capture from anywhere", "/capture", Inbox, ""],
+                        ["Notifications", "/notifications", Bell, ""],
                         ["Cycle", "/cycle", CalendarSync, "G C"],
                         ["Settings", "/settings", Settings, "G S"],
                       ].map(([label, href, Icon, keys]) => {
@@ -477,6 +481,18 @@ function Palette({
                           </Command.Item>
                         );
                       })}
+                      {views.map((v) => (
+                        <Command.Item
+                          key={v.id}
+                          value={`view ${v.name} ${v.id}`}
+                          className={item}
+                          onSelect={() => go(`/tasks?view=${v.id}`)}
+                        >
+                          <ListFilter className="size-4 text-label-secondary" strokeWidth={1.75} />{" "}
+                          <span className="flex-1">{v.name}</span>
+                          <span className="text-caption text-label-tertiary">Saved view</span>
+                        </Command.Item>
+                      ))}
                       {areas.map((a) => (
                         <Command.Item
                           key={a.id}

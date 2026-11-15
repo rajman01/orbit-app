@@ -49,6 +49,10 @@ interface PushPayload {
   body: string;
   url: string;
   tag: string;
+  /** NOT-5: the notification centre entry. */
+  id?: string | null;
+  /** NOT-3: buttons where supported (habits: Done; reminders: Snooze 15 min). */
+  actions?: { action: string; title: string }[];
 }
 
 self.addEventListener("push", (event) => {
@@ -71,17 +75,41 @@ self.addEventListener("push", (event) => {
         renotify: true,
         icon: "/icons/icon-192.png",
         badge: "/icons/icon-192.png",
-        data: { url: payload.url },
+        data: { url: payload.url, id: payload.id ?? null },
+        actions: payload.actions ?? [],
       } as NotificationOptions);
     })(),
   );
 });
 
+/** Tells Orbit a notification was opened or a button pressed (signed in through the session cookie). */
+async function report(id: string | null, action: string): Promise<boolean> {
+  try {
+    const r = await fetch("/api/notifications/action", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = new URL((event.notification.data as { url?: string } | undefined)?.url ?? "/today", self.location.origin);
+  const data = (event.notification.data ?? {}) as { url?: string; id?: string | null };
+  const url = new URL(data.url ?? "/today", self.location.origin);
   event.waitUntil(
     (async () => {
+      // NOT-3: Done / Snooze act without opening Orbit; if that fails, open it instead.
+      let opened: Promise<boolean> | null = null;
+      if (event.action === "done" || event.action === "snooze") {
+        if (await report(data.id ?? null, event.action)) return;
+      } else if (data.id) {
+        opened = report(data.id, "open");
+      }
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const existing = windows.find((c) => new URL(c.url).origin === url.origin) as WindowClient | undefined;
       if (existing) {
@@ -90,6 +118,7 @@ self.addEventListener("notificationclick", (event) => {
       } else {
         await self.clients.openWindow(url.href);
       }
+      await opened;
     })(),
   );
 });

@@ -106,6 +106,18 @@
 html[data-keyboard="open"] {
   --tabbar-space: 0px;
 }
+/* TASK-7: while the bulk bar is up, toasts sit above it and the focus pill steps aside. */
+html:has([data-bulk-bar]) [data-toasts] {
+  bottom: calc(max(var(--tabbar-space), 0.75rem) + 4.25rem);
+}
+@media (min-width: 64rem) {
+  html:has([data-bulk-bar]) [data-toasts] {
+    bottom: 5.5rem;
+  }
+}
+html:has([data-bulk-bar]) [data-focus-pill] {
+  display: none !important;
+}
 html[data-keyboard="open"] [data-hide-on-keyboard] {
   display: none !important;
 }

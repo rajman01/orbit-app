@@ -26,6 +26,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={show}>
       {children}
       <div
+        data-toasts
         className="pointer-events-none fixed inset-x-0 bottom-[max(var(--tabbar-space),0.75rem)] z-50 flex flex-col items-center gap-2 px-4 lg:bottom-6"
         role="status"
         aria-live="polite"

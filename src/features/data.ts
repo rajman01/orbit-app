@@ -254,3 +254,26 @@ export function useGoalEvents(goalId: string): GoalEventDoc[] | undefined {
     [db, goalId],
   );
 }
+
+export type SavedViewDoc = SyncedDoc<"savedViews">;
+export type NotificationDoc = SyncedDoc<"notifications">;
+
+/** CMD-4: saved Tasks views, in sidebar order. */
+export function useSavedViews(): SavedViewDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.savedViews.toArray()).sort((a, b) => a.order - b.order), [db]);
+}
+
+/** NOT-5: what Orbit sent, newest first (the last 100). */
+export function useNotifications(): NotificationDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () => live(await db.notifications.orderBy("sentAt").reverse().limit(150).toArray()).slice(0, 100),
+    [db],
+  );
+}
+
+export function useUnreadNotifications(): number {
+  const { db } = useSync();
+  return useLiveQuery(() => db.notifications.filter((n) => !n.deletedAt && n.readAt == null).count(), [db]) ?? 0;
+}

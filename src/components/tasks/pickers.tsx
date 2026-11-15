@@ -2,6 +2,7 @@
 
 import { CalendarDays, Circle, Gauge, Target, Users, X } from "lucide-react";
 import { useState } from "react";
+import { cn } from "@/lib/cn";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { ChipButton, Picker, Popover, type PickerOption } from "@/components/ui/picker";
 import { type Area, useAreas, useGoals, usePeople } from "@/features/data";
@@ -175,6 +176,7 @@ export function DatePicker({
   label,
   placeholder,
   overdue,
+  compact = false,
 }: {
   value: Day | null;
   onChange: (d: Day | null) => void;
@@ -182,6 +184,8 @@ export function DatePicker({
   label: string;
   placeholder: string;
   overdue?: boolean;
+  /** Phones: icon only when empty. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const nextMonday = addDays(todayDay, (8 - weekday(todayDay)) % 7 || 7);
@@ -204,7 +208,7 @@ export function DatePicker({
           {value ? (
             <span className={overdue ? "text-danger-text" : undefined}>{dayLabel(value, todayDay)}</span>
           ) : (
-            <span className="text-label-tertiary">{placeholder}</span>
+            <span className={cn("text-label-tertiary", compact && "hidden sm:inline")}>{placeholder}</span>
           )}
         </ChipButton>
       }

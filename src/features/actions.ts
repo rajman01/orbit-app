@@ -6,6 +6,7 @@ import { useSync } from "@/components/app/sync-provider";
 import { today } from "@/lib/dates";
 import type { SyncEngine } from "@/lib/sync/engine";
 import type { EntityFields } from "@/lib/sync/entities";
+type SavedViewFields = EntityFields<"savedViews">;
 import { AREA_PRESETS, presetAreaId, type AreaFields } from "./areas/model";
 import { newGoalFields, type Goal, type GoalFields, type KeyResult } from "./goals/model";
 import { defaultSettings, settingsId, type Settings } from "./settings/model";
@@ -1007,6 +1008,41 @@ export function createActions(engine: SyncEngine, userId: string) {
       engine.create("aiMemories", { text: text.trim().slice(0, 500), source, archivedAt: null }),
     updateMemory: (id: string, text: string) => engine.update("aiMemories", id, { text: text.trim().slice(0, 500) }),
     forgetMemory: (id: string) => engine.update("aiMemories", id, { archivedAt: now() }),
+
+    /** TASK-7: one change applied to several tasks, with history and XP as if done one by one. */
+    async bulkUpdateTasks(tasks: Task[], patch: Partial<TaskFields>) {
+      for (const t of tasks) await actions.updateTask(t, patch);
+    },
+
+    /** TASK-7: moves tasks into a cycle (or out of one, with null). */
+    async bulkSetCycle(tasks: Task[], cycleId: string | null) {
+      for (const t of tasks) {
+        if (cycleId) await actions.addToCycle(t, { id: cycleId });
+        else await actions.removeFromCycle(t);
+      }
+    },
+
+    async bulkDeleteTasks(tasks: Task[]) {
+      for (const t of tasks) await actions.deleteTask(t);
+    },
+
+    /** CMD-4: saves the Tasks page's filters under a name, last in the list. */
+    async saveView(name: string, filters: SavedViewFields["filters"]) {
+      const views = (await db.savedViews.toArray()).filter((v) => !v.deletedAt);
+      const order = views.reduce((m, v) => Math.max(m, v.order), 0) + 1;
+      return engine.create("savedViews", { name: name.trim().slice(0, 60), filters, order });
+    },
+    updateView: (id: string, patch: Partial<SavedViewFields>) => engine.update("savedViews", id, patch),
+    deleteView: (id: string) => engine.remove("savedViews", id),
+
+    /** NOT-5: marks notifications read (all unread ones when no ids are given). */
+    async markNotificationsRead(ids?: string[]) {
+      const at = now();
+      const rows = ids
+        ? (await db.notifications.bulkGet(ids)).filter((n) => n != null)
+        : await db.notifications.filter((n) => !n.deletedAt && n.readAt == null).toArray();
+      for (const n of rows) if (n.readAt == null) await engine.update("notifications", n.id, { readAt: at });
+    },
 
     async deleteTask(task: Task) {
       for (const sub of await db.tasks.where("parentTaskId").equals(task.id).toArray()) {

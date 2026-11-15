@@ -2,7 +2,7 @@ import { timeOfDay } from "@/features/cycles/model";
 import { habitStatus, type Habit, type HabitLog } from "@/features/habits/model";
 import { defaultSettings, type Settings } from "@/features/settings/model";
 import { dayOf, type Day } from "@/lib/dates";
-import type { SyncedDoc } from "@/lib/sync/entities";
+import type { EntityFields, SyncedDoc } from "@/lib/sync/entities";
 import { dateTitle, formatPersonDate, upcomingDates } from "@/features/people/model";
 import { addQuarters, quarterDates, quarterLabel, quarterOf } from "@/features/quarters/model";
 import { addDays } from "@/lib/dates";
@@ -190,4 +190,35 @@ export function dueNotifications(opts: {
     push({ key: `reminder:${r.id}:${r.fireAt}`, title: r.title, body: r.body, url: r.url, tag });
   }
   return out;
+}
+
+export type NotificationKind = EntityFields<"notifications">["kind"];
+
+/** NOT-5 / NOT-3: what a sent notification is about, from its key, so the centre and actions know. */
+export function notificationMeta(key: string): { kind: NotificationKind; ref: string | null } {
+  const [prefix, ref] = key.split(":");
+  switch (prefix) {
+    case "plan":
+    case "shutdown":
+    case "review":
+      return { kind: prefix, ref: null };
+    case "habit":
+      return { kind: "habit", ref: ref ?? null };
+    case "reminder":
+      return { kind: "reminder", ref: ref ?? null };
+    case "date":
+      return { kind: "date", ref: ref ?? null };
+    case "qplan":
+    case "qreview":
+      return { kind: "quarter", ref: null };
+    default:
+      return { kind: "other", ref: null };
+  }
+}
+
+/** NOT-3: the buttons a notification gets where the platform shows them. */
+export function notificationActions(kind: NotificationKind): { action: string; title: string }[] {
+  if (kind === "habit") return [{ action: "done", title: "Done" }];
+  if (kind === "reminder") return [{ action: "snooze", title: "Snooze 15 min" }];
+  return [];
 }

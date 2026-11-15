@@ -1,11 +1,11 @@
 "use client";
 
-import { Ellipsis, Inbox, Plus, Search, Settings, Sun, Target } from "lucide-react";
+import { Ellipsis, Inbox, ListFilter, Plus, Search, Settings, Sun, Target } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { animate, motion, useMotionValue } from "motion/react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { AreaDialog } from "@/components/areas/area-form";
 import { CoachPanelProvider } from "@/components/coach/coach-panel";
@@ -17,7 +17,8 @@ import { TaskPanelProvider } from "@/components/tasks/task-panel";
 import { Kbd } from "@/components/ui/pill";
 import { Sheet } from "@/components/ui/sheet";
 import { useActions } from "@/features/actions";
-import { useAreas, useCycles, useSettings } from "@/features/data";
+import { useAreas, useCycles, useSavedViews, useSettings } from "@/features/data";
+import { NotificationBell } from "@/components/notifications/bell";
 import { settingsId } from "@/features/settings/model";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
@@ -161,6 +162,37 @@ function NavLink({
   );
 }
 
+/** CMD-4: saved Tasks views, under Tasks in the sidebar. */
+function SavedViewLinks() {
+  const views = useSavedViews() ?? [];
+  const params = useSearchParams();
+  const pathname = usePathname();
+  if (!views.length) return null;
+  return (
+    <div className="mt-0.5 flex flex-col gap-0.5" aria-label="Saved views" role="group">
+      {views.map((v) => {
+        const active = pathname === "/tasks" && params.get("view") === v.id;
+        return (
+          <Link
+            key={v.id}
+            href={`/tasks?view=${v.id}`}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "flex h-7 items-center gap-2 rounded-md pr-2 pl-7 text-callout",
+              active
+                ? "bg-accent-fill font-medium text-accent-text"
+                : "text-label-secondary hover:bg-fill hover:text-label",
+            )}
+          >
+            <ListFilter className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+            <span className="truncate">{v.name}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 function Sidebar() {
   const user = useCurrentUser();
   const [newArea, setNewArea] = useState(false);
@@ -193,11 +225,17 @@ function Sidebar() {
         >
           <Search className="size-4" />
         </button>
+        <NotificationBell />
       </div>
       <nav className="flex flex-col gap-0.5" aria-label="Main">
         {NAV_MAIN.map((n, i) => (
           <div key={n.href} className={i > 0 && NAV_MAIN[i - 1].group !== n.group ? "mt-3" : undefined}>
             <NavLink href={n.href} label={n.label} icon={n.icon} badge={n.href === "/inbox" ? inbox : undefined} />
+            {n.href === "/tasks" ? (
+              <Suspense fallback={null}>
+                <SavedViewLinks />
+              </Suspense>
+            ) : null}
           </div>
         ))}
       </nav>

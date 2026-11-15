@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bell,
   Award,
   CalendarClock,
   NotebookPen,
@@ -54,5 +55,6 @@ export const NAV_MORE = [
   { href: "/cycle", label: "Cycle", icon: CalendarSync },
   { href: "/report", label: "Weekly report", icon: BarChart3 },
   { href: "/levels", label: "Levels", icon: Trophy },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;

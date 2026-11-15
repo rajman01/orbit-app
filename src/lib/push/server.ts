@@ -1,10 +1,11 @@
 import "server-only";
 import type { Db, Document } from "mongodb";
 import * as webpush from "web-push";
-import { dueNotifications, type Notification } from "@/features/reminders/model";
+import { dueNotifications, notificationActions, notificationMeta, type Notification } from "@/features/reminders/model";
 import { settingsId } from "@/features/settings/model";
 import { addDays, dayOf } from "@/lib/dates";
 import { env, pushEnabled } from "@/lib/env";
+import { recordNotification } from "@/lib/notifications/server";
 
 export interface StoredSubscription {
   _id: string; // the endpoint
@@ -19,6 +20,10 @@ export interface PushPayload {
   body: string;
   url: string;
   tag: string;
+  /** NOT-5: the notification centre entry, so opening or acting on it marks it read. */
+  id?: string | null;
+  /** NOT-3: buttons, where the platform shows them. */
+  actions?: { action: string; title: string }[];
 }
 
 /** Sends one push; `gone` means the subscription no longer exists and should be forgotten. */
@@ -168,7 +173,10 @@ export async function dispatchReminders(db: Db, now: number, send: Sender) {
         .then(() => true)
         .catch(() => false);
       if (!claimed) continue;
-      await sendToUser(db, userId, { title: n.title, body: n.body, url: n.url, tag: n.tag }, send);
+      // NOT-5: in the notification centre too, whether or not a device shows it.
+      const id = await recordNotification(db, userId, n, now).catch(() => null);
+      const actions = notificationActions(notificationMeta(n.key).kind);
+      await sendToUser(db, userId, { title: n.title, body: n.body, url: n.url, tag: n.tag, id, actions }, send);
       notifications++;
     }
   }

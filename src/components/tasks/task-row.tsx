@@ -18,6 +18,7 @@ import { useTaskPanel } from "./task-panel";
 import { SwipeRow } from "./swipe-row";
 import { useSkipFlow } from "@/components/skip/skip-flow";
 import { useFocus } from "@/components/focus/focus-mode";
+import { useTaskSelection } from "./selection";
 
 /** DESIGN.md §11.2 — the task row used everywhere. */
 export function TaskRow({
@@ -57,6 +58,9 @@ export function TaskRow({
   const panel = useTaskPanel();
   const skip = useSkipFlow();
   const focus = useFocus();
+  const selection = useTaskSelection();
+  const selecting = selection?.active ?? false;
+  const selected = selecting && selection!.selected.has(task.id);
   const todayDay = useToday();
   const focusing = focus.active?.taskId === task.id;
   const done = task.status === "done";
@@ -68,10 +72,25 @@ export function TaskRow({
       role="button"
       tabIndex={0}
       data-task-row={task.id}
-      aria-label={`Open ${task.title}`}
-      onClick={() => panel.open(task.id)}
+      aria-label={selecting ? `Select ${task.title}` : `Open ${task.title}`}
+      aria-pressed={selecting ? selected : undefined}
+      onClick={(e) => {
+        if (selection && (selecting || e.shiftKey)) {
+          if (selecting) selection.toggle(task.id, e.shiftKey);
+          else selection.start(task.id);
+          return;
+        }
+        panel.open(task.id);
+      }}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget) return;
+        if (selecting) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            selection!.toggle(task.id, e.shiftKey);
+          }
+          return;
+        }
         if (e.key === "Enter") panel.open(task.id);
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void actions.setTaskDone(task, !done);
         if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -87,14 +106,32 @@ export function TaskRow({
         "group flex min-h-row cursor-default items-center gap-1 rounded-md pr-2 pl-1 outline-none select-none",
         mustDo && "min-h-16 lg:min-h-12",
         "hover:bg-fill focus-visible:bg-fill focus-visible:ring-2 focus-visible:ring-accent",
-        panel.taskId === task.id && "bg-accent-fill",
+        (selected || (!selecting && panel.taskId === task.id)) && "bg-accent-fill",
         className,
       )}
     >
       {handle}
-      <span onClick={(e) => e.stopPropagation()}>
-        <Checkbox checked={done} onChange={(d) => void actions.setTaskDone(task, d)} label={`Complete ${task.title}`} />
-      </span>
+      {selecting ? (
+        // A square mark, unlike the round completion check, so selecting never reads as "done".
+        <span className="grid size-11 shrink-0 place-items-center lg:size-7" aria-hidden>
+          <span
+            className={cn(
+              "grid size-[22px] place-items-center rounded-[6px] border-2 transition-colors duration-100 lg:size-[18px] lg:rounded-[5px] lg:border-[1.5px]",
+              selected ? "border-accent bg-accent text-on-accent" : "border-label-tertiary",
+            )}
+          >
+            {selected ? <Check className="size-3" strokeWidth={3} /> : null}
+          </span>
+        </span>
+      ) : (
+        <span onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={done}
+            onChange={(d) => void actions.setTaskDone(task, d)}
+            label={`Complete ${task.title}`}
+          />
+        </span>
+      )}
       <PriorityIcon priority={task.priority} className="hidden lg:block" />
       {code ? (
         <span className="hidden w-14 shrink-0 font-mono text-caption text-label-tertiary lg:inline">{code}</span>
@@ -157,7 +194,7 @@ export function TaskRow({
           <span className="size-1.5 animate-pulse rounded-full bg-current motion-reduce:animate-none" aria-hidden />
           Continue
         </button>
-      ) : showStart && !done ? (
+      ) : showStart && !done && !selecting ? (
         <button
           type="button"
           onClick={(e) => {
@@ -199,6 +236,7 @@ export function TaskRow({
     </div>
   );
 
+  if (selecting) return row;
   const menu = <TaskContextMenu task={task}>{row}</TaskContextMenu>;
 
   if (!swipe || task.parentTaskId) return menu;
