@@ -159,6 +159,8 @@ export function newLeadFields(p: Partial<JobLeadFields> & { company: string }, n
     appliedAt: null,
     interviewedAt: null,
     closedAt: null,
+    postingId: p.postingId ?? null,
+    pack: null,
   };
   return { ...base, ...stagePatch(base, p.stage ?? "researching", p.outcome ?? null, now) };
 }

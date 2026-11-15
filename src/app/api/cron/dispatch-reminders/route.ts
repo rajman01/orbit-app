@@ -4,6 +4,7 @@ import { db } from "@/lib/db/mongo";
 import { dispatchCalendarSync } from "@/lib/calendar/server";
 import { dispatchCheckins } from "@/lib/coach/checkins";
 import { dispatchReminders, webPushSender } from "@/lib/push/server";
+import { dispatchJobSearch } from "@/lib/jobs/server";
 
 /** Writing a check-in is a short model call; allow for a few. */
 export const maxDuration = 60;
@@ -37,7 +38,12 @@ async function handle(request: Request) {
     console.error("calendar sync failed", err);
     return { calendars: 0 };
   });
-  return NextResponse.json({ ...result, ...checkins, ...calendars });
+  // Job assistant (Phase 3D): one user's daily search per minute, when it's due.
+  const jobs = await dispatchJobSearch(db(), now).catch((err) => {
+    console.error("job search failed", err);
+    return { jobSearches: 0 };
+  });
+  return NextResponse.json({ ...result, ...checkins, ...calendars, ...jobs });
 }
 
 export const GET = handle;

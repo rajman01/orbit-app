@@ -64,6 +64,7 @@ test("a job lead with a next step due, moved along the board and closed", async 
 
   await page.goto("/jobs");
   await waitForSynced(page);
+  await page.getByRole("radio", { name: "Pipeline" }).click();
   await page.getByRole("button", { name: "New lead" }).first().click();
   const dialog = page.getByRole("dialog", { name: "New lead" });
   await dialog.getByRole("textbox", { name: "Company" }).fill(company);
@@ -92,10 +93,14 @@ test("a job lead with a next step due, moved along the board and closed", async 
     await page.mouse.move(to.x + to.width / 2, to.y + 60, { steps: 12 });
     await page.mouse.up();
   } else {
+    // A card opens the lead's page; Edit changes the stage.
     await card.click();
+    await page.getByRole("button", { name: "Edit lead" }).click();
     const edit = page.getByRole("dialog", { name: company });
     await edit.getByRole("combobox", { name: "Stage" }).selectOption("applied");
     await edit.getByRole("button", { name: "Save" }).click();
+    await expect(edit).toBeHidden();
+    await page.goto("/jobs");
   }
   await expect(
     page.getByRole("region", { name: "Applied" }).getByRole("button", { name: `Open ${company}, Product Designer` }),
@@ -109,10 +114,14 @@ test("a job lead with a next step due, moved along the board and closed", async 
     .getByRole("region", { name: "Applied" })
     .getByRole("button", { name: `Open ${company}, Product Designer` })
     .click();
+  await expect(page).toHaveURL(/\/jobs\/lead\?id=/);
+  await page.getByRole("button", { name: "Edit lead" }).click();
   const edit = page.getByRole("dialog", { name: company });
   await edit.getByRole("combobox", { name: "Stage" }).selectOption("closed");
   await edit.getByRole("combobox", { name: "How it ended" }).selectOption("rejected");
   await edit.getByRole("button", { name: "Save" }).click();
+  await expect(edit).toBeHidden();
+  await page.goto("/jobs");
   const closed = page
     .getByRole("region", { name: "Closed" })
     .getByRole("button", { name: `Open ${company}, Product Designer` });

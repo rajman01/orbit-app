@@ -14,6 +14,7 @@ import { defaultSettings, settingsId, type Settings } from "@/features/settings/
 import { isOpen, taskCode, withTaskDefaults, type Task } from "@/features/tasks/model";
 import { buildToday, lastTouched, planDay, skipReasonLabel } from "@/features/today/model";
 import { pipelineStats, SKILL_LEVELS } from "@/features/career/model";
+import { careerProfileId, profileReadiness } from "@/features/jobs/model";
 import {
   areaHealth,
   cycleTrend,
@@ -448,6 +449,46 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
         text: e.text.trim() ? e.text.trim().slice(0, 1500) : undefined,
       })),
       wins: wins.map((w) => ({ date: w.date, title: w.title, impact: w.impact || undefined })),
+    };
+  },
+
+  async get_job_assistant(_input, { db, userId }) {
+    const profile = await db.careerProfile.get(careerProfileId(userId));
+    const live = profile && !profile.deletedAt ? profile : null;
+    const readiness = profileReadiness(live);
+    const postings = (await db.jobPostings.toArray())
+      .filter((p) => p.deletedAt == null && (p.status === "new" || p.status === "saved"))
+      .sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1))
+      .slice(0, 20);
+    const leads = (await db.jobLeads.toArray()).filter((l) => l.deletedAt == null && l.stage !== "closed");
+    return {
+      profile: live
+        ? {
+            ready: readiness.ready,
+            missing: readiness.missing.length ? readiness.missing : undefined,
+            headline: live.headline,
+            roles: live.experience.length,
+            lookingFor: live.preferences.roles,
+            markets: live.preferences.markets,
+            companiesWatched: live.companies.map((c) => c.name),
+          }
+        : "No career profile yet; they can set it up at Job search → profile (or start from their CV).",
+      foundRoles: postings.map((p) => ({
+        id: p.id,
+        title: p.title,
+        company: p.company,
+        location: `${p.location}${p.remote ? " (remote)" : ""}`,
+        fit: p.fit ?? undefined,
+        why: p.why.length ? p.why : undefined,
+        gaps: p.gaps.length ? p.gaps : undefined,
+        saved: p.status === "saved" || undefined,
+      })),
+      leadsWithPack: leads
+        .filter((l) => l.pack)
+        .map((l) => ({ id: l.id, company: l.company, role: l.role, stage: l.stage })),
+      leadsWithoutPack: leads
+        .filter((l) => !l.pack && l.stage === "researching")
+        .map((l) => ({ id: l.id, company: l.company, role: l.role })),
     };
   },
 

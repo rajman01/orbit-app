@@ -34,6 +34,7 @@ const ICON: Record<NotificationDoc["kind"], LucideIcon> = {
   reminder: Clock,
   job: Briefcase,
   routine: ListChecks,
+  jobs_found: Briefcase,
   other: Bell,
 };
 

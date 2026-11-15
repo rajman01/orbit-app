@@ -12,10 +12,14 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { Briefcase, CalendarClock, MapPin, Plus } from "lucide-react";
+import { Briefcase, CalendarClock, MapPin, Plus, UserRound } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
+import { FoundRoles } from "@/components/jobs/found";
+import { Segmented } from "@/components/ui/segmented";
 import { EmptyState } from "@/components/app/empty-state";
 import { JobLeadDialog } from "@/components/career/forms";
 import { Button, IconButton } from "@/components/ui/button";
@@ -28,7 +32,7 @@ import {
   type JobLead,
   type JobStage,
 } from "@/features/career/model";
-import { useJobLeads } from "@/features/data";
+import { useJobLeads, useJobPostings } from "@/features/data";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { dayLabel } from "@/lib/dates";
@@ -38,11 +42,21 @@ import { JOB_STAGES } from "@/lib/sync/entities";
 export function JobsView() {
   const leads = useJobLeads();
   const actions = useActions();
+  const router = useRouter();
   const today = useToday();
-  const [editing, setEditing] = useState<JobLead | null>(null);
   const [adding, setAdding] = useState<JobStage | null>(null);
   const [closing, setClosing] = useState<JobLead | null>(null);
   const [dragging, setDragging] = useState<JobLead | null>(null);
+  const postings = useJobPostings();
+  const newCount = (postings ?? []).filter((p) => p.status === "new").length;
+  const [tab, setTab] = useState<"found" | "pipeline">(() => {
+    if (typeof window === "undefined") return "found";
+    try {
+      return localStorage.getItem("orbit:jobs-tab") === "pipeline" ? "pipeline" : "found";
+    } catch {
+      return "found";
+    }
+  });
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
@@ -73,89 +87,120 @@ export function JobsView() {
             : undefined
         }
         actions={
-          <Button icon={<Plus className="size-4" />} onClick={() => setAdding("researching")}>
-            New lead
-          </Button>
+          <>
+            <Link
+              href="/jobs/profile"
+              aria-label="Career profile"
+              title="Career profile"
+              className="grid size-9 place-items-center rounded-full text-label-secondary hover:bg-fill"
+            >
+              <UserRound className="size-5" />
+            </Link>
+            <Button aria-label="New lead" icon={<Plus className="size-4" />} onClick={() => setAdding("researching")}>
+              <span className="max-sm:hidden">New lead</span>
+            </Button>
+          </>
         }
       />
       <PageBody className="max-w-none lg:max-w-[1200px]">
-        {due.length ? (
-          <section aria-label="Next steps due" className="mb-4 rounded-xl bg-accent-fill p-3">
-            <h2 className="mb-1 flex items-center gap-1.5 px-1 text-footnote font-semibold text-accent-text">
-              <CalendarClock className="size-4" /> Next steps due
-            </h2>
-            <ul className="flex flex-col">
-              {due.map((l) => (
-                <li key={l.id}>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(l)}
-                    className="flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left hover:bg-fill"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-callout">
-                      <strong className="font-semibold">{l.company}</strong> · {l.nextStep}
-                    </span>
-                    <span
-                      className={cn(
-                        "shrink-0 text-footnote tabular",
-                        l.nextDate! < today ? "font-medium text-danger-text" : "text-label-secondary",
-                      )}
-                    >
-                      {dayLabel(l.nextDate!, today)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        {leads && !leads.length ? (
-          <EmptyState
-            icon={Briefcase}
-            title="No leads yet"
-            body="Add companies and roles you're looking at, move them along as things happen, and keep a next step on each so nothing goes quiet."
-            action={
-              <Button icon={<Plus className="size-4" />} onClick={() => setAdding("researching")}>
-                Add a lead
-              </Button>
-            }
+        <div className="mb-4">
+          <Segmented
+            label="Job search"
+            value={tab}
+            onChange={(t) => {
+              setTab(t);
+              try {
+                localStorage.setItem("orbit:jobs-tab", t);
+              } catch {}
+            }}
+            options={[
+              { value: "found", label: newCount ? `Found for you (${newCount})` : "Found for you" },
+              { value: "pipeline", label: "Pipeline" },
+            ]}
           />
+        </div>
+        {tab === "found" ? (
+          <div className="max-w-[760px]">
+            <FoundRoles />
+          </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            onDragStart={(e) => setDragging(all.find((l) => l.id === e.active.id) ?? null)}
-            onDragEnd={onDragEnd}
-            onDragCancel={() => setDragging(null)}
-          >
-            <div
-              className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 lg:mx-0 lg:grid lg:snap-none lg:overflow-visible lg:px-0"
-              style={{ gridTemplateColumns: `repeat(${JOB_STAGES.length}, minmax(0, 1fr))` }}
-            >
-              {JOB_STAGES.map((stage) => (
-                <Column
-                  key={stage}
-                  stage={stage}
-                  leads={all.filter((l) => l.stage === stage)}
-                  today={today}
-                  onOpen={setEditing}
-                  onAdd={() => setAdding(stage)}
-                />
-              ))}
-            </div>
-            {typeof document !== "undefined"
-              ? createPortal(
-                  <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" }}>
-                    {dragging ? <Card lead={dragging} today={today} lifted /> : null}
-                  </DragOverlay>,
-                  document.body,
-                )
-              : null}
-          </DndContext>
+          <>
+            {due.length ? (
+              <section aria-label="Next steps due" className="mb-4 rounded-xl bg-accent-fill p-3">
+                <h2 className="mb-1 flex items-center gap-1.5 px-1 text-footnote font-semibold text-accent-text">
+                  <CalendarClock className="size-4" /> Next steps due
+                </h2>
+                <ul className="flex flex-col">
+                  {due.map((l) => (
+                    <li key={l.id}>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/jobs/lead?id=${l.id}`)}
+                        className="flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left hover:bg-fill"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-callout">
+                          <strong className="font-semibold">{l.company}</strong> · {l.nextStep}
+                        </span>
+                        <span
+                          className={cn(
+                            "shrink-0 text-footnote tabular",
+                            l.nextDate! < today ? "font-medium text-danger-text" : "text-label-secondary",
+                          )}
+                        >
+                          {dayLabel(l.nextDate!, today)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            {leads && !leads.length ? (
+              <EmptyState
+                icon={Briefcase}
+                title="No leads yet"
+                body="Add companies and roles you're looking at, move them along as things happen, and keep a next step on each so nothing goes quiet."
+                action={
+                  <Button icon={<Plus className="size-4" />} onClick={() => setAdding("researching")}>
+                    Add a lead
+                  </Button>
+                }
+              />
+            ) : (
+              <DndContext
+                sensors={sensors}
+                onDragStart={(e) => setDragging(all.find((l) => l.id === e.active.id) ?? null)}
+                onDragEnd={onDragEnd}
+                onDragCancel={() => setDragging(null)}
+              >
+                <div
+                  className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 lg:mx-0 lg:grid lg:snap-none lg:overflow-visible lg:px-0"
+                  style={{ gridTemplateColumns: `repeat(${JOB_STAGES.length}, minmax(0, 1fr))` }}
+                >
+                  {JOB_STAGES.map((stage) => (
+                    <Column
+                      key={stage}
+                      stage={stage}
+                      leads={all.filter((l) => l.stage === stage)}
+                      today={today}
+                      onOpen={(l) => router.push(`/jobs/lead?id=${l.id}`)}
+                      onAdd={() => setAdding(stage)}
+                    />
+                  ))}
+                </div>
+                {typeof document !== "undefined"
+                  ? createPortal(
+                      <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" }}>
+                        {dragging ? <Card lead={dragging} today={today} lifted /> : null}
+                      </DragOverlay>,
+                      document.body,
+                    )
+                  : null}
+              </DndContext>
+            )}
+          </>
         )}
       </PageBody>
-      {editing ? (
-        <JobLeadDialog key={editing.id} open onOpenChange={(o) => !o && setEditing(null)} lead={editing} />
-      ) : null}
       {adding ? <JobLeadDialog open onOpenChange={(o) => !o && setAdding(null)} stage={adding} /> : null}
       {closing ? (
         <JobLeadDialog

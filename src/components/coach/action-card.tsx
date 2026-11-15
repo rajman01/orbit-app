@@ -74,6 +74,7 @@ export function actionTarget(
     case "save_learning_item":
       return { kind: "learning" };
     case "save_job_lead":
+    case "make_lead_from_role":
       return { kind: "jobs" };
     default:
       return null;

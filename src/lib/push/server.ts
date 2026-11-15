@@ -6,6 +6,7 @@ import { settingsId } from "@/features/settings/model";
 import { addDays, dayOf } from "@/lib/dates";
 import { env, pushEnabled } from "@/lib/env";
 import { recordNotification } from "@/lib/notifications/server";
+import { strongNewMatches } from "@/lib/jobs/server";
 
 export interface StoredSubscription {
   _id: string; // the endpoint
@@ -194,6 +195,7 @@ export async function dispatchReminders(db: Db, now: number, send: Sender) {
       jobLeads: jobLeads.map((l) => ({ ...l, id: String(l._id) })) as never,
       routines: routines.map((r) => ({ ...r, id: String(r._id) })) as never,
       routineRuns: routineRuns as never,
+      jobsFound: await strongNewMatches(db, userId, now - 24 * 3_600_000),
       sent: new Set(sent.map((s) => String(s._id).slice(userId.length + 1))),
     });
     if (due.length) users++;

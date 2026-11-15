@@ -440,6 +440,16 @@ export const COACH_TOOLS = {
       goalId: id.optional(),
     }),
   },
+  get_job_assistant: {
+    description:
+      "Read the job assistant: whether their career profile is ready (and what's missing), the roles found for them (id, title, company, fit 0–100, why it fits, gaps), and which leads have an application pack ready. Use it to discuss which roles to go for. Packs (tailored CV, letter, answers) are prepared by the user with 'Prepare application' on a lead's page; you can't write them, but you can make a found role into a lead.",
+    input: z.object({}),
+  },
+  make_lead_from_role: {
+    description:
+      "Turn a found role into a lead on their job search board (next step: prepare the application, today). Only when they say they want to go for it.",
+    input: z.object({ postingId: id }),
+  },
   create_routine: {
     description:
       "Set up a routine: a short checklist run in order (a morning start, an evening wind-down). Steps can have a length in minutes and can tick one of their habits (habitId). Days are 0 = Sunday … 6 = Saturday; leave out for every day. Keep it short: 3–7 steps.",
@@ -524,6 +534,7 @@ export type CoachToolName = keyof typeof COACH_TOOLS;
 
 /** Tools that change the user's data: recorded, undoable, and subject to the autonomy setting. */
 export const WRITE_TOOLS = new Set<CoachToolName>([
+  "make_lead_from_role",
   "create_routine",
   "save_skill",
   "save_learning_item",

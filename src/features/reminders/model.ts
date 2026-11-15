@@ -63,6 +63,8 @@ export function dueNotifications(opts: {
     SyncedDoc<"routineRuns">,
     "routineId" | "date" | "doneStepIds" | "skippedStepIds" | "completedAt"
   >[];
+  /** Phase 3D: strong roles found in the last day, best first. */
+  jobsFound?: { title: string; company: string; fit: number }[];
   /** Phase 3B: job leads with a next step. */
   jobLeads?: Pick<SyncedDoc<"jobLeads">, "id" | "company" | "role" | "stage" | "nextStep" | "nextDate">[];
   sent: Set<string>;
@@ -207,6 +209,18 @@ export function dueNotifications(opts: {
         });
       }
     }
+    // CAR-5: strong new roles, once a morning.
+    if ((notify.jobs ?? true) && within(time, times.plan, 3) && opts.jobsFound?.length) {
+      const [best] = opts.jobsFound;
+      const n = opts.jobsFound.length;
+      push({
+        key: `jobsfound:${today}`,
+        title: n === 1 ? "A strong new role for you" : `${n} strong new roles for you`,
+        body: `Best: ${best.title} at ${best.company} (${best.fit}% fit)`,
+        url: "/jobs",
+        tag: "orbit-jobs-found",
+      });
+    }
     // CAR-4: a job lead's next step, at Daily Plan time on its day (once).
     if ((notify.jobs ?? true) && within(time, times.plan, 3)) {
       for (const l of opts.jobLeads ?? []) {
@@ -252,6 +266,8 @@ export function notificationMeta(key: string): { kind: NotificationKind; ref: st
       return { kind: "job", ref: ref ?? null };
     case "routine":
       return { kind: "routine", ref: ref ?? null };
+    case "jobsfound":
+      return { kind: "jobs_found", ref: null };
     case "qplan":
     case "qreview":
       return { kind: "quarter", ref: null };

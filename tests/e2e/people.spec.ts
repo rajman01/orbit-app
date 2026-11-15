@@ -208,7 +208,10 @@ test("import people from Google Contacts, choosing who; importing again marks th
   // Earlier runs may have left these (the account is shared): clear them first.
   for (const name of ["Ada Lovelace", "Grace Hopper"]) {
     await page.goto("/people");
-    await page.getByRole("searchbox", { name: "Search people" }).fill(name);
+    // With no one in People yet there's no search box (and nothing to clear).
+    const search = page.getByRole("searchbox", { name: "Search people" });
+    if (!(await search.isVisible())) break;
+    await search.fill(name);
     const link = page.getByRole("list", { name: "People" }).getByRole("link", { name: new RegExp(name) });
     while (await link.count()) {
       await link.first().click();
@@ -220,7 +223,11 @@ test("import people from Google Contacts, choosing who; importing again marks th
     }
   }
 
-  await page.getByRole("link", { name: "Import from Google Contacts" }).click();
+  // "Import from Google Contacts" in the header, or "Import from Google" on the empty page.
+  await page
+    .getByRole("link", { name: /^Import from Google/ })
+    .first()
+    .click();
   const dialog = page.getByRole("dialog", { name: "Import from Google Contacts" });
   const contacts = dialog.getByRole("list", { name: "Contacts" });
   await expect(contacts.getByRole("listitem")).toHaveCount(3);
@@ -239,7 +246,11 @@ test("import people from Google Contacts, choosing who; importing again marks th
 
   // Again: the two are marked and can't be picked twice.
   await page.goto("/people");
-  await page.getByRole("link", { name: "Import from Google Contacts" }).click();
+  // "Import from Google Contacts" in the header, or "Import from Google" on the empty page.
+  await page
+    .getByRole("link", { name: /^Import from Google/ })
+    .first()
+    .click();
   await expect(dialog.getByRole("checkbox", { name: "Ada Lovelace" })).toBeDisabled();
   await expect(dialog).toContainText("2 already in Orbit");
   await dialog.getByRole("button", { name: "Select all" }).click();

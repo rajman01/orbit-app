@@ -41,6 +41,7 @@ import {
 import { addDays, dayOf } from "@/lib/dates";
 import { newPersonFields, type InteractionType, type PersonFields } from "./people/model";
 import { ratingId } from "./insights/model";
+import { careerProfileId, type CareerProfileFields, type JobPosting } from "./jobs/model";
 import {
   newRoutineFields,
   routineRunId,
@@ -1122,6 +1123,39 @@ export function createActions(engine: SyncEngine, userId: string) {
     },
     removeBlocker: (task: Task, blockerId: string) =>
       engine.update("tasks", task.id, { blockedBy: (task.blockedBy ?? []).filter((x) => x !== blockerId) }),
+
+    // ---------------------------------------------------------------- job assistant (Phase 3D, CAR-5)
+
+    /** Saves the whole career profile (it's one document). */
+    async saveCareerProfile(fields: CareerProfileFields) {
+      const id = careerProfileId(userId);
+      const existing = await db.careerProfile.get(id);
+      if (existing && !existing.deletedAt) await engine.update("careerProfile", id, fields);
+      else await engine.create("careerProfile", fields, id);
+    },
+
+    setPostingStatus: (id: string, status: "new" | "saved" | "dismissed") =>
+      engine.update("jobPostings", id, { status }),
+
+    /** A found role becomes a lead on the board, with "Prepare the application" as its next step today. */
+    async postingToLead(posting: JobPosting, todayDay: string) {
+      if (posting.leadId) {
+        const lead = await db.jobLeads.get(posting.leadId);
+        if (lead && !lead.deletedAt) return posting.leadId;
+      }
+      const leadId = await actions.createJobLead({
+        company: posting.company || "Company",
+        role: posting.title,
+        url: posting.url || null,
+        location: posting.location || null,
+        salary: posting.salary || null,
+        nextStep: "Prepare the application",
+        nextDate: todayDay,
+        postingId: posting.id,
+      });
+      await engine.update("jobPostings", posting.id, { status: "lead", leadId });
+      return leadId;
+    },
 
     // ---------------------------------------------------------------- career (Phase 3B)
 

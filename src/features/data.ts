@@ -351,3 +351,26 @@ export function useRoutineRuns(date: string): Map<string, RoutineRunDoc> | undef
     [db, date],
   );
 }
+
+export type CareerProfileDoc = SyncedDoc<"careerProfile">;
+export type JobPostingDoc = SyncedDoc<"jobPostings">;
+
+/** CAR-5: the career profile (null when there isn't one yet). */
+export function useCareerProfile(): CareerProfileDoc | null | undefined {
+  const user = useCurrentUser();
+  const { db } = useSync();
+  return useLiveQuery(async () => {
+    const p = await db.careerProfile.get(`cp${user.id}`.slice(0, 40));
+    return p && !p.deletedAt ? p : null;
+  }, [db, user.id]);
+}
+
+/** CAR-5: found roles, best fit first (then newest). */
+export function useJobPostings(): JobPostingDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () =>
+      live(await db.jobPostings.toArray()).sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1) || b.foundAt - a.foundAt),
+    [db],
+  );
+}

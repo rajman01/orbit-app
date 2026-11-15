@@ -99,13 +99,23 @@ export default function Privacy() {
         remembers about you.
       </p>
 
+      <h2>The job assistant</h2>
+      <p>
+        If you set up a career profile, it&rsquo;s stored like the rest of your Orbit data. To rank roles for you and to
+        prepare an application pack when you ask, Orbit sends your profile and the job posting to Anthropic (as for the
+        coach). To find roles, Orbit&rsquo;s server reads public job boards and job feeds (Greenhouse, Lever and Ashby
+        boards of companies you choose, Remotive, Arbeitnow and, if enabled, Adzuna) and pages you add by link; it sends
+        them nothing about you except the role names you&rsquo;re searching for. Orbit never applies to a job or
+        contacts an employer for you.
+      </p>
+
       <h2>Who else processes your data</h2>
       <ul>
         <li>
           <strong>Vercel</strong> hosts the app, and <strong>MongoDB Atlas</strong> hosts its database.
         </li>
         <li>
-          <strong>Anthropic</strong> runs the AI coach (above).
+          <strong>Anthropic</strong> runs the AI coach and the job assistant (above).
         </li>
         <li>
           <strong>Google</strong>, if you sign in with Google, connect Google Calendar or import Google Contacts.

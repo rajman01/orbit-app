@@ -45,7 +45,8 @@ export type WriteToolName =
   | "save_skill"
   | "save_learning_item"
   | "save_job_lead"
-  | "create_routine";
+  | "create_routine"
+  | "make_lead_from_role";
 
 type Input<N extends WriteToolName> = z.infer<(typeof COACH_TOOLS)[N]["input"]>;
 
@@ -187,6 +188,11 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       return `Log a win: ${q(i.title)}`;
     case "add_goal_update":
       return `Update on ${q(await titleOf(db, "goals", i.goalId))}`;
+    case "make_lead_from_role": {
+      const p = input as Input<"make_lead_from_role">;
+      const posting = await db.jobPostings.get(p.postingId);
+      return `Make a lead: ${q(posting?.title)}${posting?.company ? ` at ${posting.company}` : ""}`;
+    }
     case "create_routine": {
       const p = input as Input<"create_routine">;
       return `Set up the routine ${q(p.name)} (${p.steps.length} step${p.steps.length === 1 ? "" : "s"})`;
@@ -529,6 +535,13 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       await goal(p.goalId);
       await actions.addGoalUpdate(p.goalId, p.text);
       return { posted: true };
+    }
+    case "make_lead_from_role": {
+      const p = input as Input<"make_lead_from_role">;
+      const posting = await db.jobPostings.get(p.postingId);
+      if (!posting || posting.deletedAt != null) throw new Error("No such found role.");
+      const s = await loadSettings(db, userId);
+      return { leadId: await actions.postingToLead(posting, todayOf(s.timezone, deps.now)) };
     }
     case "create_routine": {
       const p = input as Input<"create_routine">;

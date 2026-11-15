@@ -15,6 +15,10 @@ const ref = id.nullable();
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const time = z.string().regex(/^\d{2}:\d{2}$/);
 const ms = z.number().int();
+/** A month, `YYYY-MM`. */
+const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+/** A short id inside a document (a CV bullet, a role). */
+const shortId = z.string().regex(/^[0-9A-Za-z]{1,24}$/);
 
 export const PRIORITIES = ["urgent", "high", "medium", "low", "none"] as const;
 export const TASK_STATUSES = ["inbox", "backlog", "todo", "in_progress", "done", "cancelled"] as const;
@@ -36,6 +40,8 @@ export const AREA_COLORS = [
 
 export const LEARNING_KINDS = ["book", "course", "article", "video", "podcast", "other"] as const;
 export const LEARNING_STATUSES = ["queued", "in_progress", "done", "dropped"] as const;
+export const JOB_MARKETS = ["remote", "africa", "europe", "north_america"] as const;
+export const JOB_SOURCES = ["greenhouse", "lever", "ashby", "remotive", "arbeitnow", "adzuna", "link"] as const;
 export const JOB_STAGES = ["researching", "applied", "interviewing", "offer", "closed"] as const;
 export const JOB_OUTCOMES = ["accepted", "declined", "rejected", "withdrawn", "no_reply"] as const;
 
@@ -51,6 +57,53 @@ export const personDateSchema = z.object({
   year: z.number().int().min(1800).max(2200).nullable(),
 });
 export type PersonDate = z.infer<typeof personDateSchema>;
+
+/** Phase 3D (CAR-5): a tailored CV, letter, answers and outreach note, kept on the lead. */
+export const tailoredCvSchema = z.object({
+  headline: z.string().max(200),
+  summary: z.string().max(2000),
+  experience: z
+    .array(
+      z.object({
+        /** The profile role this comes from. */
+        roleId: z.string().max(24),
+        company: z.string().max(200),
+        title: z.string().max(200),
+        location: z.string().max(120),
+        start: z.string().max(7),
+        end: z.string().max(7).nullable(),
+        bullets: z.array(z.object({ text: z.string().max(500), sources: z.array(z.string().max(24)).max(6) })).max(10),
+      }),
+    )
+    .max(15),
+  projects: z
+    .array(
+      z.object({
+        projectId: z.string().max(24),
+        name: z.string().max(200),
+        url: z.string().max(500),
+        bullets: z.array(z.object({ text: z.string().max(500), sources: z.array(z.string().max(24)).max(6) })).max(5),
+      }),
+    )
+    .max(6),
+  skills: z.array(z.string().max(60)).max(30),
+  education: z.array(z.string().max(24)).max(10),
+  certifications: z.array(z.string().max(24)).max(20),
+});
+export type TailoredCv = z.infer<typeof tailoredCvSchema>;
+
+export const applicationPackSchema = z.object({
+  cv: tailoredCvSchema,
+  coverLetter: z.string().max(6000),
+  answers: z.array(z.object({ question: z.string().max(300), answer: z.string().max(3000) })).max(10),
+  /** A short note to a recruiter or hiring manager. */
+  outreach: z.string().max(1500),
+  /** Things to check: lines the profile doesn't back up. */
+  flags: z.array(z.string().max(300)).max(30),
+  model: z.string().max(60),
+  generatedAt: ms,
+});
+export type ApplicationPack = z.infer<typeof applicationPackSchema>;
 
 export const recurrenceSchema = z.object({
   freq: z.enum(["daily", "weekly", "monthly"]),
@@ -495,6 +548,115 @@ export const entitySchemas = {
     text: z.string().trim().min(1).max(500),
     doneAt: ms.nullable(),
   }),
+  /**
+   * Phase 3D (CAR-5): the career profile — the only source of facts for tailored CVs. One per user
+   * (deterministic id). Bullets have ids so a tailored CV can say which facts each line came from.
+   */
+  careerProfile: z.object({
+    name: z.string().trim().max(120),
+    headline: z.string().trim().max(200),
+    contact: z.object({
+      email: z.string().trim().max(200),
+      phone: z.string().trim().max(40),
+      location: z.string().trim().max(120),
+      links: z.array(z.object({ label: z.string().trim().max(40), url: z.string().trim().max(500) })).max(8),
+    }),
+    summary: z.string().max(3000),
+    experience: z
+      .array(
+        z.object({
+          id: shortId,
+          company: z.string().trim().min(1).max(200),
+          title: z.string().trim().min(1).max(200),
+          location: z.string().trim().max(120),
+          /** YYYY-MM; end null while it's your current role. */
+          start: month,
+          end: month.nullable(),
+          bullets: z.array(z.object({ id: shortId, text: z.string().trim().min(1).max(500) })).max(20),
+        }),
+      )
+      .max(30),
+    projects: z
+      .array(
+        z.object({
+          id: shortId,
+          name: z.string().trim().min(1).max(200),
+          url: z.string().trim().max(500),
+          bullets: z.array(z.object({ id: shortId, text: z.string().trim().min(1).max(500) })).max(10),
+        }),
+      )
+      .max(20),
+    education: z
+      .array(
+        z.object({
+          id: shortId,
+          school: z.string().trim().min(1).max(200),
+          degree: z.string().trim().max(200),
+          start: month.nullable(),
+          end: month.nullable(),
+          notes: z.string().trim().max(500),
+        }),
+      )
+      .max(10),
+    certifications: z
+      .array(
+        z.object({
+          id: shortId,
+          name: z.string().trim().min(1).max(200),
+          issuer: z.string().trim().max(200),
+          year: z.number().int().min(1950).max(2100).nullable(),
+        }),
+      )
+      .max(20),
+    /** Skills as written on a CV (tools, methods, languages). */
+    skills: z.array(z.string().trim().min(1).max(60)).max(60),
+    preferences: z.object({
+      roles: z.array(z.string().trim().min(1).max(80)).max(10),
+      markets: z.array(z.enum(JOB_MARKETS)).max(4),
+      workplace: z.enum(["remote", "remote_or_hybrid", "any"]),
+      salaryMin: z.number().int().min(0).max(100_000_000).nullable(),
+      currency: z.string().trim().max(8),
+      /** Words or companies to skip ("crypto", "Acme"). */
+      avoid: z.array(z.string().trim().min(1).max(80)).max(30),
+    }),
+    /** Companies whose job boards to watch. */
+    companies: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1).max(120),
+          board: z.enum(["greenhouse", "lever", "ashby"]),
+          slug: z
+            .string()
+            .trim()
+            .regex(/^[A-Za-z0-9._-]{1,80}$/),
+        }),
+      )
+      .max(40),
+  }),
+  /**
+   * Phase 3D: roles found for you (daily search or a pasted link), written by the server. Devices
+   * only set `status` and `leadId`.
+   */
+  jobPostings: z.object({
+    source: z.enum(JOB_SOURCES),
+    externalId: z.string().max(200),
+    url: z.string().max(1000),
+    company: z.string().max(200),
+    title: z.string().max(300),
+    location: z.string().max(300),
+    remote: z.boolean(),
+    salary: z.string().max(200),
+    /** Plain text, trimmed. */
+    description: z.string().max(8000),
+    postedAt: ms.nullable(),
+    foundAt: ms,
+    /** 0–100, how well it fits the profile and preferences; null until ranked. */
+    fit: z.number().int().min(0).max(100).nullable(),
+    why: z.array(z.string().max(300)).max(5),
+    gaps: z.array(z.string().max(300)).max(5),
+    status: z.enum(["new", "saved", "dismissed", "lead"]),
+    leadId: ref,
+  }),
   /** Phase 3C (HAB-5): an ordered checklist run as a sequence (morning, evening). */
   routines: z.object({
     name: z.string().trim().min(1).max(120),
@@ -573,6 +735,9 @@ export const entitySchemas = {
     /** When it first reached interviewing, so the interview rate survives closing. */
     interviewedAt: ms.nullable(),
     closedAt: ms.nullable(),
+    /** Phase 3D: the found role it came from, and the tailored application pack. Optional for older documents. */
+    postingId: ref.optional(),
+    pack: applicationPackSchema.nullable().optional(),
   }),
   /** Phase 3A (AREA-4): a Wheel of Life rating, one per day (deterministic id). */
   areaRatings: z.object({
@@ -612,7 +777,19 @@ export const entitySchemas = {
     url: z.string().max(300),
     tag: z.string().max(100),
     /** What it's about, for actions (NOT-3): a habit or a reminder, with its id. */
-    kind: z.enum(["plan", "shutdown", "review", "habit", "quarter", "date", "reminder", "job", "routine", "other"]),
+    kind: z.enum([
+      "plan",
+      "shutdown",
+      "review",
+      "habit",
+      "quarter",
+      "date",
+      "reminder",
+      "job",
+      "routine",
+      "jobs_found",
+      "other",
+    ]),
     ref: z.string().max(40).nullable(),
     sentAt: ms,
     readAt: ms.nullable(),
@@ -635,6 +812,7 @@ export const DEVICE_WRITABLE: Partial<Record<EntityName, ReadonlySet<string>>> =
   calendars: new Set(["selected"]),
   calendarEvents: new Set(),
   notifications: new Set(["readAt"]),
+  jobPostings: new Set(["status", "leadId"]),
 };
 export const ENTITY_NAMES = Object.keys(entitySchemas) as [EntityName, ...EntityName[]];
 
@@ -694,6 +872,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   learningItems: { skillId: "skills" },
   routines: { "steps.habitId": "habits" },
   routineRuns: { routineId: "routines" },
+  jobPostings: { leadId: "jobLeads" },
   interactions: { personId: "people" },
   personItems: { personId: "people" },
 };
