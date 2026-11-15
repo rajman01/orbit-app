@@ -1,11 +1,10 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Lightbulb } from "lucide-react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
-import { SectionLabel } from "@/components/tasks/task-list";
+import { JournalBrowse } from "@/components/journal/journal-browse";
 import { IconButton } from "@/components/ui/button";
 import { Picker } from "@/components/ui/picker";
 import { useActions } from "@/features/actions";
@@ -13,7 +12,7 @@ import { useJournal, type JournalDoc } from "@/features/data";
 import { ENERGY, MOOD, PROMPTS } from "@/features/journal/model";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
-import { addDays, dayLabel, longDayLabel } from "@/lib/dates";
+import { addDays, longDayLabel } from "@/lib/dates";
 
 /** JRN-1/2: one page a day, with mood, energy and prompts; earlier entries below. */
 export function JournalView() {
@@ -26,7 +25,6 @@ export function JournalView() {
   const go = (d: string) => router.replace(d === todayDay ? "/journal" : `/journal?d=${d}`, { scroll: false });
   if (!entries) return null;
   const entry = entries.find((e) => e.date === day) ?? null;
-  const earlier = entries.filter((e) => e.date !== day && (e.text.trim() || e.mood || e.energy)).slice(0, 60);
 
   return (
     <>
@@ -60,32 +58,7 @@ export function JournalView() {
       />
       <PageBody>
         <Entry key={day} day={day} entry={entry} />
-        {earlier.length ? (
-          <>
-            <SectionLabel count={earlier.length}>Earlier</SectionLabel>
-            <ul aria-label="Earlier entries" className="flex flex-col">
-              {earlier.map((e) => (
-                <li key={e.id}>
-                  <Link
-                    href={`/journal?d=${e.date}`}
-                    className="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-fill"
-                  >
-                    <span className="w-24 shrink-0 text-footnote font-medium">{dayLabel(e.date, todayDay)}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="line-clamp-2 text-callout text-label-secondary">
-                        {e.text.trim() || "No words, just a check-in."}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 flex-col items-end gap-0.5 text-caption text-label-tertiary">
-                      {e.mood ? <span>{MOOD[e.mood - 1]}</span> : null}
-                      {e.energy ? <span>{ENERGY[e.energy - 1]} energy</span> : null}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : null}
+        <JournalBrowse entries={entries} day={day} today={todayDay} />
       </PageBody>
     </>
   );

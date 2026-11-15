@@ -6,6 +6,7 @@ import {
   CalendarRange,
   CalendarSync,
   Clock,
+  ListChecks,
   Gift,
   Moon,
   Repeat,
@@ -32,6 +33,7 @@ const ICON: Record<NotificationDoc["kind"], LucideIcon> = {
   date: Gift,
   reminder: Clock,
   job: Briefcase,
+  routine: ListChecks,
   other: Bell,
 };
 

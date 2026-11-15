@@ -6,6 +6,7 @@ import type { EntityFields, SyncedDoc } from "@/lib/sync/entities";
 import { dateTitle, formatPersonDate, upcomingDates } from "@/features/people/model";
 import { addQuarters, quarterDates, quarterLabel, quarterOf } from "@/features/quarters/model";
 import { addDays } from "@/lib/dates";
+import { routineDueOn, runProgress } from "@/features/routines/model";
 
 type Ritual = Pick<SyncedDoc<"rituals">, "type" | "date" | "completedAt">;
 type Cycle = Pick<SyncedDoc<"cycles">, "id" | "number" | "endDate" | "reviewCompletedAt">;
@@ -56,6 +57,12 @@ export function dueNotifications(opts: {
   people?: Person[];
   /** Phase 2D.2: quarters, for the Quarterly Plan and Review. */
   quarters?: Pick<SyncedDoc<"quarters">, "year" | "q" | "committedAt" | "reviewCompletedAt">[];
+  /** Phase 3C: routines with a reminder time, and today's runs. */
+  routines?: Pick<SyncedDoc<"routines">, "id" | "name" | "steps" | "days" | "reminderTime" | "archivedAt">[];
+  routineRuns?: Pick<
+    SyncedDoc<"routineRuns">,
+    "routineId" | "date" | "doneStepIds" | "skippedStepIds" | "completedAt"
+  >[];
   /** Phase 3B: job leads with a next step. */
   jobLeads?: Pick<SyncedDoc<"jobLeads">, "id" | "company" | "role" | "stage" | "nextStep" | "nextDate">[];
   sent: Set<string>;
@@ -182,6 +189,24 @@ export function dueNotifications(opts: {
         });
       }
     }
+    // HAB-5: a routine at its reminder time, if it's for today and not finished.
+    if (notify.routines ?? true) {
+      for (const r of opts.routines ?? []) {
+        if (!r.reminderTime || !within(time, r.reminderTime, 2) || !routineDueOn(r, today)) continue;
+        const run = (opts.routineRuns ?? []).find((x) => x.routineId === r.id && x.date === today);
+        const p = runProgress(r, run);
+        if (p.complete) continue;
+        push({
+          key: `routine:${r.id}:${today}`,
+          title: r.name,
+          body: p.done
+            ? `${p.total - p.done} steps to go.`
+            : `${p.total} steps${p.minutesLeft ? `, about ${p.minutesLeft} min` : ""}.`,
+          url: "/today",
+          tag: `orbit-routine-${r.id}`,
+        });
+      }
+    }
     // CAR-4: a job lead's next step, at Daily Plan time on its day (once).
     if ((notify.jobs ?? true) && within(time, times.plan, 3)) {
       for (const l of opts.jobLeads ?? []) {
@@ -225,6 +250,8 @@ export function notificationMeta(key: string): { kind: NotificationKind; ref: st
       return { kind: "date", ref: ref ?? null };
     case "job":
       return { kind: "job", ref: ref ?? null };
+    case "routine":
+      return { kind: "routine", ref: ref ?? null };
     case "qplan":
     case "qreview":
       return { kind: "quarter", ref: null };

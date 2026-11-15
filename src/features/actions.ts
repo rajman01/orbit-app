@@ -10,7 +10,14 @@ type SavedViewFields = EntityFields<"savedViews">;
 import { AREA_PRESETS, presetAreaId, type AreaFields } from "./areas/model";
 import { newGoalFields, type Goal, type GoalFields, type KeyResult } from "./goals/model";
 import { defaultSettings, settingsId, type Settings } from "./settings/model";
-import { newTaskFields, nextInstanceId, nextOccurrence, type Task, type TaskFields } from "./tasks/model";
+import {
+  newTaskFields,
+  nextInstanceId,
+  nextOccurrence,
+  withTaskDefaults,
+  type Task,
+  type TaskFields,
+} from "./tasks/model";
 import { isSkip, planDay, type SkipReason } from "./today/model";
 import type { FocusMode } from "./focus/model";
 import { cycleId, cyclesToCreate, ritualId, type Cycle, type RitualType } from "./cycles/model";
@@ -34,6 +41,15 @@ import {
 import { addDays, dayOf } from "@/lib/dates";
 import { newPersonFields, type InteractionType, type PersonFields } from "./people/model";
 import { ratingId } from "./insights/model";
+import {
+  newRoutineFields,
+  routineRunId,
+  runProgress,
+  ROUTINE_XP,
+  type Routine,
+  type RoutineFields,
+} from "./routines/model";
+import { newlyUnblocked, wouldLoop } from "./tasks/links";
 import {
   learningPatch,
   learningXp,
@@ -336,6 +352,12 @@ export function createActions(engine: SyncEngine, userId: string) {
           reasonText: null,
         });
         if (patch.status === "done" && task.recurrence) await actions.spawnNextOccurrence(task);
+        if ((patch.status === "done" || patch.status === "cancelled") && typeof window !== "undefined") {
+          // TASK-8: say what finishing this let go.
+          const freed = newlyUnblocked(task.id, (await db.tasks.toArray()).map(withTaskDefaults));
+          if (freed.length)
+            window.dispatchEvent(new CustomEvent("orbit:unblocked", { detail: { titles: freed.map((t) => t.title) } }));
+        }
         if (patch.status === "done") await awardTask({ ...task, ...full } as Task, true);
         else if (task.status === "done") await awardTask(task, false);
       }
@@ -1025,6 +1047,81 @@ export function createActions(engine: SyncEngine, userId: string) {
       engine.create("aiMemories", { text: text.trim().slice(0, 500), source, archivedAt: null }),
     updateMemory: (id: string, text: string) => engine.update("aiMemories", id, { text: text.trim().slice(0, 500) }),
     forgetMemory: (id: string) => engine.update("aiMemories", id, { archivedAt: now() }),
+
+    // ---------------------------------------------------------------- routines (Phase 3C, HAB-5)
+
+    createRoutine: (fields: Partial<RoutineFields> & { name: string }) =>
+      engine.create("routines", newRoutineFields(fields)),
+    updateRoutine: (id: string, patch: Partial<RoutineFields>) => engine.update("routines", id, patch),
+    archiveRoutine: (id: string, archived: boolean) =>
+      engine.update("routines", id, { archivedAt: archived ? now() : null }),
+    deleteRoutine: (id: string) => engine.remove("routines", id),
+
+    /** Today's run of a routine, made when you start it. */
+    async startRoutine(routine: Routine, date: string) {
+      const id = routineRunId(routine.id, date);
+      const existing = await db.routineRuns.get(id);
+      if (existing && !existing.deletedAt) return id;
+      await engine.create(
+        "routineRuns",
+        { routineId: routine.id, date, doneStepIds: [], skippedStepIds: [], startedAt: now(), completedAt: null },
+        id,
+      );
+      return id;
+    },
+
+    /**
+     * Marks a step done (or skipped). A step tied to a habit logs it for the day; the last step
+     * finishes the run and earns XP.
+     */
+    async finishRoutineStep(routine: Routine, date: string, stepId: string, how: "done" | "skipped" = "done") {
+      const id = await actions.startRoutine(routine, date);
+      const run = (await db.routineRuns.get(id))!;
+      const doneIds =
+        how === "done" ? [...new Set([...run.doneStepIds, stepId])] : run.doneStepIds.filter((x) => x !== stepId);
+      const skippedIds =
+        how === "skipped"
+          ? [...new Set([...run.skippedStepIds, stepId])]
+          : run.skippedStepIds.filter((x) => x !== stepId);
+      const progress = runProgress(routine, { doneStepIds: doneIds, skippedStepIds: skippedIds, completedAt: null });
+      await engine.update("routineRuns", id, {
+        doneStepIds: doneIds,
+        skippedStepIds: skippedIds,
+        completedAt: progress.complete ? (run.completedAt ?? now()) : null,
+      });
+      const step = routine.steps.find((x) => x.id === stepId);
+      if (how === "done" && step?.habitId) {
+        const habit = await db.habits.get(step.habitId);
+        if (habit && !habit.deletedAt && !habit.archivedAt)
+          await actions.logHabit(habit, date, habit.targetType === "boolean" ? 1 : habit.targetCount);
+      }
+      if (progress.complete && !run.completedAt) await award("routine", id, ROUTINE_XP, `Routine: ${routine.name}`);
+    },
+
+    /** Takes a step back to not done (and the run with it, if it was finished). */
+    async undoRoutineStep(routine: Routine, date: string, stepId: string) {
+      const id = routineRunId(routine.id, date);
+      const run = await db.routineRuns.get(id);
+      if (!run || run.deletedAt) return;
+      await engine.update("routineRuns", id, {
+        doneStepIds: run.doneStepIds.filter((x) => x !== stepId),
+        skippedStepIds: run.skippedStepIds.filter((x) => x !== stepId),
+        completedAt: null,
+      });
+      if (run.completedAt) await award("routine", id, 0, "Routine reopened");
+    },
+
+    // ---------------------------------------------------------------- task links (Phase 3C, TASK-8)
+
+    /** "Blocked by": refuses a link that would make the two wait on each other. */
+    async addBlocker(task: Task, blockerId: string) {
+      const all = (await db.tasks.toArray()).filter((t) => !t.deletedAt);
+      if (wouldLoop(task.id, blockerId, all)) throw new Error("That would make them wait on each other.");
+      const blockedBy = [...new Set([...(task.blockedBy ?? []), blockerId])].slice(0, 20);
+      await engine.update("tasks", task.id, { blockedBy });
+    },
+    removeBlocker: (task: Task, blockerId: string) =>
+      engine.update("tasks", task.id, { blockedBy: (task.blockedBy ?? []).filter((x) => x !== blockerId) }),
 
     // ---------------------------------------------------------------- career (Phase 3B)
 

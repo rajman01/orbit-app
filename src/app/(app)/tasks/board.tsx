@@ -12,6 +12,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { Lock } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { AreaDot } from "@/components/areas/area-icon";
@@ -19,6 +20,7 @@ import { PriorityIcon, StatusIcon } from "@/components/tasks/icons";
 import { useTaskLookups } from "@/components/tasks/task-list";
 import { TaskContextMenu } from "@/components/tasks/task-row";
 import { useTaskPanel } from "@/components/tasks/task-panel";
+import { useIsBlocked } from "@/components/tasks/blocked";
 import { useActions } from "@/features/actions";
 import { compareTasks, STATUS_META, taskCode, type Task, type TaskStatus } from "@/features/tasks/model";
 import { useToday } from "@/features/use-today";
@@ -121,6 +123,7 @@ function Card({ task, lifted }: { task: Task; lifted?: boolean }) {
   const todayDay = useToday();
   const area = task.areaId ? areaById.get(task.areaId) : undefined;
   const goal = task.goalId ? goalById.get(task.goalId) : undefined;
+  const blocked = useIsBlocked(task.id);
   return (
     <button
       type="button"
@@ -136,11 +139,13 @@ function Card({ task, lifted }: { task: Task; lifted?: boolean }) {
       className={cn(
         "flex w-full flex-col gap-2 rounded-md border border-separator bg-surface p-3 text-left shadow-1 dark:bg-surface-raised",
         lifted && "scale-[1.02] shadow-2",
+        blocked && "opacity-60",
       )}
     >
       <span className="flex items-center gap-1.5 text-caption text-label-tertiary">
         <PriorityIcon priority={task.priority} className="size-3.5" />
         <span className="font-mono">{taskCode(task)}</span>
+        {blocked ? <Lock className="size-3.5" aria-label="Blocked" /> : null}
         {area ? <AreaDot color={area.color} className="ml-auto" /> : null}
       </span>
       <span className={cn("text-body", task.status === "done" && "text-label-tertiary line-through")}>

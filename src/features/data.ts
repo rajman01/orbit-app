@@ -326,3 +326,28 @@ export function useJobLeads(): JobLeadDoc[] | undefined {
   const { db } = useSync();
   return useLiveQuery(async () => live(await db.jobLeads.toArray()).sort((a, b) => a.order - b.order), [db]);
 }
+
+export type RoutineDoc = SyncedDoc<"routines">;
+export type RoutineRunDoc = SyncedDoc<"routineRuns">;
+
+/** HAB-5: routines in order (archived ones only when asked). */
+export function useRoutines(opts: { includeArchived?: boolean } = {}): RoutineDoc[] | undefined {
+  const { db } = useSync();
+  const all = opts.includeArchived ?? false;
+  return useLiveQuery(
+    async () =>
+      live(await db.routines.toArray())
+        .filter((r) => all || r.archivedAt == null)
+        .sort((a, b) => a.order - b.order),
+    [db, all],
+  );
+}
+
+/** Runs on a day, keyed by routine. */
+export function useRoutineRuns(date: string): Map<string, RoutineRunDoc> | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () => new Map(live(await db.routineRuns.where("date").equals(date).toArray()).map((r) => [r.routineId, r])),
+    [db, date],
+  );
+}

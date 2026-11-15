@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { createActions, type Actions } from "@/features/actions";
 import { defaultSettings, settingsId, type Settings } from "@/features/settings/model";
 import { withTaskDefaults } from "@/features/tasks/model";
+import { wouldLoop } from "@/features/tasks/links";
 import { dayLabel, dayOf, instantAt, timeOf, today as todayOf } from "@/lib/dates";
 import type { OrbitDB } from "@/lib/local-db/db";
 import type { SyncEngine } from "@/lib/sync/engine";
@@ -43,7 +44,8 @@ export type WriteToolName =
   | "add_goal_update"
   | "save_skill"
   | "save_learning_item"
-  | "save_job_lead";
+  | "save_job_lead"
+  | "create_routine";
 
 type Input<N extends WriteToolName> = z.infer<(typeof COACH_TOOLS)[N]["input"]>;
 
@@ -185,6 +187,10 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       return `Log a win: ${q(i.title)}`;
     case "add_goal_update":
       return `Update on ${q(await titleOf(db, "goals", i.goalId))}`;
+    case "create_routine": {
+      const p = input as Input<"create_routine">;
+      return `Set up the routine ${q(p.name)} (${p.steps.length} step${p.steps.length === 1 ? "" : "s"})`;
+    }
     case "save_skill": {
       const p = input as Input<"save_skill">;
       if (!p.id) return `Add the skill ${q(p.name)}`;
@@ -304,6 +310,13 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
     }
     case "update_task": {
       const { id, ...patch } = input as Input<"update_task">;
+      if (patch.blockedBy) {
+        const all = (await db.tasks.toArray()).filter((t) => t.deletedAt == null).map(withTaskDefaults);
+        for (const b of patch.blockedBy) {
+          if (!all.some((t) => t.id === b)) throw new Error("A task in blockedBy doesn't exist.");
+          if (wouldLoop(id, b, all)) throw new Error("That would make the tasks wait on each other.");
+        }
+      }
       await actions.updateTask(await task(id), stripUndefined(patch));
       return { id };
     }
@@ -516,6 +529,25 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       await goal(p.goalId);
       await actions.addGoalUpdate(p.goalId, p.text);
       return { posted: true };
+    }
+    case "create_routine": {
+      const p = input as Input<"create_routine">;
+      for (const st of p.steps)
+        if (st.habitId && !(await db.habits.get(st.habitId)))
+          throw new Error("A step points at a habit that doesn't exist.");
+      const id = await actions.createRoutine({
+        name: p.name,
+        kind: p.kind,
+        steps: p.steps.map((st, i) => ({
+          id: `s${i + 1}`,
+          text: st.text,
+          minutes: st.minutes ?? null,
+          habitId: st.habitId ?? null,
+        })),
+        days: p.days ?? [],
+        reminderTime: p.reminderTime ?? null,
+      });
+      return { id };
     }
     case "save_skill": {
       const { id, ...rest } = input as Input<"save_skill">;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useBlockedSet } from "@/components/tasks/blocked";
 import { Check, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFocus } from "@/components/focus/focus-mode";
@@ -53,19 +54,21 @@ export function DailyPlanFlow({ ritual, onClose }: { ritual: RitualDoc; onClose:
   const leftover = [...plan.stale, ...plan.overdue];
   const skippedShutdown = missedShutdown(rituals, todayDay);
 
+  const blocked = useBlockedSet();
   // Must-do candidates: today's plan first, then the rest of the cycle.
   const candidates = useMemo(() => {
     const seen = new Set<string>();
     const list: Task[] = [];
     const add = (t: Task) => {
-      if (!isOpen(t) || seen.has(t.id)) return;
+      // TASK-8: a task waiting on another isn't a Must-do candidate.
+      if (!isOpen(t) || seen.has(t.id) || blocked.has(t.id)) return;
       seen.add(t.id);
       list.push(t);
     };
     for (const t of [...plan.mustDos, ...plan.also]) add(t);
     if (cycle) for (const t of all) if (t.cycleId === cycle.id && !t.parentTaskId) add(t);
     return list;
-  }, [plan, cycle, all]);
+  }, [plan, cycle, all, blocked]);
   const mustDos = plan.mustDos.filter(isOpen);
   const day = useDayFit(todayDay);
   const needSteps = mustDos.filter((t) => !t.nextStep);

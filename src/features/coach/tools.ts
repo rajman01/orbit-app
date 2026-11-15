@@ -47,6 +47,8 @@ const taskFields = {
   dueDate: day.nullable().optional().describe("Deadline, YYYY-MM-DD"),
   scheduledDate: day.nullable().optional().describe("The day they plan to do it, YYYY-MM-DD"),
   nextStep: z.string().trim().max(300).nullable().optional().describe("The very next physical action, ~2 minutes"),
+  skillId: id.nullable().optional().describe("The skill this task practises"),
+  blockedBy: z.array(id).max(20).optional().describe("Tasks that must be finished first (replaces the list)"),
 };
 
 export const COACH_TOOLS = {
@@ -438,6 +440,30 @@ export const COACH_TOOLS = {
       goalId: id.optional(),
     }),
   },
+  create_routine: {
+    description:
+      "Set up a routine: a short checklist run in order (a morning start, an evening wind-down). Steps can have a length in minutes and can tick one of their habits (habitId). Days are 0 = Sunday … 6 = Saturday; leave out for every day. Keep it short: 3–7 steps.",
+    input: z.object({
+      name: z.string().trim().min(1).max(120),
+      kind: z.enum(["morning", "evening", "other"]),
+      steps: z
+        .array(
+          z.object({
+            text: z.string().trim().min(1).max(200),
+            minutes: z.number().int().min(1).max(240).optional(),
+            habitId: id.optional(),
+          }),
+        )
+        .min(1)
+        .max(30),
+      days: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+      reminderTime: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .optional()
+        .describe("HH:MM, local"),
+    }),
+  },
   get_career: {
     description:
       "Read the user's career tools: skills (level now and target, 1 Aware … 5 Expert), the learning queue (status and progress, linked skill) and the job search pipeline (company, role, stage, next step and date, outcome), plus interview and offer rates. Use for career coaching, job search reviews and 'what should I learn next?'.",
@@ -498,6 +524,7 @@ export type CoachToolName = keyof typeof COACH_TOOLS;
 
 /** Tools that change the user's data: recorded, undoable, and subject to the autonomy setting. */
 export const WRITE_TOOLS = new Set<CoachToolName>([
+  "create_routine",
   "save_skill",
   "save_learning_item",
   "save_job_lead",

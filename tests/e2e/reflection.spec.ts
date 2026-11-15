@@ -50,14 +50,12 @@ test("write in the journal with a prompt; the evening Shutdown adds mood, energy
   await expect(page.getByRole("textbox", { name: "Journal entry" })).toHaveValue(
     new RegExp(`Patience\\.\\n\\nShipped it ${r}$`),
   );
-  await expect(page.getByRole("radiogroup", { name: "Mood" }).getByRole("radio", { name: "Good" })).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
-  await expect(page.getByRole("radiogroup", { name: "Energy" }).getByRole("radio", { name: "Steady" })).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
+  await expect(
+    page.getByRole("radiogroup", { name: "Mood", exact: true }).getByRole("radio", { name: "Good" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await expect(
+    page.getByRole("radiogroup", { name: "Energy", exact: true }).getByRole("radio", { name: "Steady" }),
+  ).toHaveAttribute("aria-checked", "true");
 });
 
 /** Closes today with the Shutdown: past what was planned, then mood, energy and a line. */
@@ -68,9 +66,9 @@ async function shutdown(page: import("@playwright/test").Page, r: string) {
   const cont = dialog.getByRole("button", { name: "Continue" });
   await cont.click();
   await cont.click();
-  await dialog.getByRole("radiogroup", { name: "Mood" }).getByRole("radio", { name: /Good/ }).click();
+  await dialog.getByRole("radiogroup", { name: "Mood", exact: true }).getByRole("radio", { name: /Good/ }).click();
   await dialog
-    .getByRole("radiogroup", { name: "Energy" })
+    .getByRole("radiogroup", { name: "Energy", exact: true })
     .getByRole("radio", { name: /Steady/ })
     .click();
   await cont.click();

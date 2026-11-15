@@ -57,6 +57,7 @@ export function actionTarget(
       return { kind: "cycle" };
     case "create_habit":
     case "update_habit":
+    case "create_routine":
       return { kind: "habits" };
     case "log_win":
     case "add_goal_update":

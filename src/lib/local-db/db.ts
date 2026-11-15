@@ -88,5 +88,7 @@ export function openLocalDb(userId: string): OrbitDB {
     learningItems: "id, skillId, status, order",
     jobLeads: "id, stage, order",
   });
+  // Phase 3C: routines and their runs.
+  db.version(16).stores({ routines: "id, order", routineRuns: "id, routineId, date" });
   return db;
 }

@@ -17,6 +17,7 @@ const CODE: Record<XpSource, string> = {
   penalty: "p",
   learning: "l",
   skill: "s",
+  routine: "o",
 };
 
 /** One XP entry per source, the same on every device, so nothing is awarded twice (PRD §9.1). */

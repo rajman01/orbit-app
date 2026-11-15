@@ -1,6 +1,17 @@
 "use client";
 
-import { AlertTriangle, CalendarClock, Check, PanelRight, Play, Repeat, Star, Target, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarClock,
+  Check,
+  Lock,
+  PanelRight,
+  Play,
+  Repeat,
+  Star,
+  Target,
+  Trash2,
+} from "lucide-react";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/menu";
 import { useIsDesktop } from "@/lib/use-media-query";
 import { AreaDot } from "@/components/areas/area-icon";
@@ -19,6 +30,7 @@ import { SwipeRow } from "./swipe-row";
 import { useSkipFlow } from "@/components/skip/skip-flow";
 import { useFocus } from "@/components/focus/focus-mode";
 import { useTaskSelection } from "./selection";
+import { useIsBlocked } from "./blocked";
 
 /** DESIGN.md §11.2 — the task row used everywhere. */
 export function TaskRow({
@@ -59,6 +71,7 @@ export function TaskRow({
   const skip = useSkipFlow();
   const focus = useFocus();
   const selection = useTaskSelection();
+  const blocked = useIsBlocked(task.id);
   const selecting = selection?.active ?? false;
   const selected = selecting && selection!.selected.has(task.id);
   const todayDay = useToday();
@@ -107,6 +120,7 @@ export function TaskRow({
         mustDo && "min-h-16 lg:min-h-12",
         "hover:bg-fill focus-visible:bg-fill focus-visible:ring-2 focus-visible:ring-accent",
         (selected || (!selecting && panel.taskId === task.id)) && "bg-accent-fill",
+        blocked && "opacity-60",
         className,
       )}
     >
@@ -138,6 +152,13 @@ export function TaskRow({
       ) : null}
       <div className="min-w-0 flex-1 py-1.5">
         <p className={cn("truncate", mustDo && "text-headline", done && "text-label-tertiary line-through")}>
+          {blocked ? (
+            <Lock
+              className="mr-1 inline size-3.5 -translate-y-px text-label-tertiary"
+              strokeWidth={2}
+              aria-label="Blocked"
+            />
+          ) : null}
           {task.title} <AiBadge createdAt={task.createdAt} show={task.createdBy === "ai"} />
         </p>
         {staleLabel ? (

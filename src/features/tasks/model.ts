@@ -32,6 +32,7 @@ export function newTaskFields(partial: Partial<TaskFields> & { title: string }):
     cycleId: null,
     personId: null,
     skillId: null,
+    blockedBy: [],
     ...partial,
   };
 }

@@ -260,7 +260,7 @@ export function SettingsView() {
 
         <Group title="Notifications">
           <PushRow />
-          {(["plan", "shutdown", "review", "habits", "focus", "people", "jobs"] as const).map((k) => (
+          {(["plan", "shutdown", "review", "habits", "focus", "people", "jobs", "routines"] as const).map((k) => (
             <Row key={k} label={NOTIFY_LABELS[k]}>
               <input
                 type="checkbox"
@@ -407,6 +407,7 @@ const NOTIFY_LABELS = {
   focus: "Focus session ends",
   people: "Birthdays and dates",
   jobs: "Job search next steps",
+  routines: "Routines",
 } as const;
 
 /** NOT-1: turn push on for this device, with iPhone guidance (it needs Orbit on the Home Screen). */

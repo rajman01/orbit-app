@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { EmptyState } from "@/components/app/empty-state";
 import { NotificationBell } from "@/components/notifications/bell";
+import { TodayRoutines } from "@/components/routines/routine-cards";
 import { ClearSkyScene } from "@/components/app/scenes";
 import { useSkipFlow } from "@/components/skip/skip-flow";
 import { SectionLabel, TaskList, useTaskLookups } from "@/components/tasks/task-list";
@@ -108,6 +109,7 @@ export function TodayView() {
       />
       <PageBody>
         <RitualCards />
+        <TodayRoutines />
         <PushPrompt />
         <DayOrbit plan={plan} now={now} timezone={settings.timezone} ready={all !== undefined} />
         <CapacityBar capacity={plan.capacity} />

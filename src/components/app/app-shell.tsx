@@ -19,6 +19,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { useActions } from "@/features/actions";
 import { useAreas, useCycles, useSavedViews, useSettings } from "@/features/data";
 import { NotificationBell } from "@/components/notifications/bell";
+import { BlockedProvider } from "@/components/tasks/blocked";
 import { settingsId } from "@/features/settings/model";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
@@ -42,14 +43,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <RitualProvider>
               <CoachPanelProvider>
                 <CommandsProvider>
-                  <OnboardingRedirect />
-                  <CycleKeeper />
-                  <div className="flex min-h-dvh bg-bg">
-                    <Sidebar />
-                    <main className="min-w-0 flex-1 pb-[var(--tabbar-space)] lg:pb-0">{children}</main>
-                    <TabBar />
-                  </div>
-                  <XpLayer />
+                  <BlockedProvider>
+                    <OnboardingRedirect />
+                    <CycleKeeper />
+                    <div className="flex min-h-dvh bg-bg">
+                      <Sidebar />
+                      <main className="min-w-0 flex-1 pb-[var(--tabbar-space)] lg:pb-0">{children}</main>
+                      <TabBar />
+                    </div>
+                    <XpLayer />
+                  </BlockedProvider>
                 </CommandsProvider>
               </CoachPanelProvider>
             </RitualProvider>

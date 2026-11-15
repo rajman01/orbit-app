@@ -89,6 +89,8 @@ export const entitySchemas = {
         people: z.boolean().optional(),
         /** Phase 3B: a job lead's next step, on its day. Optional for older documents. */
         jobs: z.boolean().optional(),
+        /** Phase 3C: routines at their reminder time. Optional for older documents. */
+        routines: z.boolean().optional(),
       })
       .optional(),
     /** Phase 2A: how much the coach may do on its own (PRD §10.5). */
@@ -183,6 +185,8 @@ export const entitySchemas = {
     personId: ref.optional(),
     /** Phase 3B (CAR-2): the skill this task practises. Optional for older documents. */
     skillId: ref.optional(),
+    /** Phase 3C (TASK-8): tasks that must be finished first. Optional for older documents. */
+    blockedBy: z.array(id).max(20).optional(),
   }),
   taskEvents: z.object({
     taskId: id,
@@ -262,6 +266,7 @@ export const entitySchemas = {
       "penalty",
       "learning",
       "skill",
+      "routine",
     ]),
     sourceId: z.string().max(80),
     areaId: ref,
@@ -490,6 +495,38 @@ export const entitySchemas = {
     text: z.string().trim().min(1).max(500),
     doneAt: ms.nullable(),
   }),
+  /** Phase 3C (HAB-5): an ordered checklist run as a sequence (morning, evening). */
+  routines: z.object({
+    name: z.string().trim().min(1).max(120),
+    kind: z.enum(["morning", "evening", "other"]),
+    steps: z
+      .array(
+        z.object({
+          id: z.string().regex(/^[0-9A-Za-z]{1,20}$/),
+          text: z.string().trim().min(1).max(200),
+          /** A timer for the step, if it has a length. */
+          minutes: z.number().int().min(1).max(240).nullable(),
+          /** Finishing the step logs this habit for the day. */
+          habitId: ref,
+        }),
+      )
+      .min(1)
+      .max(30),
+    /** 0 = Sunday … 6 = Saturday; empty means every day. */
+    days: z.array(z.number().int().min(0).max(6)).max(7),
+    reminderTime: time.nullable(),
+    order: z.number(),
+    archivedAt: ms.nullable(),
+  }),
+  /** One run of a routine per day (deterministic id). */
+  routineRuns: z.object({
+    routineId: id,
+    date: day,
+    doneStepIds: z.array(z.string().max(20)).max(30),
+    skippedStepIds: z.array(z.string().max(20)).max(30),
+    startedAt: ms,
+    completedAt: ms.nullable(),
+  }),
   /** Phase 3B (CAR-2): skills, with a level now and a level to reach. */
   skills: z.object({
     name: z.string().trim().min(1).max(120),
@@ -575,7 +612,7 @@ export const entitySchemas = {
     url: z.string().max(300),
     tag: z.string().max(100),
     /** What it's about, for actions (NOT-3): a habit or a reminder, with its id. */
-    kind: z.enum(["plan", "shutdown", "review", "habit", "quarter", "date", "reminder", "job", "other"]),
+    kind: z.enum(["plan", "shutdown", "review", "habit", "quarter", "date", "reminder", "job", "routine", "other"]),
     ref: z.string().max(40).nullable(),
     sentAt: ms,
     readAt: ms.nullable(),
@@ -636,6 +673,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
     cycleId: "cycles",
     personId: "people",
     skillId: "skills",
+    blockedBy: "tasks",
   },
   taskEvents: { taskId: "tasks" },
   focusSessions: { taskId: "tasks" },
@@ -654,6 +692,8 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   areaRatings: { "scores.areaId": "areas" },
   skills: { areaId: "areas", goalId: "goals" },
   learningItems: { skillId: "skills" },
+  routines: { "steps.habitId": "habits" },
+  routineRuns: { routineId: "routines" },
   interactions: { personId: "people" },
   personItems: { personId: "people" },
 };
