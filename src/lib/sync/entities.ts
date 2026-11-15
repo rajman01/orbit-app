@@ -153,6 +153,10 @@ export const entitySchemas = {
     /** Phase 2B.2: the calendar account time blocks go to (null: the first one connected). */
     blocksAccountId: z.string().max(60).nullable().optional(),
     strictness: z.enum(["gentle", "firm", "strict"]),
+    /** Phase 3E (NOT-7): the weekly report by email, and important reminders by email when no device has push. */
+    email: z.object({ weeklyReport: z.boolean(), reminders: z.boolean() }).optional(),
+    /** Phase 3E (PWA-6): what the app icon's number counts. */
+    badge: z.enum(["unread", "due", "off"]).optional(),
     onboardingCompletedAt: ms.nullable(),
   }),
   areas: z.object({

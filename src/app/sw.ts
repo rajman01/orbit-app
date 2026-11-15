@@ -53,6 +53,8 @@ interface PushPayload {
   id?: string | null;
   /** NOT-3: buttons where supported (habits: Done; reminders: Snooze 15 min). */
   actions?: { action: string; title: string }[];
+  /** PWA-6: the number for the app icon (null: leave it). */
+  badge?: number | null;
 }
 
 self.addEventListener("push", (event) => {
@@ -65,6 +67,9 @@ self.addEventListener("push", (event) => {
   if (!payload?.title) return;
   event.waitUntil(
     (async () => {
+      // PWA-6: the app icon's number, where supported (even when no notification is shown).
+      const nav = self.navigator as WorkerNavigator & { setAppBadge?: (n?: number) => Promise<void> };
+      if (typeof payload.badge === "number" && nav.setAppBadge) await nav.setAppBadge(payload.badge).catch(() => {});
       // Orbit open and in front: the app already shows what's due, so don't double up.
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       if (windows.some((c) => (c as WindowClient).focused && (c as WindowClient).visibilityState === "visible")) return;

@@ -5,6 +5,7 @@ import { dispatchCalendarSync } from "@/lib/calendar/server";
 import { dispatchCheckins } from "@/lib/coach/checkins";
 import { dispatchReminders, webPushSender } from "@/lib/push/server";
 import { dispatchJobSearch } from "@/lib/jobs/server";
+import { dispatchEmails } from "@/lib/email/digests";
 
 /** Writing a check-in is a short model call; allow for a few. */
 export const maxDuration = 60;
@@ -43,7 +44,12 @@ async function handle(request: Request) {
     console.error("job search failed", err);
     return { jobSearches: 0 };
   });
-  return NextResponse.json({ ...result, ...checkins, ...calendars, ...jobs });
+  // Email (Phase 3E): the weekly report and, for people without push, important reminders.
+  const mail = await dispatchEmails(db(), now).catch((err) => {
+    console.error("emails failed", err);
+    return { emails: 0 };
+  });
+  return NextResponse.json({ ...result, ...checkins, ...calendars, ...jobs, ...mail });
 }
 
 export const GET = handle;

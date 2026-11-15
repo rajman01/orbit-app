@@ -107,9 +107,12 @@ test("add a person, log a call with a follow-up, and see it on another device", 
 test("G P opens People", async ({ page }) => {
   await page.goto("/today");
   await waitForSynced(page);
-  await page.keyboard.press("g");
-  await page.keyboard.press("p");
-  await expect(page).toHaveURL(/\/people/);
+  // Shortcuts work once the page has hydrated: press until it goes.
+  await expect(async () => {
+    await page.locator("body").press("g");
+    await page.locator("body").press("p");
+    await expect(page).toHaveURL(/\/people/, { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "People" })).toBeVisible();
 });
 

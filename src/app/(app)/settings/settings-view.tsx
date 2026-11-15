@@ -35,6 +35,7 @@ export function SettingsView() {
   const save = (patch: Parameters<typeof actions.saveSettings>[0]) => void actions.saveSettings(patch);
   const times = settings.ritualTimes ?? defaultSettings().ritualTimes!;
   const notify = settings.notify ?? defaultSettings().notify!;
+  const email = { ...defaultSettings().email!, ...(settings.email ?? {}) };
   const quiet = settings.quietHours ?? defaultSettings().quietHours!;
   const deviceTz = mounted ? deviceTimezone() : settings.timezone;
 
@@ -271,6 +272,36 @@ export function SettingsView() {
               />
             </Row>
           ))}
+          <Row label="Weekly report by email">
+            <input
+              type="checkbox"
+              aria-label="Weekly report by email"
+              checked={email.weeklyReport}
+              onChange={(e) => save({ email: { ...email, weeklyReport: e.target.checked } })}
+              className="size-5 accent-[var(--accent)]"
+            />
+          </Row>
+          <Row label="Important reminders by email when notifications are off">
+            <input
+              type="checkbox"
+              aria-label="Important reminders by email"
+              checked={email.reminders}
+              onChange={(e) => save({ email: { ...email, reminders: e.target.checked } })}
+              className="size-5 accent-[var(--accent)]"
+            />
+          </Row>
+          <Row label="App icon badge">
+            <select
+              aria-label="App icon badge"
+              value={settings.badge ?? "unread"}
+              onChange={(e) => save({ badge: e.target.value as "unread" | "due" | "off" })}
+              className="rounded-md bg-fill px-2 py-1 text-body text-label"
+            >
+              <option value="unread">Unread notifications</option>
+              <option value="due">Tasks due today</option>
+              <option value="off">Off</option>
+            </select>
+          </Row>
           <Row label="Quiet hours">
             <span className="flex items-center gap-1.5">
               <TimeField

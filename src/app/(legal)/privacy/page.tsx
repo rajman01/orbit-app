@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Privacy policy" };
 
-const UPDATED = "15 November 2026";
+const UPDATED = "16 November 2026";
 
 export default function Privacy() {
   return (
@@ -121,6 +121,11 @@ export default function Privacy() {
           <strong>Google</strong>, if you sign in with Google, connect Google Calendar or import Google Contacts.
         </li>
         <li>Your browser&rsquo;s push service delivers notifications, if you turn them on.</li>
+        <li>
+          <strong>Postmark</strong> sends Orbit&rsquo;s emails (the weekly report, and important reminders when you
+          haven&rsquo;t turned on notifications): it receives your email address and the email&rsquo;s content. You can
+          turn both emails off in Settings.
+        </li>
       </ul>
       <p>They process data only to provide their service to Orbit.</p>
 

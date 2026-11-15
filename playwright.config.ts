@@ -30,6 +30,8 @@ export default defineConfig({
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       // The coach talks to a scripted fake model in tests: no API key, no cost.
       COACH_FAKE: "1",
+      // Emails are stored in the database instead of sent (Phase 3E).
+      EMAIL_FAKE: "1",
       // Calendars talk to an in-memory fake Google (lib/calendar/google.ts).
       CALENDAR_FAKE: "1",
       // A fixed test key, so a real key in .env.local never meets the test database's secrets.

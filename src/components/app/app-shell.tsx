@@ -20,6 +20,7 @@ import { useActions } from "@/features/actions";
 import { useAreas, useCycles, useSavedViews, useSettings } from "@/features/data";
 import { NotificationBell } from "@/components/notifications/bell";
 import { BlockedProvider } from "@/components/tasks/blocked";
+import { BadgeKeeper } from "@/components/app/badge-keeper";
 import { settingsId } from "@/features/settings/model";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
@@ -52,6 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <TabBar />
                     </div>
                     <XpLayer />
+                    <BadgeKeeper />
                   </BlockedProvider>
                 </CommandsProvider>
               </CoachPanelProvider>

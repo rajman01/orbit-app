@@ -338,6 +338,7 @@ describe("the daily search (server)", () => {
           cycleCapacityPts: 30,
           workingHours: { start: "09:00", end: "17:00" },
           strictness: "firm",
+          onboardingCompletedAt: 1,
         },
       },
       {

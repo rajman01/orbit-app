@@ -31,6 +31,8 @@ export function defaultSettings(): Settings {
       routines: true,
     },
     strictness: "firm",
+    email: { weeklyReport: true, reminders: true },
+    badge: "unread",
     onboardingCompletedAt: null,
   };
 }
