@@ -998,7 +998,7 @@ The detailed plan for each phase — scope, data model changes, decisions, steps
 | [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | ✅ Deployed (2026-11-12) |
 | [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | ✅ Deployed (2026-11-12) — trial running |
 | [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, QTR-1–6, RIT-7, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | 2A deployed (2026-11-14), 2B planned |
-| [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–4, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, email capture | Insights reflect four cycles of real data | Planned |
+| [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–4, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, email capture | Insights reflect four cycles of real data | In progress (3A built 2026-11-15) |
 | [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |
 
 PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
@@ -1030,7 +1030,7 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 5. ~~**Strictness default**~~ — built with `Firm` as the default (D26); changeable in Settings → Accountability.
 6. ~~**Level titles**~~ — space-themed (D30).
 7. ~~**Notifications**~~ — built with the proposed times (D26); editable in Settings.
-8. **Domain** — will Orbit have a custom domain? Currently `orbit-app-three-beta.vercel.app`; a change means updating `BETTER_AUTH_URL` and the Google OAuth client.
+8. **Domain** — *(2026-11-15: later, with Resend for email; Postmark without a domain until then — see phase-3.md "Later")* will Orbit have a custom domain? Currently `orbit-app-three-beta.vercel.app`; a change means updating `BETTER_AUTH_URL` and the Google OAuth client.
 9. ~~**Reminder scheduler**~~ — cron-job.org, free (D29).
 10. ~~**Quarter boundaries**~~ — calendar quarters chosen (D34). Was: calendar quarters (Q1 = January–March), or 12-week blocks of 6 cycles so quarters and cycles line up exactly? *(Proposed: calendar quarters; the last cycle of a quarter can run a few days past its end. Needed by Phase 2.)*
 
@@ -1078,3 +1078,4 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 | D36 | Time blocks: the "Orbit" calendar is created only when the first block needs it; each sync pulls Google's changes first (applied with Google's change time, so the newer edit wins field by field), then pushes blocks changed in Orbit; events added to the Orbit calendar in Google become blocks | Two-way sync without a conflict prompt; nothing appears in your Google account until you use it |
 | D37 | People: initials or emoji instead of photos; Google Contacts as a one-off read-only import (no stored token); the coach gets full help with people (same autonomy, cards and undo); "last in touch" derived from the interaction log; date reminders 7 days and 1 day before, sent by the server | Owner choice (2026-11-14); no file storage, minimal Google access, nothing that can drift out of sync |
 | D38 | Phase 2D: built long view first (vision, quarters, year view → reflection → capture and data → power tools); a shortened Quarterly Plan for the rest of Q4 as soon as quarters exist; one journal entry per day, filled in by the Shutdown; self-serve account deletion (typed confirmation) | Owner choice (2026-11-14) |
+| D39 | Phase 3: insights first (then career, then routines/links/journal search, then email and badge); email through Postmark without a domain for now, behind a provider interface, moving to a custom domain with Resend later; job search pipeline built and shown (owner is job searching); Wheel of Life rated in each Quarterly Review and any time; charts hand-drawn SVG, insights computed on the device | Owner choice (2026-11-15); no domain cost yet, no chart dependency, works offline |

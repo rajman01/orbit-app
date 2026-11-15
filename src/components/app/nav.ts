@@ -10,6 +10,7 @@ import {
   CalendarSync,
   Repeat,
   Trophy,
+  TrendingUp,
   Inbox,
   LayoutList,
   Settings,
@@ -36,6 +37,7 @@ export const NAV_MAIN = [
   { href: "/people", label: "People", icon: Users, group: 1 },
   { href: "/journal", label: "Journal", icon: NotebookPen, group: 2 },
   { href: "/wins", label: "Wins", icon: Award, group: 2 },
+  { href: "/insights", label: "Insights", icon: TrendingUp, group: 2 },
   { href: "/report", label: "Report", icon: BarChart3, group: 2 },
   { href: "/levels", label: "Levels", icon: Trophy, group: 2 },
 ] as const;
@@ -52,6 +54,7 @@ export const NAV_MORE = [
   { href: "/vision", label: "Vision", icon: Telescope },
   { href: "/journal", label: "Journal", icon: NotebookPen },
   { href: "/wins", label: "Wins", icon: Award },
+  { href: "/insights", label: "Insights", icon: TrendingUp },
   { href: "/cycle", label: "Cycle", icon: CalendarSync },
   { href: "/report", label: "Weekly report", icon: BarChart3 },
   { href: "/levels", label: "Levels", icon: Trophy },

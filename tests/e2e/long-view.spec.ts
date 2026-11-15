@@ -166,6 +166,9 @@ test("plan the rest of the quarter from Today, review it on its last day, see th
   await next.click();
   await review.getByRole("textbox", { name: "Reflection" }).fill("Mornings worked; evenings didn't.");
   await next.click();
+  // Phase 3A: the Wheel of Life step (optional; skipped here).
+  await expect(review.getByRole("heading", { name: "Your Wheel of Life" })).toBeVisible();
+  await next.click();
   await expect(review).toContainText(`Carried into ${nextLabel}: ${goal}`);
   await review.getByRole("button", { name: `Finish and plan ${nextLabel}` }).click();
 

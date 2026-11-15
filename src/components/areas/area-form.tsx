@@ -30,9 +30,10 @@ export function AreaDialog({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onOpenChange(false);
+    // Saved before the dialog closes, so leaving the page straight away can't lose it.
     if (area) await actions.updateArea(area.id, { name: name.trim(), color, icon, description });
     else await actions.createArea({ name: name.trim(), color, icon, description });
+    onOpenChange(false);
     if (!area) {
       setName("");
       setDescription("");

@@ -78,5 +78,7 @@ export function openLocalDb(userId: string): OrbitDB {
   db.version(12).stores({ journalEntries: "id, date", wins: "id, date, taskId, goalId", goalEvents: "id, goalId, at" });
   // Phase 2D.5: saved views and the notification centre.
   db.version(13).stores({ savedViews: "id, order", notifications: "id, sentAt" });
+  // Phase 3A: Wheel of Life ratings.
+  db.version(14).stores({ areaRatings: "id, date" });
   return db;
 }

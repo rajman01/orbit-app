@@ -414,6 +414,19 @@ export const COACH_TOOLS = {
       "Read the user's journal (mood, energy and what they wrote) and wins log for the last N days, to notice patterns or help with a review. Quote sparingly; it's private writing.",
     input: z.object({ days: z.number().int().min(1).max(90).optional().describe("How far back; 14 when left out") }),
   },
+  get_insights: {
+    description:
+      "Read the user's insights for the last N cycles: plan finished per cycle, focus hours, tasks done per area, ritual consistency, why and where things get skipped (reasons, areas, goals, weekdays), postponements before done, stale tasks, each area's health with reasons, the latest Wheel of Life rating with focus time against importance, and mood/energy against tasks done. For reviews, 'how am I doing?', or 'why do I keep putting X off?'.",
+    input: z.object({
+      cycles: z
+        .number()
+        .int()
+        .min(1)
+        .max(13)
+        .optional()
+        .describe("How many cycles back, including the current one; 4 when left out"),
+    }),
+  },
   log_win: {
     description:
       "Add a win to the user's wins log (their brag doc) when they tell you about an achievement and want it kept. Use their words for the title.",

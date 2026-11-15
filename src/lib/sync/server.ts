@@ -84,7 +84,10 @@ export async function applyMutations(
  */
 async function checkReferences(db: Db, userId: string, entity: EntityName, data: Record<string, unknown>) {
   for (const [field, target] of Object.entries(REFERENCES[entity] ?? {})) {
-    const value = data[field];
+    // `list.field`: an id inside each item of a list (a Wheel of Life rating's areas).
+    const [head, sub] = field.split(".");
+    const raw = data[head];
+    const value = sub && Array.isArray(raw) ? raw.map((item) => (item as Record<string, unknown> | null)?.[sub]) : raw;
     // A single id, or a list of them (a goal's people).
     const ids =
       typeof value === "string" ? [value] : Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];

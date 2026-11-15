@@ -33,6 +33,7 @@ import {
 } from "./xp/model";
 import { addDays, dayOf } from "@/lib/dates";
 import { newPersonFields, type InteractionType, type PersonFields } from "./people/model";
+import { ratingId } from "./insights/model";
 import { emptyEntry, journalId, withLine, type JournalFields } from "./journal/model";
 import { newWinFields, ritualWinId, taskWinId, type WinFields } from "./wins/model";
 import {
@@ -1008,6 +1009,15 @@ export function createActions(engine: SyncEngine, userId: string) {
       engine.create("aiMemories", { text: text.trim().slice(0, 500), source, archivedAt: null }),
     updateMemory: (id: string, text: string) => engine.update("aiMemories", id, { text: text.trim().slice(0, 500) }),
     forgetMemory: (id: string) => engine.update("aiMemories", id, { archivedAt: now() }),
+
+    /** AREA-4: today's Wheel of Life rating (rating again the same day replaces it). */
+    async saveAreaRating(date: string, fields: Pick<EntityFields<"areaRatings">, "scores" | "note">) {
+      const id = ratingId(userId, date);
+      const existing = await db.areaRatings.get(id);
+      if (existing && !existing.deletedAt) await engine.update("areaRatings", id, fields);
+      else await engine.create("areaRatings", { date, ...fields }, id);
+      return id;
+    },
 
     /** TASK-7: one change applied to several tasks, with history and XP as if done one by one. */
     async bulkUpdateTasks(tasks: Task[], patch: Partial<TaskFields>) {

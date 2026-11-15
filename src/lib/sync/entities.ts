@@ -469,6 +469,22 @@ export const entitySchemas = {
     text: z.string().trim().min(1).max(500),
     doneAt: ms.nullable(),
   }),
+  /** Phase 3A (AREA-4): a Wheel of Life rating, one per day (deterministic id). */
+  areaRatings: z.object({
+    date: day,
+    scores: z
+      .array(
+        z.object({
+          areaId: id,
+          /** How satisfied you are with the area, 1–10. */
+          score: z.number().int().min(1).max(10),
+          /** How much the area matters to you right now, 1–10 (INS-3). */
+          importance: z.number().int().min(1).max(10),
+        }),
+      )
+      .max(100),
+    note: z.string().max(2000),
+  }),
   /** Phase 2D.5 (CMD-4): the Tasks page's filters, saved under a name. */
   savedViews: z.object({
     name: z.string().trim().min(1).max(60),
@@ -566,6 +582,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   quarters: { goalIds: "goals" },
   wins: { areaId: "areas", goalId: "goals", taskId: "tasks" },
   goalEvents: { goalId: "goals" },
+  areaRatings: { "scores.areaId": "areas" },
   interactions: { personId: "people" },
   personItems: { personId: "people" },
 };

@@ -277,3 +277,14 @@ export function useUnreadNotifications(): number {
   const { db } = useSync();
   return useLiveQuery(() => db.notifications.filter((n) => !n.deletedAt && n.readAt == null).count(), [db]) ?? 0;
 }
+
+export type AreaRatingDoc = SyncedDoc<"areaRatings">;
+
+/** AREA-4: Wheel of Life ratings, newest first. */
+export function useAreaRatings(): AreaRatingDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () => live(await db.areaRatings.toArray()).sort((a, b) => b.date.localeCompare(a.date)),
+    [db],
+  );
+}

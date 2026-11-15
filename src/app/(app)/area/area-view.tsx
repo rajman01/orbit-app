@@ -8,6 +8,7 @@ import { useCommands } from "@/components/app/commands";
 import { EmptyState } from "@/components/app/empty-state";
 import { AreaDialog } from "@/components/areas/area-form";
 import { AreaIcon } from "@/components/areas/area-icon";
+import { HealthPill, useAreaHealths } from "@/components/areas/area-health";
 import { GoalCard } from "@/components/goals/goal-card";
 import { NewGoalDialog } from "@/components/goals/goal-form";
 import { SectionLabel, TaskList } from "@/components/tasks/task-list";
@@ -34,6 +35,7 @@ export function AreaView() {
   const { openQuickAdd } = useCommands();
   const [editing, setEditing] = useState(false);
   const [newGoal, setNewGoal] = useState(false);
+  const health = useAreaHealths(id ? [id] : [])?.get(id ?? "");
 
   if (area === undefined) return null;
   if (!area)
@@ -61,6 +63,11 @@ export function AreaView() {
         }
       />
       <PageBody>
+        {area.archivedAt ? null : (
+          <div className="-mt-2 mb-4">
+            <HealthPill health={health} />
+          </div>
+        )}
         {area.description ? (
           <p className="-mt-2 mb-6 max-w-[68ch] text-callout text-label-secondary">{area.description}</p>
         ) : null}

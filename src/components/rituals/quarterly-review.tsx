@@ -4,7 +4,9 @@ import { Target } from "lucide-react";
 import { useState } from "react";
 import { Pill } from "@/components/ui/pill";
 import { useActions } from "@/features/actions";
-import { useKeyResults, useQuarters, type RitualDoc } from "@/features/data";
+import { useAreaRatings, useAreas, useKeyResults, useQuarters, type RitualDoc } from "@/features/data";
+import { useToday } from "@/features/use-today";
+import { WheelRatingForm } from "@/components/insights/wheel-rating";
 import { krProgress } from "@/features/goals/model";
 import { addQuarters, quarterId, quarterLabel, quarterOf } from "@/features/quarters/model";
 import { useQuarter } from "@/features/quarters/use-quarter";
@@ -25,17 +27,22 @@ const textarea =
 
 /**
  * QTR-4 / RIT-7: the Quarterly Review. Results per goal → a decision on each unfinished goal
- * (completed / carry into next quarter / drop with a reason) → wins → reflection → plan the next.
+ * (completed / carry into next quarter / drop with a reason) → wins → reflection → Wheel of Life
+ * (AREA-4) → plan the next.
  */
 export function QuarterlyReviewFlow({ ritual, onClose }: { ritual: RitualDoc; onClose: () => void }) {
   const actions = useActions();
   const user = useCurrentUser();
+  const today = useToday();
   const launcher = useRitualLauncher();
   const ref = quarterOf(ritual.date);
   const nextRef = addQuarters(ref, 1);
   const quarter = useQuarter(ref);
   const quarters = useQuarters() ?? [];
   const krs = useKeyResults() ?? [];
+  const areas = useAreas() ?? [];
+  const ratings = useAreaRatings() ?? [];
+  const ratedToday = ratings[0]?.date === today;
   const label = quarterLabel(ref);
   const nextLabel = quarterLabel(nextRef);
   const data = ritual.data as ReviewData;
@@ -204,6 +211,20 @@ export function QuarterlyReviewFlow({ ritual, onClose }: { ritual: RitualDoc; on
           placeholder="Write freely. It's kept with the quarter."
           className={textarea}
         />
+      ),
+    },
+    {
+      id: "wheel",
+      title: "Your Wheel of Life",
+      hint: "How is each area going, and how much does it matter now? It starts from last time; move what changed.",
+      body: areas.length ? (
+        ratedToday ? (
+          <p className="text-callout">Saved for today. You can change it from Insights.</p>
+        ) : (
+          <WheelRatingForm areas={areas} last={ratings[0]} submitLabel="Save rating" />
+        )
+      ) : (
+        <EmptyStepNote>Add areas first to rate them.</EmptyStepNote>
       ),
     },
     {

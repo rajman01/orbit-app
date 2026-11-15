@@ -12,7 +12,22 @@ import { goalProgress } from "@/features/goals/model";
 import { habitStatus } from "@/features/habits/model";
 import { defaultSettings, settingsId, type Settings } from "@/features/settings/model";
 import { isOpen, taskCode, withTaskDefaults, type Task } from "@/features/tasks/model";
-import { buildToday, planDay } from "@/features/today/model";
+import { buildToday, lastTouched, planDay, skipReasonLabel } from "@/features/today/model";
+import {
+  areaHealth,
+  cycleTrend,
+  doneByArea,
+  focusByWeek,
+  headlines,
+  insightRange,
+  moodVsDone,
+  postponementsBeforeDone,
+  ritualConsistency,
+  skipInsights,
+  staleTrend,
+  timeVsValues,
+  withSuggestedHealth,
+} from "@/features/insights/model";
 import { levelFromXp, totalXp } from "@/features/xp/model";
 import { addDays, dayOf, longDayLabel, timeOf, today as todayOf } from "@/lib/dates";
 import { dayFit, onDay, spanMinutes } from "@/features/calendar/model";
@@ -432,6 +447,110 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
         text: e.text.trim() ? e.text.trim().slice(0, 1500) : undefined,
       })),
       wins: wins.map((w) => ({ date: w.date, title: w.title, impact: w.impact || undefined })),
+    };
+  },
+
+  async get_insights({ cycles: n }, { db, userId, now }) {
+    const s = await loadSettings(db, userId);
+    const day = todayOf(s.timezone, now);
+    const tz = s.timezone;
+    const [tasks, events, sessions, rituals, cycles, xp, journal, areas, goals, krs, ratings] = await Promise.all([
+      allTasks(db),
+      db.taskEvents.toArray().then(live),
+      db.focusSessions.toArray().then(live),
+      db.rituals.toArray().then(live),
+      db.cycles.toArray().then(live),
+      db.xpEvents.toArray().then(live),
+      db.journalEntries.toArray().then(live),
+      db.areas.toArray().then(live),
+      db.goals.toArray().then(live),
+      db.keyResults.toArray().then(live),
+      db.areaRatings.toArray().then(live),
+    ]);
+    const r = insightRange(cycles, day, n ?? 4);
+    const areaName = (id: string | null) =>
+      id ? (areas.find((a) => a.id === id)?.name ?? "Archived area") : "No area";
+    const trend = cycleTrend(r, tasks, sessions, xp, tz, day);
+    const skips = skipInsights(events, tasks, r, tz);
+    const rit = ritualConsistency(rituals, r, day);
+    const pct = (c: { done: number; of: number }) =>
+      c.of ? `${Math.round((c.done / c.of) * 100)}% (${c.done} of ${c.of})` : "n/a";
+    const touched = lastTouched(tasks, sessions);
+    const g = withSuggestedHealth(goals, krs, tasks, day, tz);
+    const latest = [...ratings].sort((a, b) => b.date.localeCompare(a.date))[0];
+    const mood = moodVsDone(journal, tasks, sessions, r, tz);
+    const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    return {
+      from: r.from,
+      to: r.to,
+      headlines: headlines({ trend, skips, reasonLabel: (id) => skipReasonLabel(id) ?? id, areaName }),
+      cycles: trend.map((c) => ({
+        cycle: c.number,
+        planFinished: `${Math.round(c.completion * 100)}%${c.current ? " so far (current)" : ""}`,
+        focusHours: c.focusHours,
+        xp: c.xp,
+      })),
+      focusHoursPerWeek: focusByWeek(sessions, r, tz, s.weekStartDay).map((w) => ({ week: w.week, hours: w.hours })),
+      doneByArea: doneByArea(tasks, r, tz).map((a) => ({ area: areaName(a.areaId), tasks: a.count, points: a.points })),
+      rituals: { dailyPlan: pct(rit.plan), shutdown: pct(rit.shutdown), cycleReview: pct(rit.review) },
+      skips: {
+        total: skips.total,
+        reasons: skips.reasons.map((x) => ({
+          reason: x.reason === "none" ? "no reason given" : skipReasonLabel(x.reason),
+          count: x.count,
+        })),
+        areas: skips.areas.slice(0, 5).map((x) => ({ area: areaName(x.areaId), count: x.count })),
+        goals: skips.goals
+          .slice(0, 5)
+          .map((x) => ({ goal: goals.find((y) => y.id === x.goalId)?.title, count: x.count })),
+        byWeekday: Object.fromEntries(skips.weekdays.map((c, i) => [WEEKDAY[i], c])),
+      },
+      postponedBeforeDone: postponementsBeforeDone(tasks, r, tz),
+      staleTasksAtWeekEnd: staleTrend(tasks, events, r, tz, s.weekStartDay).map((w) => ({
+        week: w.week,
+        stale: w.count,
+      })),
+      areaHealth: areas
+        .filter((a) => a.archivedAt == null)
+        .map((a) => {
+          const h = areaHealth(a.id, { goals: g, tasks, today: day, now, tz, touched });
+          return { area: a.name, health: h.level, reasons: h.reasons.length ? h.reasons : undefined };
+        }),
+      wheelOfLife: latest
+        ? {
+            ratedOn: latest.date,
+            areas: latest.scores.map((x) => ({
+              area: areaName(x.areaId),
+              going: `${x.score}/10`,
+              matters: `${x.importance}/10`,
+            })),
+            focusVsImportance: timeVsValues(sessions, tasks, latest, r, tz).map((v) => ({
+              area: areaName(v.areaId),
+              focusShare: `${Math.round(v.focusShare * 100)}%`,
+              importanceShare: `${Math.round(v.importanceShare * 100)}%`,
+            })),
+          }
+        : "Not rated yet",
+      moodAndEnergy: mood.enough
+        ? {
+            byMood: mood.mood
+              .filter((x) => x.days)
+              .map((x) => ({
+                mood: `${x.level}/5`,
+                days: x.days,
+                avgTasksDone: x.done,
+                avgFocusMinutes: x.focusMinutes,
+              })),
+            byEnergy: mood.energy
+              .filter((x) => x.days)
+              .map((x) => ({
+                energy: `${x.level}/5`,
+                days: x.days,
+                avgTasksDone: x.done,
+                avgFocusMinutes: x.focusMinutes,
+              })),
+          }
+        : `Only ${mood.rated} days with mood or energy in this range; at least 7 are needed.`,
     };
   },
 

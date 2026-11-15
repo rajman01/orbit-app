@@ -25,6 +25,7 @@ import {
   X,
   Bell,
   ListFilter,
+  TrendingUp,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
@@ -85,6 +86,7 @@ const GO: Record<string, string> = {
   y: "/year",
   j: "/journal",
   w: "/wins",
+  n: "/insights",
 };
 
 /** Quick Add, ⌘K palette and Linear-style keyboard shortcuts (PRD CMD-1 – CMD-3, INB-1). */
@@ -462,6 +464,7 @@ function Palette({
                         ["Year", "/year", CalendarRange, "G Y"],
                         ["Journal", "/journal", NotebookPen, "G J"],
                         ["Wins", "/wins", Award, "G W"],
+                        ["Insights", "/insights", TrendingUp, "G N"],
                         ["Capture from anywhere", "/capture", Inbox, ""],
                         ["Notifications", "/notifications", Bell, ""],
                         ["Cycle", "/cycle", CalendarSync, "G C"],
