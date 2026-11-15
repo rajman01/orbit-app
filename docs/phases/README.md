@@ -10,7 +10,7 @@ Each phase has its own plan so the [PRD](../PRD.md) stays the product spec, not 
 | 1C — Cycles and rituals | [phase-1c.md](./phase-1c.md) | ✅ Deployed (2026-11-12) — running a full cycle |
 | 1D — Habits, levels and reminders | [phase-1d.md](./phase-1d.md) | ✅ Deployed (2026-11-12) — two-cycle trial running |
 | 2 — Coach, calendar, people | [phase-2.md](./phase-2.md) · [2A](./phase-2a.md) · [2B](./phase-2b.md) · [2C](./phase-2c.md) · [2D](./phase-2d.md) | In progress (2A, 2B, 2C built; 2D built) |
-| 3 — Insight and growth | [phase-3.md](./phase-3.md) | In progress — 3A–3D.3 built (2026-11-15); 3D.4 next, then 3E |
+| 3 — Insight and growth | [phase-3.md](./phase-3.md) | In progress — 3A–3D built (2026-11-16); 3E next |
 | 4 — Opening up | [phase-4.md](./phase-4.md) | Optional (outline) |
 
 **Side track** (doesn't block any phase):

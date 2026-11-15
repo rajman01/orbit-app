@@ -14,7 +14,7 @@ import { defaultSettings, settingsId, type Settings } from "@/features/settings/
 import { isOpen, taskCode, withTaskDefaults, type Task } from "@/features/tasks/model";
 import { buildToday, lastTouched, planDay, skipReasonLabel } from "@/features/today/model";
 import { pipelineStats, SKILL_LEVELS } from "@/features/career/model";
-import { careerProfileId, profileReadiness } from "@/features/jobs/model";
+import { careerProfileId, profileReadiness, searchSettings } from "@/features/jobs/model";
 import {
   areaHealth,
   cycleTrend,
@@ -471,6 +471,16 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
             lookingFor: live.preferences.roles,
             markets: live.preferences.markets,
             companiesWatched: live.companies.map((c) => c.name),
+            search: (() => {
+              const st = searchSettings(live);
+              return {
+                paused: st.paused ? (st.pausedUntil ? `until ${st.pausedUntil}` : "until resumed") : false,
+                dailyFrom: `${String(st.hour).padStart(2, "0")}:00`,
+                rankUpTo: st.maxRanked,
+                minimumFit: st.minFit,
+                sourcesOff: st.off.length ? st.off : undefined,
+              };
+            })(),
           }
         : "No career profile yet; they can set it up at Job search → profile (or start from their CV).",
       foundRoles: postings.map((p) => ({

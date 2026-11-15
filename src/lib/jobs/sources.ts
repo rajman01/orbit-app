@@ -318,31 +318,62 @@ export async function adzuna(country: string, query: string): Promise<FoundPosti
 }
 
 export interface SourcePlan {
+  /** Stable id, used to switch a source off. */
+  key: string;
   label: string;
+  /** What it covers, in words ("Remote roles", "Their job board", "Europe"). */
+  covers: string;
   run: () => Promise<FoundPosting[]>;
   fromCompanyBoard: boolean;
+  enabled: boolean;
 }
+
+const BOARD_NAME = { greenhouse: "Greenhouse", lever: "Lever", ashby: "Ashby" } as const;
+const COUNTRY_LABEL: Record<string, string> = { gb: "UK", de: "Germany", nl: "Netherlands", us: "US", ca: "Canada" };
 
 /**
  * What to check for this profile: each named company's board, and per market the feeds that cover
- * it (searches use your roles; at most three, to keep within the feeds' fair use).
+ * it (searches use your roles; at most three, to keep within the feeds' fair use). Sources you've
+ * switched off are listed with `enabled: false`.
  */
-export function plannedSources(prefs: Preferences, companies: Company[]): SourcePlan[] {
-  const plans: SourcePlan[] = companies.map((c) => ({
-    label: `${c.name} (${c.board})`,
+export function plannedSources(prefs: Preferences, companies: Company[], off: string[] = []): SourcePlan[] {
+  const plans: Omit<SourcePlan, "enabled">[] = companies.map((c) => ({
+    key: `${c.board}:${c.slug}`.toLowerCase(),
+    label: `${c.name} (${BOARD_NAME[c.board]} board)`,
+    covers: "Their job board, wherever they hire",
     run: () => BOARDS[c.board](c),
     fromCompanyBoard: true,
   }));
   const queries = prefs.roles.slice(0, 3);
   if (prefs.markets.includes("remote"))
-    for (const q of queries) plans.push({ label: `Remotive: ${q}`, run: () => remotive(q), fromCompanyBoard: false });
+    for (const q of queries)
+      plans.push({
+        key: `remotive:${q}`.toLowerCase(),
+        label: `Remotive: “${q}”`,
+        covers: "Remote roles",
+        run: () => remotive(q),
+        fromCompanyBoard: false,
+      });
   if (prefs.markets.includes("europe"))
-    plans.push({ label: "Arbeitnow", run: () => arbeitnow(), fromCompanyBoard: false });
+    plans.push({
+      key: "arbeitnow",
+      label: "Arbeitnow",
+      covers: "Europe (newest roles, filtered by your titles)",
+      run: () => arbeitnow(),
+      fromCompanyBoard: false,
+    });
   if (adzunaConfigured())
     for (const market of ["europe", "north_america"] as const)
       if (prefs.markets.includes(market))
         for (const country of ADZUNA_COUNTRIES[market])
           for (const q of queries.slice(0, 2))
-            plans.push({ label: `Adzuna ${country}: ${q}`, run: () => adzuna(country, q), fromCompanyBoard: false });
-  return plans;
+            plans.push({
+              key: `adzuna:${country}:${q}`.toLowerCase(),
+              label: `Adzuna ${COUNTRY_LABEL[country] ?? country}: “${q}”`,
+              covers: COUNTRY_LABEL[country] ?? country,
+              run: () => adzuna(country, q),
+              fromCompanyBoard: false,
+            });
+  const offSet = new Set(off.map((k) => k.toLowerCase()));
+  return plans.map((p) => ({ ...p, enabled: !offSet.has(p.key) }));
 }

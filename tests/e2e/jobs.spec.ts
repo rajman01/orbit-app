@@ -106,3 +106,41 @@ test("profile from a CV, a job added and tailored, the CV downloaded, applied", 
       .first(),
   ).toBeVisible();
 });
+
+/** 3D.4: pause the search, see where it looks, switch a source off. (Check now isn't run: it reads real feeds.) */
+test("search settings: pause until a date, resume, and switch a source off", async ({ page }) => {
+  await page.goto("/today");
+  await waitForSynced(page);
+  await page.goto("/jobs");
+  await page.getByRole("radio", { name: /Found for you/ }).click();
+  const panel = page.getByRole("region", { name: "Search settings and activity" });
+  await panel.getByRole("button", { name: /Next search|Searching daily|Paused|Waiting/ }).click();
+
+  // Where it looks: from the profile (the first test set "Product designer" and remote).
+  const sources = panel.getByRole("list", { name: "Sources" });
+  const remotive = sources.getByRole("switch", { name: /Remotive: “Product designer”/i });
+  // (Desktop and phone share the account: start from on.)
+  if (!(await remotive.isChecked())) await remotive.check();
+  await expect(remotive).toBeChecked();
+  await remotive.uncheck();
+  await expect(remotive).not.toBeChecked();
+  await remotive.check();
+  await expect(remotive).toBeChecked();
+
+  // Pause until a date, then resume. (A run on the other device may have left it paused.)
+  const resumeFirst = panel.getByRole("button", { name: "Resume the search" });
+  if (await resumeFirst.isVisible()) await resumeFirst.click();
+  await panel.getByRole("button", { name: "Pause until then" }).click();
+  await expect(panel).toContainText(/Paused until/);
+  // Shown at once; give the save a moment to reach the device's database and the server before reloading.
+  await page.waitForTimeout(500);
+  await waitForSynced(page);
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Search settings and activity" })).toContainText(/Paused until/);
+  const again = page.getByRole("region", { name: "Search settings and activity" });
+  await again.getByRole("button", { name: /Paused until/ }).click();
+  await again.getByRole("button", { name: "Resume the search" }).click();
+  await expect(again).not.toContainText(/Paused/);
+  await expect(again.getByRole("combobox", { name: "Minimum fit" })).toHaveValue("40");
+  await waitForSynced(page);
+});

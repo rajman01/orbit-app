@@ -1,15 +1,17 @@
 import { getUserId } from "@/lib/auth/server";
 import { db } from "@/lib/db/mongo";
-import { lastRun, runJobSearch } from "@/lib/jobs/server";
+import { recentRuns, runJobSearch, searchPlan } from "@/lib/jobs/server";
 
 /** Checking several feeds and ranking takes a while. */
 export const maxDuration = 60;
 
-/** CAR-5: when the last search ran and what it found. */
+/** CAR-5 / 3D.4: what the search will do next (plan) and what it did (the last runs). */
 export async function GET(request: Request) {
   const userId = await getUserId(request.headers);
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
-  return Response.json({ last: await lastRun(db(), userId) }, { headers: { "Cache-Control": "no-store" } });
+  const database = db();
+  const [runs, plan] = await Promise.all([recentRuns(database, userId), searchPlan(database, userId, Date.now())]);
+  return Response.json({ runs, plan }, { headers: { "Cache-Control": "no-store" } });
 }
 
 /** "Check now": a search outside the daily one, at most every 15 minutes. */

@@ -25,6 +25,50 @@ export const MARKET_LABEL: Record<JobMarket, string> = {
   north_america: "US and Canada",
 };
 
+export type SearchSettings = NonNullable<CareerProfileFields["search"]>;
+
+export const DEFAULT_SEARCH: SearchSettings = {
+  paused: false,
+  pausedUntil: null,
+  hour: 6,
+  maxRanked: 25,
+  minFit: 40,
+  off: [],
+};
+
+export function searchSettings(p: Pick<CareerProfileFields, "search"> | null | undefined): SearchSettings {
+  return { ...DEFAULT_SEARCH, ...(p?.search ?? {}) };
+}
+
+/** Is the daily search paused on this day? A pause with an end date lifts on that date. */
+export function searchPaused(s: SearchSettings, today: string): boolean {
+  if (!s.paused) return false;
+  return s.pausedUntil == null || today < s.pausedUntil;
+}
+
+/** Why roles were left out of a run, counted. */
+export interface SkipReasons {
+  title: number;
+  avoid: number;
+  workplace: number;
+  market: number;
+  duplicate: number;
+  seen: number;
+  lowFit: number;
+  later: number;
+}
+
+export const SKIP_REASON_LABEL: Record<keyof SkipReasons, string> = {
+  title: "didn't match your titles",
+  avoid: "mentioned something you skip",
+  workplace: "weren't remote",
+  market: "were outside your markets",
+  duplicate: "were already found",
+  seen: "were seen before",
+  lowFit: "fit too poorly",
+  later: "wait for tomorrow (over today's ranking limit)",
+};
+
 export function emptyProfile(): CareerProfileFields {
   return {
     name: "",

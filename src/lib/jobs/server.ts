@@ -4,22 +4,24 @@ import { ulid } from "ulid";
 import {
   careerProfileId,
   htmlToText,
-  KEEP_FIT,
   postingKey,
   preferenceMiss,
   profileReadiness,
+  searchPaused,
+  searchSettings,
   STRONG_FIT,
+  type SkipReasons,
   type CareerProfileFields,
   type JobPostingFields,
 } from "@/features/jobs/model";
 import { settingsId } from "@/features/settings/model";
 import { dailyLimitUsd, spentToday } from "@/lib/coach/server";
-import { dayOf } from "@/lib/dates";
+import { addDays, dayOf } from "@/lib/dates";
 import type { Mutation } from "@/lib/sync/protocol";
 import { applyMutations } from "@/lib/sync/server";
 import { rankPostings, readPosting } from "./ai";
 import { FetchRefused, safeFetchText } from "./safe-fetch";
-import { plannedSources, type FoundPosting } from "./sources";
+import { adzunaConfigured, plannedSources, type FoundPosting } from "./sources";
 
 /**
  * Phase 3D.1: the daily search. For each profile, once a day: check the planned sources, keep
@@ -28,20 +30,32 @@ import { plannedSources, type FoundPosting } from "./sources";
  * days so they're never ranked twice.
  */
 
-export const MAX_RANKED_PER_RUN = 25;
 export const CHECK_NOW_EVERY_MS = 15 * 60_000;
 export const KEEP_DAYS = 30;
+
+export interface RunSource {
+  key: string;
+  label: string;
+  found: number;
+  error: string | null;
+}
 
 interface RunDoc {
   _id: string; // `${userId}:${day}`
   userId: string;
   day: string;
   at: Date;
+  /** "daily" from the per-minute job, "manual" from Check now. */
+  kind?: "daily" | "manual";
   checked: number;
   matched: number;
   ranked: number;
   kept: number;
   errors: string[];
+  /** 3D.4: per source, why roles were left out, and the AI cost of ranking. */
+  sources?: RunSource[];
+  reasons?: SkipReasons;
+  costUsd?: number;
 }
 
 const runs = (db: Db) => db.collection<RunDoc>("jobSearchRuns");
@@ -148,26 +162,55 @@ export async function runJobSearch(
   if (!profile || !profileReadiness(profile).ready) return { ran: false, reason: "profile" };
   const tz = await timezoneOf(db, userId);
   const day = dayOf(now, tz);
+  const settings = searchSettings(profile);
+  if (!opts.force && searchPaused(settings, day)) return { ran: false, reason: "paused" };
   const last = await runs(db).findOne({ userId }, { sort: { at: -1 } });
   if (!opts.force && last?.day === day) return { ran: false, reason: "done today" };
   if (opts.force && last && now - last.at.getTime() < CHECK_NOW_EVERY_MS) return { ran: false, reason: "too soon" };
   // Claim the run first, so two overlapping jobs don't both search.
   const runId = `${userId}:${day}${opts.force ? `:${now}` : ""}`;
   const claimed = await runs(db)
-    .insertOne({ _id: runId, userId, day, at: new Date(now), checked: 0, matched: 0, ranked: 0, kept: 0, errors: [] })
+    .insertOne({
+      _id: runId,
+      userId,
+      day,
+      at: new Date(now),
+      kind: opts.force ? "manual" : "daily",
+      checked: 0,
+      matched: 0,
+      ranked: 0,
+      kept: 0,
+      errors: [],
+    })
     .then(() => true)
     .catch(() => false);
   if (!claimed) return { ran: false, reason: "running" };
 
-  const plans = plannedSources(profile.preferences, profile.companies);
+  const plans = plannedSources(profile.preferences, profile.companies, settings.off).filter((p) => p.enabled);
   const errors: string[] = [];
   const results = await Promise.allSettled(plans.map((p) => p.run()));
   const candidates: (FoundPosting & { fromBoard: boolean })[] = [];
+  const sources: RunSource[] = [];
   results.forEach((r, i) => {
-    if (r.status === "fulfilled")
+    if (r.status === "fulfilled") {
       for (const p of r.value) candidates.push({ ...p, fromBoard: plans[i].fromCompanyBoard });
-    else errors.push(`${plans[i].label}: ${r.reason instanceof Error ? r.reason.message : "failed"}`.slice(0, 200));
+      sources.push({ key: plans[i].key, label: plans[i].label, found: r.value.length, error: null });
+    } else {
+      const message = r.reason instanceof Error ? r.reason.message : "failed";
+      errors.push(`${plans[i].label}: ${message}`.slice(0, 200));
+      sources.push({ key: plans[i].key, label: plans[i].label, found: 0, error: message.slice(0, 120) });
+    }
   });
+  const reasons: SkipReasons = {
+    title: 0,
+    avoid: 0,
+    workplace: 0,
+    market: 0,
+    duplicate: 0,
+    seen: 0,
+    lowFit: 0,
+    later: 0,
+  };
 
   // Matching, new, one per role (the same job on two boards counts once), newest first.
   const existing = new Set(
@@ -182,9 +225,16 @@ export async function runJobSearch(
   const byKey = new Map<string, (typeof candidates)[number]>();
   for (const c of candidates) {
     if (!c.title || !c.url) continue;
-    if (preferenceMiss(c, profile.preferences, { fromCompanyBoard: c.fromBoard })) continue;
+    const miss = preferenceMiss(c, profile.preferences, { fromCompanyBoard: c.fromBoard });
+    if (miss) {
+      reasons[miss as keyof SkipReasons] += 1;
+      continue;
+    }
     const key = postingKey(c);
-    if (existing.has(key) || byKey.has(key)) continue;
+    if (existing.has(key) || byKey.has(key)) {
+      reasons.duplicate += 1;
+      continue;
+    }
     byKey.set(key, c);
   }
   const keys = [...byKey.keys()];
@@ -196,14 +246,17 @@ export async function runJobSearch(
         .toArray()
     ).map((d) => String(d._id).slice(userId.length + 1)),
   );
-  const fresh = keys
+  reasons.seen = already.size;
+  const unseen = keys
     .filter((k) => !already.has(k))
     .map((k) => byKey.get(k)!)
-    .sort((a, b) => (b.postedAt ?? 0) - (a.postedAt ?? 0))
-    .slice(0, MAX_RANKED_PER_RUN);
+    .sort((a, b) => (b.postedAt ?? 0) - (a.postedAt ?? 0));
+  const fresh = unseen.slice(0, settings.maxRanked);
+  reasons.later = unseen.length - fresh.length;
 
   // Ranking costs a little; skip it (and keep them unranked) once the day's AI budget is spent.
-  const canRank = (await spentToday(db, userId)) < dailyLimitUsd();
+  const spentBefore = await spentToday(db, userId);
+  const canRank = spentBefore < dailyLimitUsd();
   const ranked = canRank
     ? await rankPostings(db, userId, profile, fresh).catch((e) => {
         errors.push(`Ranking: ${e instanceof Error ? e.message : "failed"}`.slice(0, 200));
@@ -214,7 +267,10 @@ export async function runJobSearch(
   const keep: JobPostingFields[] = [];
   fresh.forEach((p, i) => {
     const r = ranked[i];
-    if (r && r.fit < KEEP_FIT) return;
+    if (r && r.fit < settings.minFit) {
+      reasons.lowFit += 1;
+      return;
+    }
     const { fromBoard: _fromBoard, ...posting } = p;
     keep.push({
       ...posting,
@@ -241,35 +297,54 @@ export async function runJobSearch(
       )
       .catch(() => {});
   await prune(db, userId, now).catch(() => {});
+  const costUsd = Math.max(0, (await spentToday(db, userId)) - spentBefore);
   const summary = {
     checked: candidates.length,
     matched: byKey.size,
     ranked: ranked.filter(Boolean).length,
     kept: keep.length,
     errors,
+    sources,
+    reasons,
+    costUsd: Math.round(costUsd * 10000) / 10000,
   };
   await runs(db).updateOne({ _id: runId }, { $set: summary });
   return { ran: true, ...summary };
 }
 
 /**
- * The per-minute job: the next user whose daily search hasn't run today (from 05:00 their time).
+ * The per-minute job: the next user whose daily search hasn't run today (from their chosen hour,
+ * 06:00 by default) and isn't paused.
  * One user per minute keeps each run well inside the function's time limit.
  */
 export async function dispatchJobSearch(db: Db, now: number) {
   await ensureIndexes(db);
-  const profiles = await db.collection("careerProfile").find({ deletedAt: null }).project({ userId: 1 }).toArray();
+  const profiles = await db
+    .collection("careerProfile")
+    .find({ deletedAt: null })
+    .project({ userId: 1, search: 1 })
+    .toArray();
   for (const p of profiles) {
     const userId = String(p.userId);
+    const settings = searchSettings(p as never);
     const tz = await timezoneOf(db, userId);
+    if (searchPaused(settings, dayOf(now, tz))) continue;
     const local = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", hourCycle: "h23" }).format(now);
-    if (Number(local) < 5) continue;
+    if (Number(local) < settings.hour) continue;
     const last = await runs(db).findOne({ userId }, { sort: { at: -1 } });
     if (last?.day === dayOf(now, tz)) continue;
     const r = await runJobSearch(db, userId, now);
     if (r.ran) return { jobSearches: 1 };
   }
   return { jobSearches: 0 };
+}
+
+/** 3D.4: is this user's search paused today? */
+export async function jobSearchPaused(db: Db, userId: string, today: string) {
+  const profile = await db
+    .collection("careerProfile")
+    .findOne({ _id: careerProfileId(userId) as never, deletedAt: null }, { projection: { search: 1 } });
+  return profile ? searchPaused(searchSettings(profile as never), today) : false;
 }
 
 /** The strong new matches found today, for the morning push. */
@@ -341,10 +416,53 @@ export async function importPosting(
   return id;
 }
 
-/** The last search's summary, for the page ("Checked 6 sources this morning"). */
-export async function lastRun(db: Db, userId: string) {
-  const r = await runs(db).findOne({ userId }, { sort: { at: -1 } });
-  return r
-    ? { at: r.at.getTime(), checked: r.checked, matched: r.matched, ranked: r.ranked, kept: r.kept, errors: r.errors }
-    : null;
+/** 3D.4: the last runs (newest first), for the activity log. */
+export async function recentRuns(db: Db, userId: string, limit = 14) {
+  const rows = await runs(db).find({ userId }).sort({ at: -1 }).limit(limit).toArray();
+  return rows.map((r) => ({
+    at: r.at.getTime(),
+    kind: r.kind ?? "daily",
+    checked: r.checked,
+    matched: r.matched,
+    ranked: r.ranked,
+    kept: r.kept,
+    errors: r.errors,
+    sources: r.sources ?? [],
+    reasons: r.reasons ?? null,
+    costUsd: r.costUsd ?? null,
+  }));
+}
+
+/** 3D.4: what the search will do next — when, and which sources with which searches. */
+export async function searchPlan(db: Db, userId: string, now: number) {
+  const profile = await loadProfile(db, userId);
+  if (!profile) return null;
+  const settings = searchSettings(profile);
+  const tz = await timezoneOf(db, userId);
+  const today = dayOf(now, tz);
+  const last = await runs(db).findOne({ userId }, { sort: { at: -1 } });
+  const paused = searchPaused(settings, today);
+  const ready = profileReadiness(profile).ready;
+  // The next day it can run: today if it hasn't, otherwise tomorrow; after a pause, its end date.
+  let next: string | null = null;
+  if (ready) {
+    next = last?.day === today ? addDays(today, 1) : today;
+    if (paused)
+      next =
+        settings.pausedUntil && settings.pausedUntil > next ? settings.pausedUntil : settings.pausedUntil ? next : null;
+  }
+  return {
+    timezone: tz,
+    ready,
+    paused,
+    settings,
+    nextRun: next ? { day: next, hour: settings.hour } : null,
+    sources: plannedSources(profile.preferences, profile.companies, settings.off).map((p) => ({
+      key: p.key,
+      label: p.label,
+      covers: p.covers,
+      enabled: p.enabled,
+    })),
+    adzuna: adzunaConfigured(),
+  };
 }

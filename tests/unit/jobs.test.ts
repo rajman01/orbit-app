@@ -6,7 +6,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import {
   careerProfileId,
   checkTailoredCv,
+  DEFAULT_SEARCH,
   emptyProfile,
+  searchPaused,
+  searchSettings,
   htmlToText,
   numbersIn,
   postingKey,
@@ -20,7 +23,7 @@ import { buildCvPdf, cvFileName, pdfSafe, wrapText } from "@/features/jobs/pdf";
 import { dueNotifications } from "@/features/reminders/model";
 import { isPrivateAddress, safeFetchText } from "@/lib/jobs/safe-fetch";
 import { findBoard } from "@/lib/jobs/sources";
-import { importPosting, runJobSearch } from "@/lib/jobs/server";
+import { importPosting, jobSearchPaused, recentRuns, runJobSearch, searchPlan } from "@/lib/jobs/server";
 import { tailorLead } from "@/lib/jobs/tailor";
 import { applyMutations } from "@/lib/sync/server";
 
@@ -419,6 +422,48 @@ describe("the daily search (server)", () => {
     expect(lead).toMatchObject({ nextStep: "Review and apply", pack: { model: "fake" } });
   });
 
+  it("respects pause, limits and switched-off sources, and records why roles were left out (3D.4)", async () => {
+    const setSearch = (search: Record<string, unknown>, n: string) =>
+      applyMutations(db, userId, [
+        {
+          mutationId: `01MUTJOBS${n}`.padEnd(17, "0"),
+          entity: "careerProfile",
+          entityId: careerProfileId(userId),
+          op: "upsert",
+          clientTime: Date.now() - 10_000 + Number(n) * 1000,
+          fields: { search } as never,
+        },
+      ]);
+    const base = { paused: false, pausedUntil: null, hour: 6, maxRanked: 25, minFit: 40, off: [] as string[] };
+    await setSearch({ ...base, paused: true, pausedUntil: "2026-11-20" }, "1");
+    expect(await runJobSearch(db, userId, NOW)).toMatchObject({ ran: false, reason: "paused" });
+    expect(await jobSearchPaused(db, userId, "2026-11-16")).toBe(true);
+    expect(await jobSearchPaused(db, userId, "2026-11-20")).toBe(false);
+    const plan = await searchPlan(db, userId, NOW);
+    expect(plan).toMatchObject({ paused: true, nextRun: { day: "2026-11-20", hour: 6 } });
+    expect(plan!.sources.map((x) => [x.key, x.enabled])).toEqual([
+      ["greenhouse:acme", true],
+      ["remotive:product designer", true],
+      ["arbeitnow", true],
+    ]);
+
+    // Resumed, Arbeitnow switched off, only strong fits kept, at most 1 ranked.
+    await setSearch({ ...base, off: ["arbeitnow"], minFit: 70, maxRanked: 1 }, "2");
+    const r = await runJobSearch(db, userId, NOW);
+    expect(r).toMatchObject({ ran: true });
+    expect(fetched.some((u) => u.includes("arbeitnow"))).toBe(false);
+    const run = (await recentRuns(db, userId))[0];
+    expect(run.sources.map((x) => [x.key, x.found, x.error])).toEqual([
+      ["greenhouse:acme", 2, null],
+      ["remotive:product designer", 3, null],
+    ]);
+    // The engineer (title), the US-only role (market), the crypto one (avoid); one waits for tomorrow.
+    expect(run.reasons).toMatchObject({ title: 1, market: 1, avoid: 1, later: 1 });
+    expect(run.ranked).toBe(1);
+    expect(run.costUsd).toBe(0);
+    expect((await searchPlan(db, userId, NOW))!.sources.find((x) => x.key === "arbeitnow")!.enabled).toBe(false);
+  });
+
   it("finds a company's board from its name or a job link", async () => {
     expect(await findBoard("Acme")).toEqual({ name: "Acme", board: "greenhouse", slug: "acme" });
     expect(await findBoard("https://boards.greenhouse.io/acme/jobs/1")).toMatchObject({
@@ -426,6 +471,17 @@ describe("the daily search (server)", () => {
       slug: "acme",
     });
     expect(await findBoard("Nobody Corp")).toBeNull();
+  });
+});
+
+describe("search settings (3D.4)", () => {
+  it("pauses with or without an end date, and defaults the rest", () => {
+    expect(searchSettings(null)).toEqual(DEFAULT_SEARCH);
+    expect(searchSettings({ search: { ...DEFAULT_SEARCH, hour: 9 } }).hour).toBe(9);
+    expect(searchPaused({ ...DEFAULT_SEARCH, paused: true, pausedUntil: null }, "2026-11-16")).toBe(true);
+    expect(searchPaused({ ...DEFAULT_SEARCH, paused: true, pausedUntil: "2026-11-20" }, "2026-11-19")).toBe(true);
+    expect(searchPaused({ ...DEFAULT_SEARCH, paused: true, pausedUntil: "2026-11-20" }, "2026-11-20")).toBe(false);
+    expect(searchPaused(DEFAULT_SEARCH, "2026-11-16")).toBe(false);
   });
 });
 
@@ -513,6 +569,19 @@ describe("coach: the job assistant", () => {
       nextStep: "Prepare the application",
     });
     expect(await db.jobPostings.get("posting0000001")).toMatchObject({ status: "lead", leadId: out.leadId });
+    // Pausing (and resuming) through the coach; an open profile page saving can't undo it.
+    await runCoachTool("pause_job_search", { until: "2099-01-01" }, deps);
+    expect(searchSettings(await db.careerProfile.get(careerProfileId(USER)))).toMatchObject({
+      paused: true,
+      pausedUntil: "2099-01-01",
+    });
+    await actions.saveCareerProfile(profile());
+    expect(searchSettings(await db.careerProfile.get(careerProfileId(USER))).paused).toBe(true);
+    const pause = (await db.aiActions.toArray()).find((a) => a.tool === "pause_job_search")!;
+    expect(pause.summary).toMatch(/^Pause the job search until /);
+    await undoAction(engine, pause.id);
+    expect(searchSettings(await db.careerProfile.get(careerProfileId(USER))).paused).toBe(false);
+
     const action = (await db.aiActions.toArray()).find((a) => a.tool === "make_lead_from_role")!;
     expect(action.summary).toBe("Make a lead: “Product Designer” at Globex");
     await undoAction(engine, action.id);

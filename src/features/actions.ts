@@ -41,7 +41,13 @@ import {
 import { addDays, dayOf } from "@/lib/dates";
 import { newPersonFields, type InteractionType, type PersonFields } from "./people/model";
 import { ratingId } from "./insights/model";
-import { careerProfileId, type CareerProfileFields, type JobPosting } from "./jobs/model";
+import {
+  careerProfileId,
+  searchSettings,
+  type CareerProfileFields,
+  type JobPosting,
+  type SearchSettings,
+} from "./jobs/model";
 import {
   newRoutineFields,
   routineRunId,
@@ -1130,8 +1136,18 @@ export function createActions(engine: SyncEngine, userId: string) {
     async saveCareerProfile(fields: CareerProfileFields) {
       const id = careerProfileId(userId);
       const existing = await db.careerProfile.get(id);
-      if (existing && !existing.deletedAt) await engine.update("careerProfile", id, fields);
+      // Search settings are saved on their own (3D.4), so an open profile page can't undo them.
+      const { search: _search, ...rest } = fields;
+      if (existing && !existing.deletedAt) await engine.update("careerProfile", id, rest);
       else await engine.create("careerProfile", fields, id);
+    },
+
+    /** 3D.4: change how the daily search runs (pause, hour, limits, sources). */
+    async updateJobSearch(patch: Partial<SearchSettings>) {
+      const id = careerProfileId(userId);
+      const existing = await db.careerProfile.get(id);
+      if (!existing || existing.deletedAt) return;
+      await engine.update("careerProfile", id, { search: { ...searchSettings(existing), ...patch } });
     },
 
     setPostingStatus: (id: string, status: "new" | "saved" | "dismissed") =>

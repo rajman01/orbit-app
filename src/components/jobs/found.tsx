@@ -3,7 +3,7 @@
 import { Bookmark, ChevronDown, ExternalLink, Link2, MapPin, RefreshCw, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { EmptyState } from "@/components/app/empty-state";
 import { useSync } from "@/components/app/sync-provider";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { dayLabel, dayOf } from "@/lib/dates";
 import { area, field } from "./inputs";
+import { SearchPanel } from "./search-panel";
 
 const SOURCE_LABEL: Record<JobPostingDoc["source"], string> = {
   greenhouse: "the company's board",
@@ -27,15 +28,6 @@ const SOURCE_LABEL: Record<JobPostingDoc["source"], string> = {
   link: "a link you added",
 };
 
-interface LastRun {
-  at: number;
-  checked: number;
-  matched: number;
-  ranked: number;
-  kept: number;
-  errors: string[];
-}
-
 /** CAR-5: roles found for you, best fit first. */
 export function FoundRoles() {
   const postings = useJobPostings();
@@ -45,18 +37,7 @@ export function FoundRoles() {
   const [checking, setChecking] = useState(false);
   const [adding, setAdding] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
-  const [last, setLast] = useState<LastRun | null>(null);
   const [version, setVersion] = useState(0);
-  useEffect(() => {
-    let off = false;
-    void fetch("/api/jobs/search", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b: { last: LastRun | null } | null) => !off && setLast(b?.last ?? null))
-      .catch(() => {});
-    return () => {
-      off = true;
-    };
-  }, [version]);
 
   const readiness = profileReadiness(profile ?? null);
   const fresh = (postings ?? []).filter((p) => p.status === "new");
@@ -101,24 +82,10 @@ export function FoundRoles() {
         </div>
       ) : null}
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <p className="mr-auto min-w-0 text-footnote text-label-secondary" aria-live="polite">
-          {last
-            ? `Last checked ${new Date(last.at).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })} · ${last.matched} matching, ${last.kept} kept${last.errors.length ? ` · ${last.errors.length} source${last.errors.length === 1 ? "" : "s"} didn't answer` : ""}`
-            : readiness.ready
-              ? "Orbit checks once a day; first results arrive tomorrow morning, or check now."
-              : ""}
-        </p>
+      <SearchPanel version={version} onCheckNow={() => void checkNow()} checking={checking} />
+      <div className="mb-3 flex justify-end">
         <Button variant="secondary" icon={<Link2 className="size-4" />} onClick={() => setAdding(true)}>
           Add a job link
-        </Button>
-        <Button
-          variant="secondary"
-          icon={<RefreshCw className={cn("size-4", checking && "animate-spin motion-reduce:animate-none")} />}
-          onClick={() => void checkNow()}
-          disabled={!readiness.ready || checking}
-        >
-          Check now
         </Button>
       </div>
 

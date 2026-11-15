@@ -3,6 +3,7 @@ import { createActions, type Actions } from "@/features/actions";
 import { defaultSettings, settingsId, type Settings } from "@/features/settings/model";
 import { withTaskDefaults } from "@/features/tasks/model";
 import { wouldLoop } from "@/features/tasks/links";
+import { careerProfileId } from "@/features/jobs/model";
 import { dayLabel, dayOf, instantAt, timeOf, today as todayOf } from "@/lib/dates";
 import type { OrbitDB } from "@/lib/local-db/db";
 import type { SyncEngine } from "@/lib/sync/engine";
@@ -46,7 +47,8 @@ export type WriteToolName =
   | "save_learning_item"
   | "save_job_lead"
   | "create_routine"
-  | "make_lead_from_role";
+  | "make_lead_from_role"
+  | "pause_job_search";
 
 type Input<N extends WriteToolName> = z.infer<(typeof COACH_TOOLS)[N]["input"]>;
 
@@ -188,6 +190,15 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       return `Log a win: ${q(i.title)}`;
     case "add_goal_update":
       return `Update on ${q(await titleOf(db, "goals", i.goalId))}`;
+    case "pause_job_search": {
+      const p = input as Input<"pause_job_search">;
+      if (p.resume) return "Resume the job search";
+      if (p.until) {
+        const s = await loadSettings(db, userId);
+        return `Pause the job search until ${dayLabel(p.until, todayOf(s.timezone)).toLowerCase()}`;
+      }
+      return "Pause the job search";
+    }
     case "make_lead_from_role": {
       const p = input as Input<"make_lead_from_role">;
       const posting = await db.jobPostings.get(p.postingId);
@@ -535,6 +546,18 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       await goal(p.goalId);
       await actions.addGoalUpdate(p.goalId, p.text);
       return { posted: true };
+    }
+    case "pause_job_search": {
+      const p = input as Input<"pause_job_search">;
+      const profile = await db.careerProfile.get(careerProfileId(userId));
+      if (!profile || profile.deletedAt != null) throw new Error("They haven't set up the job assistant yet.");
+      if (p.resume) await actions.updateJobSearch({ paused: false, pausedUntil: null });
+      else {
+        const today = await todayFor(db, userId, deps.now);
+        if (p.until && p.until <= today) throw new Error("The date must be after today.");
+        await actions.updateJobSearch({ paused: true, pausedUntil: p.until ?? null });
+      }
+      return { paused: !p.resume, until: p.until ?? null };
     }
     case "make_lead_from_role": {
       const p = input as Input<"make_lead_from_role">;

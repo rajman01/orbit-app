@@ -619,6 +619,22 @@ export const entitySchemas = {
       /** Words or companies to skip ("crypto", "Acme"). */
       avoid: z.array(z.string().trim().min(1).max(80)).max(30),
     }),
+    /** Phase 3D.4: how the daily search runs. Optional for older documents (defaults apply). */
+    search: z
+      .object({
+        /** Paused: no daily search and no morning push. `pausedUntil` resumes it on that day. */
+        paused: z.boolean(),
+        pausedUntil: day.nullable(),
+        /** The local hour the daily search runs from (0–23). */
+        hour: z.number().int().min(0).max(23),
+        /** How many new roles to rank a day (each costs a little). */
+        maxRanked: z.number().int().min(1).max(50),
+        /** Roles ranked below this are dropped. */
+        minFit: z.number().int().min(0).max(90),
+        /** Sources switched off, by key (see plannedSources). */
+        off: z.array(z.string().max(120)).max(60),
+      })
+      .optional(),
     /** Companies whose job boards to watch. */
     companies: z
       .array(

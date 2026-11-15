@@ -445,6 +445,14 @@ export const COACH_TOOLS = {
       "Read the job assistant: whether their career profile is ready (and what's missing), the roles found for them (id, title, company, fit 0–100, why it fits, gaps), and which leads have an application pack ready. Use it to discuss which roles to go for. Packs (tailored CV, letter, answers) are prepared by the user with 'Prepare application' on a lead's page; you can't write them, but you can make a found role into a lead.",
     input: z.object({}),
   },
+  pause_job_search: {
+    description:
+      "Pause the daily job search (no searching, no morning push) — indefinitely, or until a date — or resume it. Use when they say they're busy interviewing, taking a break, or want it back on.",
+    input: z.object({
+      resume: z.boolean().optional().describe("true to resume"),
+      until: day.optional().describe("Pause until this date (YYYY-MM-DD); leave out to pause until resumed"),
+    }),
+  },
   make_lead_from_role: {
     description:
       "Turn a found role into a lead on their job search board (next step: prepare the application, today). Only when they say they want to go for it.",
@@ -534,6 +542,7 @@ export type CoachToolName = keyof typeof COACH_TOOLS;
 
 /** Tools that change the user's data: recorded, undoable, and subject to the autonomy setting. */
 export const WRITE_TOOLS = new Set<CoachToolName>([
+  "pause_job_search",
   "make_lead_from_role",
   "create_routine",
   "save_skill",
