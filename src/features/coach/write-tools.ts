@@ -40,7 +40,10 @@ export type WriteToolName =
   | "log_interaction"
   | "add_person_note"
   | "log_win"
-  | "add_goal_update";
+  | "add_goal_update"
+  | "save_skill"
+  | "save_learning_item"
+  | "save_job_lead";
 
 type Input<N extends WriteToolName> = z.infer<(typeof COACH_TOOLS)[N]["input"]>;
 
@@ -182,6 +185,32 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       return `Log a win: ${q(i.title)}`;
     case "add_goal_update":
       return `Update on ${q(await titleOf(db, "goals", i.goalId))}`;
+    case "save_skill": {
+      const p = input as Input<"save_skill">;
+      if (!p.id) return `Add the skill ${q(p.name)}`;
+      const s = await db.skills.get(p.id);
+      if (p.level != null && s && p.level !== s.level) return `${q(s.name)}: level ${s.level} → ${p.level}`;
+      return `Update the skill ${q(s?.name ?? p.name)}`;
+    }
+    case "save_learning_item": {
+      const p = input as Input<"save_learning_item">;
+      if (!p.id) return `Add to learning: ${q(p.title)}`;
+      const l = await db.learningItems.get(p.id);
+      const t = q(l?.title ?? p.title);
+      if (p.status === "done") return `Finish ${t}`;
+      if (p.status === "in_progress" && l?.status === "queued") return `Start ${t}`;
+      if (p.progress != null) return `${t}: ${p.progress}%`;
+      return `Update ${t}`;
+    }
+    case "save_job_lead": {
+      const p = input as Input<"save_job_lead">;
+      if (!p.id) return `Add the lead ${q(p.company)}${p.role ? ` (${p.role})` : ""}`;
+      const l = await db.jobLeads.get(p.id);
+      const name = q(l?.company ?? p.company);
+      if (p.stage && l && p.stage !== l.stage) return `Move ${name} to ${p.stage === "closed" ? "closed" : p.stage}`;
+      if (p.nextStep) return `Next step for ${name}: ${q(p.nextStep)}`;
+      return `Update ${name}`;
+    }
     case "add_person_note": {
       const p = input as Input<"add_person_note">;
       const name = q(await titleOf(db, "people", p.personId));
@@ -487,6 +516,47 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       await goal(p.goalId);
       await actions.addGoalUpdate(p.goalId, p.text);
       return { posted: true };
+    }
+    case "save_skill": {
+      const { id, ...rest } = input as Input<"save_skill">;
+      const fields = stripUndefined(rest);
+      if (fields.goalId) await goal(fields.goalId);
+      if (!id) {
+        if (!fields.name) throw new Error("A new skill needs a name.");
+        return { id: await actions.createSkill({ ...fields, name: fields.name }) };
+      }
+      const s = await db.skills.get(id);
+      if (!s || s.deletedAt != null) throw new Error("No such skill.");
+      await actions.updateSkill(s, fields);
+      return { id };
+    }
+    case "save_learning_item": {
+      const { id, ...rest } = input as Input<"save_learning_item">;
+      const fields = stripUndefined(rest);
+      if (fields.skillId && !(await db.skills.get(fields.skillId))) throw new Error("No such skill.");
+      if (!id) {
+        if (!fields.title) throw new Error("A new learning item needs a title.");
+        return { id: await actions.createLearningItem({ ...fields, title: fields.title }) };
+      }
+      const l = await db.learningItems.get(id);
+      if (!l || l.deletedAt != null) throw new Error("No such learning item.");
+      await actions.updateLearningItem(l, fields);
+      return { id };
+    }
+    case "save_job_lead": {
+      const { id, stage, outcome, ...rest } = input as Input<"save_job_lead">;
+      const fields = stripUndefined(rest);
+      if (!id) {
+        if (!fields.company) throw new Error("A new lead needs a company.");
+        return {
+          id: await actions.createJobLead({ ...fields, company: fields.company, stage, outcome: outcome ?? null }),
+        };
+      }
+      const l = await db.jobLeads.get(id);
+      if (!l || l.deletedAt != null) throw new Error("No such lead.");
+      if (Object.keys(fields).length) await actions.updateJobLead(id, fields);
+      if (stage || outcome) await actions.moveJobLead(l, stage ?? l.stage, outcome ?? null);
+      return { id };
     }
     case "complete_ritual": {
       const p = input as Input<"complete_ritual">;

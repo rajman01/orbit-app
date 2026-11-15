@@ -1,5 +1,8 @@
 import {
   BarChart3,
+  BookOpen,
+  Briefcase,
+  GraduationCap,
   Bell,
   Award,
   CalendarClock,
@@ -21,7 +24,7 @@ import {
   Users,
 } from "lucide-react";
 
-/** The sidebar, in three groups: the day, planning, and looking back. */
+/** The sidebar, in four groups: the day, planning, career, and looking back. */
 export const NAV_MAIN = [
   { href: "/inbox", label: "Inbox", icon: Inbox, group: 0 },
   { href: "/today", label: "Today", icon: Sun, group: 0 },
@@ -35,11 +38,14 @@ export const NAV_MAIN = [
   { href: "/vision", label: "Vision", icon: Telescope, group: 1 },
   { href: "/habits", label: "Habits", icon: Repeat, group: 1 },
   { href: "/people", label: "People", icon: Users, group: 1 },
-  { href: "/journal", label: "Journal", icon: NotebookPen, group: 2 },
-  { href: "/wins", label: "Wins", icon: Award, group: 2 },
-  { href: "/insights", label: "Insights", icon: TrendingUp, group: 2 },
-  { href: "/report", label: "Report", icon: BarChart3, group: 2 },
-  { href: "/levels", label: "Levels", icon: Trophy, group: 2 },
+  { href: "/skills", label: "Skills", icon: GraduationCap, group: 2 },
+  { href: "/learning", label: "Learning", icon: BookOpen, group: 2 },
+  { href: "/jobs", label: "Job search", icon: Briefcase, group: 2 },
+  { href: "/journal", label: "Journal", icon: NotebookPen, group: 3 },
+  { href: "/wins", label: "Wins", icon: Award, group: 3 },
+  { href: "/insights", label: "Insights", icon: TrendingUp, group: 3 },
+  { href: "/report", label: "Report", icon: BarChart3, group: 3 },
+  { href: "/levels", label: "Levels", icon: Trophy, group: 3 },
 ] as const;
 
 export const NAV_MORE = [
@@ -48,6 +54,9 @@ export const NAV_MORE = [
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/habits", label: "Habits", icon: Repeat },
   { href: "/people", label: "People", icon: Users },
+  { href: "/jobs", label: "Job search", icon: Briefcase },
+  { href: "/skills", label: "Skills", icon: GraduationCap },
+  { href: "/learning", label: "Learning", icon: BookOpen },
   { href: "/tasks", label: "Tasks", icon: LayoutList },
   { href: "/areas", label: "Areas", icon: Shapes },
   { href: "/quarter", label: "Quarter", icon: CalendarRange },

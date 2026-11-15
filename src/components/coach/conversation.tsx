@@ -12,6 +12,7 @@ import {
   Target,
   Users,
   TrendingUp,
+  Briefcase,
 } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CHECKIN_MARK } from "@/features/coach/protocol";
@@ -183,6 +184,7 @@ const TOOL_LABELS: Record<string, { icon: typeof Sun; label: (i: Record<string, 
   get_people: { icon: Users, label: () => "Looked at your people" },
   get_reflection: { icon: NotebookPen, label: () => "Read your journal and wins" },
   get_insights: { icon: TrendingUp, label: () => "Looked at your insights" },
+  get_career: { icon: Briefcase, label: () => "Looked at your skills, learning and job search" },
   get_person: { icon: Users, label: () => "Opened a person" },
   get_calendar_availability: { icon: CalendarClock, label: () => "Checked your calendar" },
 };

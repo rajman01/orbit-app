@@ -13,6 +13,7 @@ import { habitStatus } from "@/features/habits/model";
 import { defaultSettings, settingsId, type Settings } from "@/features/settings/model";
 import { isOpen, taskCode, withTaskDefaults, type Task } from "@/features/tasks/model";
 import { buildToday, lastTouched, planDay, skipReasonLabel } from "@/features/today/model";
+import { pipelineStats, SKILL_LEVELS } from "@/features/career/model";
 import {
   areaHealth,
   cycleTrend,
@@ -447,6 +448,66 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
         text: e.text.trim() ? e.text.trim().slice(0, 1500) : undefined,
       })),
       wins: wins.map((w) => ({ date: w.date, title: w.title, impact: w.impact || undefined })),
+    };
+  },
+
+  async get_career(_input, { db, userId, now }) {
+    const s = await loadSettings(db, userId);
+    const day = todayOf(s.timezone, now);
+    const [skills, learning, leads, goals] = await Promise.all([
+      db.skills.toArray().then(live),
+      db.learningItems.toArray().then(live),
+      db.jobLeads.toArray().then(live),
+      db.goals.toArray().then(live),
+    ]);
+    const skillName = new Map(skills.map((k) => [k.id, k.name]));
+    const stats = pipelineStats(leads);
+    return {
+      today: day,
+      skills: skills
+        .filter((k) => k.archivedAt == null)
+        .map((k) => ({
+          id: k.id,
+          name: k.name,
+          category: k.category || undefined,
+          level: `${k.level} ${SKILL_LEVELS[k.level].label}`,
+          target: `${k.targetLevel} ${SKILL_LEVELS[k.targetLevel].label}`,
+          targetDate: k.targetDate ?? undefined,
+          goal: k.goalId ? goals.find((g) => g.id === k.goalId)?.title : undefined,
+          evidence: k.evidence.trim() ? k.evidence.trim().slice(0, 600) : undefined,
+        })),
+      learning: learning
+        .filter((l) => l.status !== "dropped")
+        .sort((a, b) => a.order - b.order)
+        .slice(0, 60)
+        .map((l) => ({
+          id: l.id,
+          title: l.title,
+          kind: l.kind,
+          author: l.author ?? undefined,
+          status: l.status,
+          progress: l.status === "in_progress" ? `${l.progress}%` : undefined,
+          skill: l.skillId ? skillName.get(l.skillId) : undefined,
+        })),
+      jobSearch: {
+        applied: stats.applied,
+        interviewRate: `${Math.round(stats.interviewRate * 100)}%`,
+        offerRate: `${Math.round(stats.offerRate * 100)}%`,
+        openByStage: stats.open,
+        leads: leads
+          .sort((a, b) => a.order - b.order)
+          .slice(0, 80)
+          .map((l) => ({
+            id: l.id,
+            company: l.company,
+            role: l.role || undefined,
+            stage: l.stage,
+            outcome: l.outcome ?? undefined,
+            nextStep: l.stage !== "closed" && l.nextStep ? l.nextStep : undefined,
+            nextDate: l.stage !== "closed" ? (l.nextDate ?? undefined) : undefined,
+            overdue: l.stage !== "closed" && l.nextDate != null && l.nextDate < day ? true : undefined,
+          })),
+      },
     };
   },
 

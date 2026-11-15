@@ -1,6 +1,17 @@
 "use client";
 
-import { Bell, CalendarRange, CalendarSync, Clock, Gift, Moon, Repeat, Sunrise, type LucideIcon } from "lucide-react";
+import {
+  Bell,
+  Briefcase,
+  CalendarRange,
+  CalendarSync,
+  Clock,
+  Gift,
+  Moon,
+  Repeat,
+  Sunrise,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
@@ -20,6 +31,7 @@ const ICON: Record<NotificationDoc["kind"], LucideIcon> = {
   quarter: CalendarRange,
   date: Gift,
   reminder: Clock,
+  job: Briefcase,
   other: Bell,
 };
 

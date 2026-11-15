@@ -56,6 +56,8 @@ export function dueNotifications(opts: {
   people?: Person[];
   /** Phase 2D.2: quarters, for the Quarterly Plan and Review. */
   quarters?: Pick<SyncedDoc<"quarters">, "year" | "q" | "committedAt" | "reviewCompletedAt">[];
+  /** Phase 3B: job leads with a next step. */
+  jobLeads?: Pick<SyncedDoc<"jobLeads">, "id" | "company" | "role" | "stage" | "nextStep" | "nextDate">[];
   sent: Set<string>;
 }): Notification[] {
   const defaults = defaultSettings();
@@ -180,6 +182,19 @@ export function dueNotifications(opts: {
         });
       }
     }
+    // CAR-4: a job lead's next step, at Daily Plan time on its day (once).
+    if ((notify.jobs ?? true) && within(time, times.plan, 3)) {
+      for (const l of opts.jobLeads ?? []) {
+        if (l.stage === "closed" || l.nextDate !== today || !l.nextStep.trim()) continue;
+        push({
+          key: `job:${l.id}:${today}`,
+          title: `${l.company}: ${l.nextStep}`,
+          body: l.role ? `${l.role} · today` : "Today",
+          url: "/jobs",
+          tag: `orbit-job-${l.id}`,
+        });
+      }
+    }
   }
 
   for (const r of opts.reminders) {
@@ -208,6 +223,8 @@ export function notificationMeta(key: string): { kind: NotificationKind; ref: st
       return { kind: "reminder", ref: ref ?? null };
     case "date":
       return { kind: "date", ref: ref ?? null };
+    case "job":
+      return { kind: "job", ref: ref ?? null };
     case "qplan":
     case "qreview":
       return { kind: "quarter", ref: null };

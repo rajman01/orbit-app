@@ -1,11 +1,11 @@
 "use client";
 
-import { CalendarDays, Circle, Gauge, Target, Users, X } from "lucide-react";
+import { CalendarDays, Circle, Gauge, GraduationCap, Target, Users, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { ChipButton, Picker, Popover, type PickerOption } from "@/components/ui/picker";
-import { type Area, useAreas, useGoals, usePeople } from "@/features/data";
+import { type Area, useAreas, useGoals, usePeople, useSkills } from "@/features/data";
 import { PersonAvatar } from "@/components/people/avatar";
 import { PRIORITY_META, STATUS_META, type Priority, type TaskStatus } from "@/features/tasks/model";
 import { addDays, dayLabel, weekday, type Day } from "@/lib/dates";
@@ -271,6 +271,35 @@ export function PersonPicker({ value, onChange }: { value: string | null; onChan
           )}
           <span className="truncate">
             {current ? current.name : <span className="text-label-tertiary">No one</span>}
+          </span>
+        </ChipButton>
+      }
+    />
+  );
+}
+
+/** Phase 3B (CAR-2): the skill a task practises. */
+export function SkillPicker({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
+  const skills = (useSkills({ includeArchived: true }) ?? []).filter((s) => !s.archivedAt || s.id === value);
+  const current = skills.find((s) => s.id === value);
+  return (
+    <Picker
+      label="Skill"
+      value={value}
+      options={[
+        { value: null, label: "No skill" },
+        ...skills.map((s) => ({
+          value: s.id,
+          label: s.name,
+          icon: <GraduationCap className="size-4 text-label-secondary" strokeWidth={1.75} />,
+        })),
+      ]}
+      onChange={onChange}
+      trigger={
+        <ChipButton aria-label="Skill">
+          <GraduationCap className="size-4 text-label-secondary" strokeWidth={1.75} />
+          <span className="truncate">
+            {current ? current.name : <span className="text-label-tertiary">No skill</span>}
           </span>
         </ChipButton>
       }

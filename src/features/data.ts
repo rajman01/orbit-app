@@ -288,3 +288,41 @@ export function useAreaRatings(): AreaRatingDoc[] | undefined {
     [db],
   );
 }
+
+export type SkillDoc = SyncedDoc<"skills">;
+export type LearningItemDoc = SyncedDoc<"learningItems">;
+export type JobLeadDoc = SyncedDoc<"jobLeads">;
+
+/** CAR-2: skills in order (archived ones only when asked). */
+export function useSkills(opts: { includeArchived?: boolean } = {}): SkillDoc[] | undefined {
+  const { db } = useSync();
+  const all = opts.includeArchived ?? false;
+  return useLiveQuery(
+    async () =>
+      live(await db.skills.toArray())
+        .filter((s) => all || s.archivedAt == null)
+        .sort((a, b) => a.order - b.order),
+    [db, all],
+  );
+}
+
+export function useSkill(id: string | null | undefined): SkillDoc | null | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => {
+    if (!id) return null;
+    const s = await db.skills.get(id);
+    return s && !s.deletedAt ? s : null;
+  }, [db, id]);
+}
+
+/** CAR-3: the learning queue, in order. */
+export function useLearningItems(): LearningItemDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.learningItems.toArray()).sort((a, b) => a.order - b.order), [db]);
+}
+
+/** CAR-4: job leads, in order. */
+export function useJobLeads(): JobLeadDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.jobLeads.toArray()).sort((a, b) => a.order - b.order), [db]);
+}

@@ -438,6 +438,56 @@ export const COACH_TOOLS = {
       goalId: id.optional(),
     }),
   },
+  get_career: {
+    description:
+      "Read the user's career tools: skills (level now and target, 1 Aware … 5 Expert), the learning queue (status and progress, linked skill) and the job search pipeline (company, role, stage, next step and date, outcome), plus interview and offer rates. Use for career coaching, job search reviews and 'what should I learn next?'.",
+    input: z.object({}),
+  },
+  save_skill: {
+    description:
+      "Add a skill, or update one (pass its id): level now and target 1–5 (1 Aware, 2 Beginner, 3 Practising, 4 Skilled, 5 Expert), category, target date, evidence. Raising a level earns XP, so only do it when they say they've grown.",
+    input: z.object({
+      id: id.optional().describe("To update an existing skill"),
+      name: z.string().trim().min(1).max(120).optional(),
+      category: z.string().trim().max(60).optional(),
+      level: z.number().int().min(1).max(5).optional(),
+      targetLevel: z.number().int().min(1).max(5).optional(),
+      targetDate: day.nullable().optional(),
+      evidence: z.string().max(20000).optional(),
+      goalId: id.nullable().optional(),
+    }),
+  },
+  save_learning_item: {
+    description:
+      "Add something to the learning queue (book, course, article, video, podcast), or update one (pass its id): status, progress 0–100, notes, the skill it's for.",
+    input: z.object({
+      id: id.optional().describe("To update an existing item"),
+      title: z.string().trim().min(1).max(300).optional(),
+      kind: z.enum(["book", "course", "article", "video", "podcast", "other"]).optional(),
+      author: z.string().trim().max(200).optional(),
+      url: z.string().trim().max(1000).optional(),
+      status: z.enum(["queued", "in_progress", "done", "dropped"]).optional(),
+      progress: z.number().int().min(0).max(100).optional(),
+      notes: z.string().max(20000).optional(),
+      skillId: id.nullable().optional(),
+    }),
+  },
+  save_job_lead: {
+    description:
+      "Add a job lead, or update one (pass its id): company, role, stage (researching, applied, interviewing, offer, closed with an outcome), next step and its date, notes. Keep a next step on open leads so nothing goes quiet.",
+    input: z.object({
+      id: id.optional().describe("To update an existing lead"),
+      company: z.string().trim().min(1).max(200).optional(),
+      role: z.string().trim().max(200).optional(),
+      url: z.string().trim().max(1000).optional(),
+      location: z.string().trim().max(200).optional(),
+      stage: z.enum(["researching", "applied", "interviewing", "offer", "closed"]).optional(),
+      outcome: z.enum(["accepted", "declined", "rejected", "withdrawn", "no_reply"]).optional(),
+      nextStep: z.string().trim().max(300).optional(),
+      nextDate: day.nullable().optional(),
+      notes: z.string().max(20000).optional(),
+    }),
+  },
   add_goal_update: {
     description: "Post a short update on a goal's feed (progress, a decision, what changed), in the user's words.",
     input: z.object({ goalId: id, text: z.string().trim().min(1).max(5000) }),
@@ -448,6 +498,9 @@ export type CoachToolName = keyof typeof COACH_TOOLS;
 
 /** Tools that change the user's data: recorded, undoable, and subject to the autonomy setting. */
 export const WRITE_TOOLS = new Set<CoachToolName>([
+  "save_skill",
+  "save_learning_item",
+  "save_job_lead",
   "create_goal",
   "update_goal",
   "add_key_result",

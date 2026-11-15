@@ -34,6 +34,11 @@ export const AREA_COLORS = [
   "yellow",
 ] as const;
 
+export const LEARNING_KINDS = ["book", "course", "article", "video", "podcast", "other"] as const;
+export const LEARNING_STATUSES = ["queued", "in_progress", "done", "dropped"] as const;
+export const JOB_STAGES = ["researching", "applied", "interviewing", "offer", "closed"] as const;
+export const JOB_OUTCOMES = ["accepted", "declined", "rejected", "withdrawn", "no_reply"] as const;
+
 export const RELATIONSHIPS = ["family", "friend", "partner", "mentor", "colleague", "other"] as const;
 export const INTERACTION_TYPES = ["call", "text", "in_person", "other"] as const;
 
@@ -82,6 +87,8 @@ export const entitySchemas = {
         focus: z.boolean(),
         /** Phase 2C.2: birthdays and other dates, a week and a day before. Optional for older documents. */
         people: z.boolean().optional(),
+        /** Phase 3B: a job lead's next step, on its day. Optional for older documents. */
+        jobs: z.boolean().optional(),
       })
       .optional(),
     /** Phase 2A: how much the coach may do on its own (PRD §10.5). */
@@ -174,6 +181,8 @@ export const entitySchemas = {
     cycleId: ref.optional(),
     /** Phase 2C: the person this task is about (follow-ups). */
     personId: ref.optional(),
+    /** Phase 3B (CAR-2): the skill this task practises. Optional for older documents. */
+    skillId: ref.optional(),
   }),
   taskEvents: z.object({
     taskId: id,
@@ -241,7 +250,19 @@ export const entitySchemas = {
    * so the same completion on two devices is awarded once. Undoing deletes the entry.
    */
   xpEvents: z.object({
-    source: z.enum(["task", "focus", "ritual", "habit", "milestone", "goal", "checkin", "win", "penalty"]),
+    source: z.enum([
+      "task",
+      "focus",
+      "ritual",
+      "habit",
+      "milestone",
+      "goal",
+      "checkin",
+      "win",
+      "penalty",
+      "learning",
+      "skill",
+    ]),
     sourceId: z.string().max(80),
     areaId: ref,
     amount: z.number().int().min(-1000).max(100000),
@@ -469,6 +490,53 @@ export const entitySchemas = {
     text: z.string().trim().min(1).max(500),
     doneAt: ms.nullable(),
   }),
+  /** Phase 3B (CAR-2): skills, with a level now and a level to reach. */
+  skills: z.object({
+    name: z.string().trim().min(1).max(120),
+    category: z.string().trim().max(60),
+    level: z.number().int().min(1).max(5),
+    targetLevel: z.number().int().min(1).max(5),
+    targetDate: day.nullable(),
+    /** What shows the level: projects, feedback, certificates (markdown). */
+    evidence: z.string().max(20000),
+    areaId: ref,
+    goalId: ref,
+    order: z.number(),
+    archivedAt: ms.nullable(),
+  }),
+  /** Phase 3B (CAR-3): the learning queue. */
+  learningItems: z.object({
+    title: z.string().trim().min(1).max(300),
+    kind: z.enum(LEARNING_KINDS),
+    url: z.string().trim().max(1000).nullable(),
+    author: z.string().trim().max(200).nullable(),
+    status: z.enum(LEARNING_STATUSES),
+    progress: z.number().int().min(0).max(100),
+    notes: z.string().max(20000),
+    skillId: ref,
+    order: z.number(),
+    startedAt: ms.nullable(),
+    finishedAt: ms.nullable(),
+  }),
+  /** Phase 3B (CAR-4): the job search pipeline. */
+  jobLeads: z.object({
+    company: z.string().trim().min(1).max(200),
+    role: z.string().trim().max(200),
+    url: z.string().trim().max(1000).nullable(),
+    location: z.string().trim().max(200).nullable(),
+    stage: z.enum(JOB_STAGES),
+    /** How it ended, once closed. */
+    outcome: z.enum(JOB_OUTCOMES).nullable(),
+    nextStep: z.string().trim().max(300),
+    nextDate: day.nullable(),
+    salary: z.string().trim().max(120).nullable(),
+    notes: z.string().max(20000),
+    order: z.number(),
+    appliedAt: ms.nullable(),
+    /** When it first reached interviewing, so the interview rate survives closing. */
+    interviewedAt: ms.nullable(),
+    closedAt: ms.nullable(),
+  }),
   /** Phase 3A (AREA-4): a Wheel of Life rating, one per day (deterministic id). */
   areaRatings: z.object({
     date: day,
@@ -507,7 +575,7 @@ export const entitySchemas = {
     url: z.string().max(300),
     tag: z.string().max(100),
     /** What it's about, for actions (NOT-3): a habit or a reminder, with its id. */
-    kind: z.enum(["plan", "shutdown", "review", "habit", "quarter", "date", "reminder", "other"]),
+    kind: z.enum(["plan", "shutdown", "review", "habit", "quarter", "date", "reminder", "job", "other"]),
     ref: z.string().max(40).nullable(),
     sentAt: ms,
     readAt: ms.nullable(),
@@ -567,6 +635,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
     recurrenceParentId: "tasks",
     cycleId: "cycles",
     personId: "people",
+    skillId: "skills",
   },
   taskEvents: { taskId: "tasks" },
   focusSessions: { taskId: "tasks" },
@@ -583,6 +652,8 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   wins: { areaId: "areas", goalId: "goals", taskId: "tasks" },
   goalEvents: { goalId: "goals" },
   areaRatings: { "scores.areaId": "areas" },
+  skills: { areaId: "areas", goalId: "goals" },
+  learningItems: { skillId: "skills" },
   interactions: { personId: "people" },
   personItems: { personId: "people" },
 };

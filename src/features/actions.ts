@@ -34,6 +34,22 @@ import {
 import { addDays, dayOf } from "@/lib/dates";
 import { newPersonFields, type InteractionType, type PersonFields } from "./people/model";
 import { ratingId } from "./insights/model";
+import {
+  learningPatch,
+  learningXp,
+  newLeadFields,
+  newLearningFields,
+  newSkillFields,
+  SKILL_LEVEL_XP,
+  SKILL_LEVELS,
+  stagePatch,
+  type JobLead,
+  type JobLeadFields,
+  type LearningFields,
+  type LearningItem,
+  type Skill,
+  type SkillFields,
+} from "./career/model";
 import { emptyEntry, journalId, withLine, type JournalFields } from "./journal/model";
 import { newWinFields, ritualWinId, taskWinId, type WinFields } from "./wins/model";
 import {
@@ -1009,6 +1025,80 @@ export function createActions(engine: SyncEngine, userId: string) {
       engine.create("aiMemories", { text: text.trim().slice(0, 500), source, archivedAt: null }),
     updateMemory: (id: string, text: string) => engine.update("aiMemories", id, { text: text.trim().slice(0, 500) }),
     forgetMemory: (id: string) => engine.update("aiMemories", id, { archivedAt: now() }),
+
+    // ---------------------------------------------------------------- career (Phase 3B)
+
+    createSkill: (fields: Partial<SkillFields> & { name: string }) => engine.create("skills", newSkillFields(fields)),
+
+    /** Levelling up earns XP for each level gained; lowering a level takes it back. */
+    async updateSkill(skill: Skill, patch: Partial<SkillFields>) {
+      if (patch.level != null && patch.targetLevel == null && patch.level > skill.targetLevel)
+        patch = { ...patch, targetLevel: patch.level };
+      await engine.update("skills", skill.id, patch);
+      if (patch.level == null || patch.level === skill.level) return;
+      const lo = Math.min(skill.level, patch.level);
+      const hi = Math.max(skill.level, patch.level);
+      for (let level = lo + 1; level <= hi; level++) {
+        const sourceId = `${skill.id}${level}`;
+        const gained = patch.level >= level;
+        const existing = await db.xpEvents.get(xpEventId("skill", sourceId));
+        if (!gained && (!existing || existing.deletedAt)) continue;
+        await award(
+          "skill",
+          sourceId,
+          gained ? SKILL_LEVEL_XP : 0,
+          gained ? `${skill.name}: ${SKILL_LEVELS[level].label}` : "Skill level lowered",
+          skill.areaId,
+        );
+      }
+    },
+    archiveSkill: (id: string, archived: boolean) =>
+      engine.update("skills", id, { archivedAt: archived ? now() : null }),
+    async deleteSkill(id: string) {
+      // Learning and tasks stay; they just lose the link.
+      for (const l of await db.learningItems.where("skillId").equals(id).toArray())
+        if (!l.deletedAt) await engine.update("learningItems", l.id, { skillId: null });
+      for (const t of await db.tasks.where("skillId").equals(id).toArray())
+        if (!t.deletedAt) await engine.update("tasks", t.id, { skillId: null });
+      await engine.remove("skills", id);
+    },
+
+    createLearningItem: (fields: Partial<LearningFields> & { title: string }) =>
+      engine.create("learningItems", newLearningFields(fields)),
+
+    /** Status and progress move together (learningPatch); finishing earns XP, unfinishing takes it back. */
+    async updateLearningItem(item: LearningItem, patch: Partial<LearningFields>) {
+      const { status, progress, ...rest } = patch;
+      const full = {
+        ...rest,
+        ...(status != null || progress != null ? learningPatch(item, { status, progress }, now()) : {}),
+      };
+      if (!Object.keys(full).length) return;
+      await engine.update("learningItems", item.id, full);
+      const was = item.status === "done";
+      const is = (full.status ?? item.status) === "done";
+      if (was !== is) {
+        const skill = item.skillId ? await db.skills.get(item.skillId) : undefined;
+        await award(
+          "learning",
+          item.id,
+          is ? learningXp(full.kind ?? item.kind) : 0,
+          is ? `Finished: ${full.title ?? item.title}` : "Learning reopened",
+          skill?.areaId ?? null,
+        );
+      }
+    },
+    deleteLearningItem: (id: string) => engine.remove("learningItems", id),
+
+    createJobLead: (fields: Partial<JobLeadFields> & { company: string }) =>
+      engine.create("jobLeads", newLeadFields(fields, now())),
+    updateJobLead: (id: string, patch: Partial<JobLeadFields>) => engine.update("jobLeads", id, patch),
+    /** CAR-4: moving along the pipeline keeps applied, interviewed and closed times. */
+    async moveJobLead(lead: JobLead, stage: JobLeadFields["stage"], outcome: JobLeadFields["outcome"] = null) {
+      const patch = stagePatch(lead, stage, outcome, now());
+      if (Object.keys(patch).length) await engine.update("jobLeads", lead.id, patch);
+    },
+    deleteJobLead: (id: string) => engine.remove("jobLeads", id),
 
     /** AREA-4: today's Wheel of Life rating (rating again the same day replaces it). */
     async saveAreaRating(date: string, fields: Pick<EntityFields<"areaRatings">, "scores" | "note">) {

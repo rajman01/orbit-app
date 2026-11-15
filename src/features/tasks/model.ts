@@ -31,6 +31,7 @@ export function newTaskFields(partial: Partial<TaskFields> & { title: string }):
     postponeCount: 0,
     cycleId: null,
     personId: null,
+    skillId: null,
     ...partial,
   };
 }

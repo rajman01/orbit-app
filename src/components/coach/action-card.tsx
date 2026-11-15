@@ -31,7 +31,7 @@ export function useAiActions(toolUseIds: string[]): AiAction[] | undefined {
 /** Where "View" goes for an action: the task or goal it made or changed. */
 export function actionTarget(
   a: AiAction,
-): { kind: "task" | "goal" | "habits" | "cycle" | "person"; id?: string } | null {
+): { kind: "task" | "goal" | "habits" | "cycle" | "person" | "skill" | "learning" | "jobs"; id?: string } | null {
   const changes = a.changes as Change[];
   const made = (entity: string) => changes.find((c) => c.entity === entity && c.before === null)?.id;
   const input = a.input as Record<string, string | undefined>;
@@ -68,6 +68,12 @@ export function actionTarget(
     case "log_interaction":
     case "add_person_note":
       return { kind: "person", id: input.personId };
+    case "save_skill":
+      return { kind: "skill", id: input.id ?? made("skills") };
+    case "save_learning_item":
+      return { kind: "learning" };
+    case "save_job_lead":
+      return { kind: "jobs" };
     default:
       return null;
   }
@@ -147,11 +153,15 @@ function ActionRow({ action }: { action: AiAction }) {
             <Link href={`/person?id=${target.id}`} className={cn(small, "text-accent-text hover:bg-accent-fill")}>
               View
             </Link>
-          ) : target?.kind === "habits" || target?.kind === "cycle" ? (
-            <Link
-              href={`/${target.kind === "cycle" ? "cycle" : "habits"}`}
-              className={cn(small, "text-accent-text hover:bg-accent-fill")}
-            >
+          ) : target?.kind === "skill" && target.id ? (
+            <Link href={`/skill?id=${target.id}`} className={cn(small, "text-accent-text hover:bg-accent-fill")}>
+              View
+            </Link>
+          ) : target?.kind === "habits" ||
+            target?.kind === "cycle" ||
+            target?.kind === "learning" ||
+            target?.kind === "jobs" ? (
+            <Link href={`/${target.kind}`} className={cn(small, "text-accent-text hover:bg-accent-fill")}>
               View
             </Link>
           ) : null}

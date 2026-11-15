@@ -26,6 +26,9 @@ import {
   Bell,
   ListFilter,
   TrendingUp,
+  BookOpen,
+  Briefcase,
+  GraduationCap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
@@ -48,7 +51,7 @@ import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
 import { useIsDesktop } from "@/lib/use-media-query";
 
 type QuickAddDefaults = Partial<
-  Pick<TaskFields, "areaId" | "goalId" | "milestoneId" | "status" | "dueDate" | "personId">
+  Pick<TaskFields, "areaId" | "goalId" | "milestoneId" | "status" | "dueDate" | "personId" | "skillId">
 >;
 
 interface CommandsContext {
@@ -87,6 +90,7 @@ const GO: Record<string, string> = {
   j: "/journal",
   w: "/wins",
   n: "/insights",
+  b: "/jobs",
 };
 
 /** Quick Add, ⌘K palette and Linear-style keyboard shortcuts (PRD CMD-1 – CMD-3, INB-1). */
@@ -238,6 +242,7 @@ function QuickAddPanel({
       milestoneId: parsed.goalId ? null : (defaults.milestoneId ?? null),
       dueDate,
       personId: defaults.personId ?? null,
+      skillId: defaults.skillId ?? null,
       status: defaults.status ?? (triaged ? "todo" : "inbox"),
     });
     setText("");
@@ -465,6 +470,9 @@ function Palette({
                         ["Journal", "/journal", NotebookPen, "G J"],
                         ["Wins", "/wins", Award, "G W"],
                         ["Insights", "/insights", TrendingUp, "G N"],
+                        ["Skills", "/skills", GraduationCap, ""],
+                        ["Learning", "/learning", BookOpen, ""],
+                        ["Job search", "/jobs", Briefcase, "G B"],
                         ["Capture from anywhere", "/capture", Inbox, ""],
                         ["Notifications", "/notifications", Bell, ""],
                         ["Cycle", "/cycle", CalendarSync, "G C"],

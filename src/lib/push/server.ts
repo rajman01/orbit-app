@@ -118,40 +118,48 @@ export async function dispatchReminders(db: Db, now: number, send: Sender) {
     const tz = (settings.timezone as string) ?? "UTC";
     const today = dayOf(now, tz);
     const weekAgo = addDays(today, -7);
-    const [rituals, cycles, habits, habitLogs, reminders, dueTodayCount, people, quarters, sent] = await Promise.all([
-      db
-        .collection("rituals")
-        .find(live({ userId, date: today }))
-        .toArray(),
-      db
-        .collection("cycles")
-        .find(live({ userId, endDate: today }))
-        .toArray(),
-      db
-        .collection("habits")
-        .find(live({ userId, archivedAt: null }))
-        .toArray(),
-      db
-        .collection("habitLogs")
-        .find(live({ userId, date: { $gte: weekAgo } }))
-        .toArray(),
-      db
-        .collection("reminders")
-        .find(live({ userId, status: "pending", fireAt: { $lte: now, $gte: now - 30 * 60_000 } }))
-        .toArray(),
-      db.collection("tasks").countDocuments(live({ userId, dueDate: today, status: { $nin: ["done", "cancelled"] } })),
-      db
-        .collection("people")
-        .find(live({ userId, archivedAt: null, "dates.0": { $exists: true } }))
-        .project({ name: 1, emoji: 1, color: 1, dates: 1, archivedAt: 1 })
-        .toArray(),
-      db
-        .collection("quarters")
-        .find(live({ userId, year: { $gte: Number(today.slice(0, 4)) } }))
-        .project({ year: 1, q: 1, committedAt: 1, reviewCompletedAt: 1 })
-        .toArray(),
-      sentLog(db).find({ userId }).project({ _id: 1 }).toArray(),
-    ]);
+    const [rituals, cycles, habits, habitLogs, reminders, dueTodayCount, people, quarters, jobLeads, sent] =
+      await Promise.all([
+        db
+          .collection("rituals")
+          .find(live({ userId, date: today }))
+          .toArray(),
+        db
+          .collection("cycles")
+          .find(live({ userId, endDate: today }))
+          .toArray(),
+        db
+          .collection("habits")
+          .find(live({ userId, archivedAt: null }))
+          .toArray(),
+        db
+          .collection("habitLogs")
+          .find(live({ userId, date: { $gte: weekAgo } }))
+          .toArray(),
+        db
+          .collection("reminders")
+          .find(live({ userId, status: "pending", fireAt: { $lte: now, $gte: now - 30 * 60_000 } }))
+          .toArray(),
+        db
+          .collection("tasks")
+          .countDocuments(live({ userId, dueDate: today, status: { $nin: ["done", "cancelled"] } })),
+        db
+          .collection("people")
+          .find(live({ userId, archivedAt: null, "dates.0": { $exists: true } }))
+          .project({ name: 1, emoji: 1, color: 1, dates: 1, archivedAt: 1 })
+          .toArray(),
+        db
+          .collection("quarters")
+          .find(live({ userId, year: { $gte: Number(today.slice(0, 4)) } }))
+          .project({ year: 1, q: 1, committedAt: 1, reviewCompletedAt: 1 })
+          .toArray(),
+        db
+          .collection("jobLeads")
+          .find(live({ userId, nextDate: today, stage: { $ne: "closed" } }))
+          .project({ company: 1, role: 1, stage: 1, nextStep: 1, nextDate: 1 })
+          .toArray(),
+        sentLog(db).find({ userId }).project({ _id: 1 }).toArray(),
+      ]);
     const due: Notification[] = dueNotifications({
       now,
       settings: settings as never,
@@ -163,6 +171,7 @@ export async function dispatchReminders(db: Db, now: number, send: Sender) {
       dueTodayCount,
       people: people.map((p) => ({ ...p, id: String(p._id) })) as never,
       quarters: quarters as never,
+      jobLeads: jobLeads.map((l) => ({ ...l, id: String(l._id) })) as never,
       sent: new Set(sent.map((s) => String(s._id).slice(userId.length + 1))),
     });
     if (due.length) users++;

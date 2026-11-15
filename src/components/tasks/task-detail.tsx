@@ -22,6 +22,7 @@ import {
   useFocusSessions,
   useMilestones,
   usePeople,
+  useSkills,
   useTask,
   useTaskEvents,
   type TaskEvent,
@@ -34,6 +35,7 @@ import { dayLabel, weekday } from "@/lib/dates";
 import type { Recurrence } from "@/lib/sync/entities";
 import {
   AreaPicker,
+  SkillPicker,
   DatePicker,
   EffortPicker,
   GoalPicker,
@@ -63,6 +65,7 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
   const actions = useActions();
   const todayDay = useToday();
   const hasPeople = (usePeople()?.length ?? 0) > 0;
+  const hasSkills = (useSkills()?.length ?? 0) > 0;
   const focus = useFocus();
   const skip = useSkipFlow();
   const panel = useTaskPanel();
@@ -175,6 +178,11 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
         {task.personId || hasPeople ? (
           <Prop label="Person">
             <PersonPicker value={task.personId ?? null} onChange={(p) => void update({ personId: p })} />
+          </Prop>
+        ) : null}
+        {task.skillId || hasSkills ? (
+          <Prop label="Skill">
+            <SkillPicker value={task.skillId ?? null} onChange={(id) => void update({ skillId: id })} />
           </Prop>
         ) : null}
         <Prop label="Due">

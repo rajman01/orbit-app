@@ -80,5 +80,13 @@ export function openLocalDb(userId: string): OrbitDB {
   db.version(13).stores({ savedViews: "id, order", notifications: "id, sentAt" });
   // Phase 3A: Wheel of Life ratings.
   db.version(14).stores({ areaRatings: "id, date" });
+  // Phase 3B: career (tasks gain a skill index).
+  db.version(15).stores({
+    tasks:
+      "id, status, order, deletedAt, serverVersion, goalId, areaId, parentTaskId, milestoneId, dueDate, scheduledDate, personId, skillId",
+    skills: "id, order",
+    learningItems: "id, skillId, status, order",
+    jobLeads: "id, stage, order",
+  });
   return db;
 }
