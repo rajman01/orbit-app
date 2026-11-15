@@ -459,6 +459,7 @@ function Palette({
                         ["Year", "/year", CalendarRange, "G Y"],
                         ["Journal", "/journal", NotebookPen, "G J"],
                         ["Wins", "/wins", Award, "G W"],
+                        ["Capture from anywhere", "/capture", Inbox, ""],
                         ["Cycle", "/cycle", CalendarSync, "G C"],
                         ["Settings", "/settings", Settings, "G S"],
                       ].map(([label, href, Icon, keys]) => {

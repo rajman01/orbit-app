@@ -9,6 +9,7 @@ import { clearCachedUser, useCurrentUser } from "@/components/app/auth-gate";
 import { useSync } from "@/components/app/sync-provider";
 import { SyncIndicator } from "@/components/app/sync-indicator";
 import { CalendarSettings } from "@/components/calendar/calendar-settings";
+import { ConnectedAccounts, YourData } from "@/components/app/account-settings";
 import { FeedSettings } from "@/components/calendar/feed-settings";
 import { AiActivity } from "@/components/coach/activity";
 import { checkinsEnabled } from "@/features/coach/checkins";
@@ -50,6 +51,10 @@ export function SettingsView() {
         <Group title="Account">
           <Row label="Name">{user.name}</Row>
           <Row label="Email">{user.email}</Row>
+        </Group>
+
+        <Group title="Connected">
+          <ConnectedAccounts />
         </Group>
 
         <Group title="Appearance">
@@ -292,6 +297,10 @@ export function SettingsView() {
               Sync now
             </Button>
           </Row>
+        </Group>
+
+        <Group title="Your data">
+          <YourData />
         </Group>
 
         <div>

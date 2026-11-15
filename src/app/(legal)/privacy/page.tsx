@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Privacy policy" };
 
-const UPDATED = "14 November 2026";
+const UPDATED = "15 November 2026";
 
 export default function Privacy() {
   return (
@@ -28,6 +28,11 @@ export default function Privacy() {
           details, notes, gift ideas and a log of when you were in touch), and your conversations with the coach and
           what it remembers about you. This is kept on your devices (so Orbit works offline) and on Orbit&rsquo;s server
           (so it syncs between them).
+        </li>
+        <li>
+          <strong>API tokens:</strong> if you make one (to capture from an iOS Shortcut or a script), only a fingerprint
+          of it is stored (a SHA-256 hash), with its name and when it was last used. A token can only add tasks to your
+          Inbox.
         </li>
         <li>
           <strong>Notifications:</strong> if you turn them on, the push address your browser gives Orbit, so reminders
@@ -117,9 +122,11 @@ export default function Privacy() {
 
       <h2>Keeping and deleting your data</h2>
       <p>
-        Your data is kept while you have an account. Disconnecting a calendar deletes its data straight away. To delete
-        your account and everything in it, ask the person who runs your Orbit; it is deleted from the server within 30
-        days, and from backups as they expire.
+        Your data is kept while you have an account. Disconnecting a calendar deletes its data straight away. Settings
+        &rarr; Your data lets you export everything (JSON, plus a readable markdown file of your vision, goals, journal
+        and wins) and delete your account. Deleting it removes everything in it from the server at once, disconnects
+        your calendars (revoking Orbit&rsquo;s access to Google) and signs you out on that device; backups expire within
+        30 days.
       </p>
 
       <h2>Security</h2>
