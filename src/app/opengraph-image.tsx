@@ -33,12 +33,14 @@ const TASKS = [
   { title: "Set up emergency fund", step: "Open a savings account online", color: "#30d158", done: false },
 ];
 
-// Geist (OFL), the renderer's own face, in the weights the headline needs.
+// Geist (OFL, licence beside the files), the renderer's own face, in the weights the headline
+// needs. Read once, from the project root, as Next's docs recommend.
 const font = (weight: 400 | 700 | 800) =>
-  readFile(join(process.cwd(), `node_modules/@fontsource/geist-sans/files/geist-sans-latin-${weight}-normal.woff`));
+  readFile(join(process.cwd(), `assets/fonts/geist-sans-latin-${weight}-normal.woff`));
+const FONTS = Promise.all([font(400), font(700), font(800)]);
 
 export default async function Image() {
-  const [regular, bold, heavy] = await Promise.all([font(400), font(700), font(800)]);
+  const [regular, bold, heavy] = await FONTS;
   return new ImageResponse(
     <div
       style={{

@@ -4,6 +4,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  // The link-preview image reads its fonts from disk; make sure they ship with it.
+  outputFileTracingIncludes: {
+    "/opengraph-image*": ["./assets/fonts/**/*"],
+  },
   turbopack: {
     rules: {
       "*.css": {
