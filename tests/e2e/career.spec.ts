@@ -34,19 +34,19 @@ test("a skill with something to learn from: level up, start, finish", async ({ p
   await add.getByRole("textbox", { name: "Title" }).fill(book);
   await expect(add.getByRole("combobox", { name: "For the skill" })).toHaveValue(/.+/);
   await add.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(page.getByRole("button", { name: `Edit ${book}` })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Open ${book}` })).toBeVisible();
 
   // The learning queue: up next → in progress → done.
   await page.goto("/learning");
   const upNext = page.getByRole("list", { name: "Up next" });
-  await expect(upNext.getByRole("button", { name: `Edit ${book}` })).toContainText(name);
+  await expect(upNext.getByRole("link", { name: `Open ${book}` })).toContainText(name);
   await upNext.getByRole("button", { name: `Start ${book}` }).click();
   const inProgress = page.getByRole("list", { name: "In progress" });
-  await expect(inProgress.getByRole("button", { name: `Edit ${book}` })).toBeVisible();
+  await expect(inProgress.getByRole("link", { name: `Open ${book}` })).toBeVisible();
   await inProgress.getByRole("button", { name: `Finish ${book}` }).click();
-  await expect(page.getByRole("button", { name: `Edit ${book}` })).toBeHidden();
+  await expect(page.getByRole("link", { name: `Open ${book}` })).toBeHidden();
   await page.getByRole("button", { name: "Show finished" }).click();
-  await expect(page.getByRole("list", { name: "Done" }).getByRole("button", { name: `Edit ${book}` })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Done" }).getByRole("link", { name: `Open ${book}` })).toBeVisible();
 
   // The skills list shows it with its category and level.
   await page.goto("/skills");

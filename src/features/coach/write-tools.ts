@@ -45,6 +45,7 @@ export type WriteToolName =
   | "add_goal_update"
   | "save_skill"
   | "save_learning_item"
+  | "plan_course"
   | "save_job_lead"
   | "create_routine"
   | "make_lead_from_role"
@@ -224,6 +225,12 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       if (p.status === "in_progress" && l?.status === "queued") return `Start ${t}`;
       if (p.progress != null) return `${t}: ${p.progress}%`;
       return `Update ${t}`;
+    }
+    case "plan_course": {
+      const p = input as Input<"plan_course">;
+      const s = await loadSettings(db, userId);
+      const l = await db.learningItems.get(p.learningItemId);
+      return `Plan ${q(l?.title)} to finish ${dayLabel(p.targetDate, todayOf(s.timezone)).toLowerCase()}${p.sections?.length ? ` (${p.sections.length} sections)` : ""}`;
     }
     case "save_job_lead": {
       const p = input as Input<"save_job_lead">;
@@ -610,6 +617,32 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       if (!l || l.deletedAt != null) throw new Error("No such learning item.");
       await actions.updateLearningItem(l, fields);
       return { id };
+    }
+    case "plan_course": {
+      const p = input as Input<"plan_course">;
+      let item = await db.learningItems.get(p.learningItemId);
+      if (!item || item.deletedAt != null) throw new Error("No such learning item.");
+      if (p.sections?.length) {
+        const kept = (item.sections ?? []).filter((x) => x.doneAt != null);
+        const fresh = p.sections.map((x, i) => ({
+          id: `s${Date.now().toString(36).slice(-5)}${i.toString(36)}`,
+          title: x.title,
+          minutes: x.minutes ?? null,
+          doneAt: null,
+          taskId: null,
+        }));
+        await actions.setSections(item, [...kept, ...fresh].slice(0, 200));
+        item = (await db.learningItems.get(p.learningItemId))!;
+      }
+      if (!(item.sections ?? []).some((x) => x.doneAt == null))
+        throw new Error("It has no sections left to plan; pass its sections.");
+      const s = await loadSettings(db, userId);
+      const r = await actions.planCourse(
+        item,
+        { targetDate: p.targetDate, days: p.days ?? [1, 2, 3, 4, 5], minutesPerDay: p.minutesPerDay ?? 60 },
+        todayOf(s.timezone, deps.now),
+      );
+      return { id: item.id, planned: r.days.length, finish: r.finish, late: r.late };
     }
     case "save_job_lead": {
       const { id, stage, outcome, ...rest } = input as Input<"save_job_lead">;

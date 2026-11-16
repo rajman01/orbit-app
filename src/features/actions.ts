@@ -73,6 +73,14 @@ import {
   type Skill,
   type SkillFields,
 } from "./career/model";
+import {
+  effortFor,
+  scheduleSections,
+  sectionMinutes,
+  sectionProgress,
+  type CoursePlan,
+  type Section,
+} from "./career/course";
 import { emptyEntry, journalId, withLine, type JournalFields } from "./journal/model";
 import { newWinFields, ritualWinId, taskWinId, type WinFields } from "./wins/model";
 import {
@@ -367,6 +375,9 @@ export function createActions(engine: SyncEngine, userId: string) {
         }
         if (patch.status === "done") await awardTask({ ...task, ...full } as Task, true);
         else if (task.status === "done") await awardTask(task, false);
+        // CAR-6: a course section's task ticks the section (and the course's progress) with it.
+        if (task.learningItemId && task.learningSectionId && (patch.status === "done" || task.status === "done"))
+          await actions.markSection(task.learningItemId, task.learningSectionId, patch.status === "done");
       }
       for (const field of ["dueDate", "scheduledDate"] as const) {
         if (field in patch && patch[field] !== task[field]) {
@@ -1235,7 +1246,91 @@ export function createActions(engine: SyncEngine, userId: string) {
         );
       }
     },
-    deleteLearningItem: (id: string) => engine.remove("learningItems", id),
+    async deleteLearningItem(id: string) {
+      // Its planned sections that aren't done go with it.
+      for (const t of await db.tasks.where("learningItemId").equals(id).toArray())
+        if (!t.deletedAt && t.status !== "done") await engine.remove("tasks", t.id);
+      await engine.remove("learningItems", id);
+    },
+
+    // ---------------------------------------------------------------- course sections (Phase 3F, CAR-6)
+
+    /** Replaces the sections; progress follows the ones done. */
+    async setSections(item: LearningItem, sections: Section[]) {
+      await engine.update("learningItems", item.id, { sections });
+      if (sections.length)
+        await actions.updateLearningItem({ ...item, sections }, { progress: sectionProgress(sections) });
+    },
+
+    /** Marks a section done (or not) and moves the course's progress with it; finishing the last finishes the course. */
+    async markSection(itemId: string, sectionId: string, done: boolean) {
+      const item = await db.learningItems.get(itemId);
+      if (!item || item.deletedAt) return;
+      const sections = (item.sections ?? []).map((s) =>
+        s.id === sectionId ? { ...s, doneAt: done ? (s.doneAt ?? now()) : null } : s,
+      );
+      await engine.update("learningItems", item.id, { sections });
+      await actions.updateLearningItem({ ...item, sections }, { progress: sectionProgress(sections) });
+    },
+
+    /** Ticking a section on the course page: through its task when it has one, so both stay in step. */
+    async toggleSection(item: LearningItem, sectionId: string, done: boolean) {
+      const section = (item.sections ?? []).find((s) => s.id === sectionId);
+      const task = section?.taskId ? await db.tasks.get(section.taskId) : undefined;
+      if (task && !task.deletedAt) await actions.setTaskDone(withTaskDefaults(task), done);
+      else await actions.markSection(item.id, sectionId, done);
+    },
+
+    /**
+     * "Plan it": the sections still to do become tasks (or their tasks move) on study days up to the
+     * target date, sized by length, in the cycle that holds each day. Returns the schedule.
+     */
+    async planCourse(item: LearningItem, plan: Omit<CoursePlan, "plannedAt">, todayDay: string) {
+      const sections = item.sections ?? [];
+      const schedule = scheduleSections(sections, { ...plan, start: todayDay });
+      const cycles = (await db.cycles.toArray()).filter((c) => !c.deletedAt);
+      const skill = item.skillId ? await db.skills.get(item.skillId) : undefined;
+      const taskIds = new Map<string, string>();
+      for (const { sectionId, day } of schedule.days) {
+        const s = sections.find((x) => x.id === sectionId)!;
+        const cycleId = cycles.find((c) => c.startDate <= day && c.endDate >= day)?.id ?? null;
+        const existing = s.taskId ? await db.tasks.get(s.taskId) : undefined;
+        if (existing && !existing.deletedAt && existing.status !== "done" && existing.status !== "cancelled") {
+          await engine.update("tasks", existing.id, { scheduledDate: day, cycleId });
+          taskIds.set(sectionId, existing.id);
+        } else {
+          const id = await actions.createTask({
+            title: `${item.title}: ${s.title}`.slice(0, 500),
+            status: "todo",
+            scheduledDate: day,
+            effort: effortFor(sectionMinutes(s)),
+            skillId: item.skillId,
+            areaId: skill?.areaId ?? null,
+            goalId: skill?.goalId ?? null,
+            cycleId,
+            learningItemId: item.id,
+            learningSectionId: s.id,
+          });
+          taskIds.set(sectionId, id);
+        }
+      }
+      const next = sections.map((s) => (taskIds.has(s.id) ? { ...s, taskId: taskIds.get(s.id)! } : s));
+      await engine.update("learningItems", item.id, { sections: next, plan: { ...plan, plannedAt: now() } });
+      if (item.status === "queued") await actions.updateLearningItem(item, { status: "in_progress" });
+      return schedule;
+    },
+
+    /** Removes the plan: the open section tasks go; sections and progress stay. */
+    async unplanCourse(item: LearningItem) {
+      const sections = (item.sections ?? []).map((s) => ({ ...s }));
+      for (const s of sections) {
+        if (!s.taskId || s.doneAt) continue;
+        const t = await db.tasks.get(s.taskId);
+        if (t && !t.deletedAt && t.status !== "done") await engine.remove("tasks", t.id);
+        s.taskId = null;
+      }
+      await engine.update("learningItems", item.id, { sections, plan: null });
+    },
 
     createJobLead: (fields: Partial<JobLeadFields> & { company: string }) =>
       engine.create("jobLeads", newLeadFields(fields, now())),

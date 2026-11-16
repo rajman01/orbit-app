@@ -516,6 +516,28 @@ export const COACH_TOOLS = {
       skillId: id.nullable().optional(),
     }),
   },
+  plan_course: {
+    description:
+      "Plan a course or book to a finish date (CAR-6): optionally set its sections first (replacing any not started), then spread the sections still to do over the study days, up to the daily time, as tasks. Re-running it re-plans. Say if it won't fit by the date.",
+    input: z.object({
+      learningItemId: id,
+      targetDate: day,
+      days: z
+        .array(z.number().int().min(0).max(6))
+        .min(1)
+        .max(7)
+        .optional()
+        .describe("Study days, 0 = Sunday … 6 = Saturday. Default Monday–Friday"),
+      minutesPerDay: z.number().int().min(15).max(480).optional().describe("Default 60"),
+      sections: z
+        .array(
+          z.object({ title: z.string().trim().min(1).max(200), minutes: z.number().int().min(5).max(600).optional() }),
+        )
+        .max(200)
+        .optional()
+        .describe("The parts in order (chapters, modules, weeks) with their length if known"),
+    }),
+  },
   save_job_lead: {
     description:
       "Add a job lead, or update one (pass its id): company, role, stage (researching, applied, interviewing, offer, closed with an outcome), next step and its date, notes. Keep a next step on open leads so nothing goes quiet.",
@@ -547,6 +569,7 @@ export const WRITE_TOOLS = new Set<CoachToolName>([
   "create_routine",
   "save_skill",
   "save_learning_item",
+  "plan_course",
   "save_job_lead",
   "create_goal",
   "update_goal",

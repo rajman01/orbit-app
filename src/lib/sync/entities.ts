@@ -242,6 +242,9 @@ export const entitySchemas = {
     personId: ref.optional(),
     /** Phase 3B (CAR-2): the skill this task practises. Optional for older documents. */
     skillId: ref.optional(),
+    /** Phase 3F (CAR-6): the course section this task is (and its learning item). Optional for older documents. */
+    learningItemId: ref.optional(),
+    learningSectionId: z.string().max(24).nullable().optional(),
     /** Phase 3C (TASK-8): tasks that must be finished first. Optional for older documents. */
     blockedBy: z.array(id).max(20).optional(),
   }),
@@ -736,6 +739,31 @@ export const entitySchemas = {
     order: z.number(),
     startedAt: ms.nullable(),
     finishedAt: ms.nullable(),
+    /** Phase 3F (CAR-6): the course or book in parts; progress follows them. Optional for older documents. */
+    sections: z
+      .array(
+        z.object({
+          id: shortId,
+          title: z.string().trim().min(1).max(200),
+          /** How long it takes; 30 minutes when not given. */
+          minutes: z.number().int().min(5).max(600).nullable(),
+          doneAt: ms.nullable(),
+          /** The task it became when planned. */
+          taskId: ref,
+        }),
+      )
+      .max(200)
+      .optional(),
+    /** Phase 3F: "Plan it" — finish by a date, studying on these weekdays, up to this long a day. */
+    plan: z
+      .object({
+        targetDate: day,
+        days: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+        minutesPerDay: z.number().int().min(15).max(480),
+        plannedAt: ms,
+      })
+      .nullable()
+      .optional(),
   }),
   /** Phase 3B (CAR-4): the job search pipeline. */
   jobLeads: z.object({
@@ -872,6 +900,7 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
     personId: "people",
     skillId: "skills",
     blockedBy: "tasks",
+    learningItemId: "learningItems",
   },
   taskEvents: { taskId: "tasks" },
   focusSessions: { taskId: "tasks" },

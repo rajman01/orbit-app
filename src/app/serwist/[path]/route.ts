@@ -33,6 +33,7 @@ const shells = [
   "/skills",
   "/skill",
   "/learning",
+  "/learning/item",
   "/jobs",
   "/jobs/profile",
   "/jobs/lead",

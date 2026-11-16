@@ -29,9 +29,10 @@ export function useAiActions(toolUseIds: string[]): AiAction[] | undefined {
 }
 
 /** Where "View" goes for an action: the task or goal it made or changed. */
-export function actionTarget(
-  a: AiAction,
-): { kind: "task" | "goal" | "habits" | "cycle" | "person" | "skill" | "learning" | "jobs"; id?: string } | null {
+export function actionTarget(a: AiAction): {
+  kind: "task" | "goal" | "habits" | "cycle" | "person" | "skill" | "course" | "learning" | "jobs";
+  id?: string;
+} | null {
   const changes = a.changes as Change[];
   const made = (entity: string) => changes.find((c) => c.entity === entity && c.before === null)?.id;
   const input = a.input as Record<string, string | undefined>;
@@ -73,6 +74,8 @@ export function actionTarget(
       return { kind: "skill", id: input.id ?? made("skills") };
     case "save_learning_item":
       return { kind: "learning" };
+    case "plan_course":
+      return { kind: "course", id: input.learningItemId };
     case "save_job_lead":
     case "make_lead_from_role":
     case "pause_job_search":
@@ -158,6 +161,13 @@ function ActionRow({ action }: { action: AiAction }) {
             </Link>
           ) : target?.kind === "skill" && target.id ? (
             <Link href={`/skill?id=${target.id}`} className={cn(small, "text-accent-text hover:bg-accent-fill")}>
+              View
+            </Link>
+          ) : target?.kind === "course" && target.id ? (
+            <Link
+              href={`/learning/item?id=${target.id}`}
+              className={cn(small, "text-accent-text hover:bg-accent-fill")}
+            >
               View
             </Link>
           ) : target?.kind === "habits" ||

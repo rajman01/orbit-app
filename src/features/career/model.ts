@@ -93,6 +93,8 @@ export function newLearningFields(p: Partial<LearningFields> & { title: string }
     order: p.order ?? Date.now(),
     startedAt: null,
     finishedAt: null,
+    sections: p.sections ?? [],
+    plan: null,
   };
   return { ...base, ...learningPatch(base, { status: p.status, progress: p.progress }, Date.now()) };
 }

@@ -539,6 +539,13 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
           status: l.status,
           progress: l.status === "in_progress" ? `${l.progress}%` : undefined,
           skill: l.skillId ? skillName.get(l.skillId) : undefined,
+          sections: l.sections?.length
+            ? `${l.sections.filter((x) => x.doneAt != null).length} of ${l.sections.length} done`
+            : undefined,
+          nextSection: l.sections?.find((x) => x.doneAt == null)?.title,
+          plan: l.plan
+            ? { finishBy: l.plan.targetDate, studyDays: l.plan.days, minutesPerDay: l.plan.minutesPerDay }
+            : undefined,
         })),
       jobSearch: {
         applied: stats.applied,
