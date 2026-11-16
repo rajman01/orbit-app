@@ -13,11 +13,12 @@ test("the tab bar goes back to the bottom when iOS leaves the layout short", asy
   await page.addInitScript(() => {
     const w = window as unknown as Record<string, unknown>;
     w.__vvExtra = 0;
+    w.__vvTop = 0;
     const vv = new EventTarget() as EventTarget & Record<string, unknown>;
     Object.defineProperties(vv, {
       height: { get: () => window.innerHeight + (w.__vvExtra as number) },
       width: { get: () => window.innerWidth },
-      offsetTop: { get: () => 0 },
+      offsetTop: { get: () => w.__vvTop as number },
       offsetLeft: { get: () => 0 },
       scale: { get: () => 1 },
     });
@@ -47,4 +48,16 @@ test("the tab bar goes back to the bottom when iOS leaves the layout short", asy
     w.__vv.dispatchEvent(new Event("resize"));
   });
   await expect.poll(shift).toBe(0);
+
+  // Pulling the page past its top or bottom (iOS reports the visible area as moved) leaves the
+  // bar where it is.
+  for (const top of [-250, 250]) {
+    await page.evaluate((top) => {
+      const w = window as unknown as { __vvTop: number; __vv: EventTarget };
+      w.__vvTop = top;
+      w.__vv.dispatchEvent(new Event("scroll"));
+    }, top);
+    await page.waitForTimeout(100);
+    expect(await shift()).toBe(0);
+  }
 });

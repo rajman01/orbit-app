@@ -29,8 +29,11 @@ export function KeyboardWatcher() {
     // layout viewport. After the keyboard closes on a scrolled page, iOS can leave that viewport
     // as short as it was with the keyboard up, so the bars float mid-screen with the page showing
     // underneath. A zero-height probe pinned to the bottom shows where "bottom" currently is; if
-    // it's far from the bottom of what's actually visible, shift the bars by the difference
-    // (--pin-fix). Small gaps (Safari's toolbars animating) are left alone.
+    // it's well above the bottom of the visible area, move the bars down by the difference
+    // (--pin-fix). Only the visible height counts, not where it's scrolled to: while the page
+    // bounces past its top or bottom, iOS reports the visible area as moved, and following that
+    // threw the bars up the screen or off it. Never moved up, never while zoomed in, and small
+    // gaps (Safari's toolbars animating) are left alone.
     const probe = document.createElement("div");
     probe.setAttribute("aria-hidden", "true");
     probe.style.cssText = "position:fixed;left:0;bottom:0;width:0;height:0;pointer-events:none;visibility:hidden";
@@ -38,9 +41,9 @@ export function KeyboardWatcher() {
     let fix = 0;
     const realign = () => {
       const root = document.documentElement;
-      const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-      const gap = Math.round(visibleBottom - probe.getBoundingClientRect().bottom);
-      const next = root.dataset.keyboard !== "open" && Math.abs(gap) > 40 ? gap : 0;
+      const zoomed = vv ? Math.abs(vv.scale - 1) > 0.01 : false;
+      const gap = Math.round((vv?.height ?? window.innerHeight) - probe.getBoundingClientRect().bottom);
+      const next = root.dataset.keyboard !== "open" && !zoomed && gap > 40 ? gap : 0;
       if (next !== fix) {
         fix = next;
         if (fix) root.style.setProperty("--pin-fix", `${fix}px`);
