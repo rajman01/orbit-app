@@ -44,6 +44,9 @@ export function LandingNav() {
           <a href="#how" className={link}>
             How it works
           </a>
+          <Link href="/guide" className={link}>
+            Guide
+          </Link>
           <NavAuthLink />
           <PrimaryCta size="default" />
         </nav>

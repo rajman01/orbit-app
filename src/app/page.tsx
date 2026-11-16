@@ -25,6 +25,19 @@ export const metadata: Metadata = {
   title: { absolute: "Orbit — Linear for your life" },
   description:
     "Orbit turns your goals in career, relationships, finance and learning into a plan you actually follow — with a coach that won’t let you drift.",
+  openGraph: {
+    type: "website",
+    siteName: "Orbit",
+    url: "/",
+    title: "Orbit — Linear for your life",
+    description:
+      "Turn your goals into a plan you actually follow, with a coach that won’t let you drift. Installs on your phone and works offline.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Orbit — Linear for your life",
+    description: "Turn your goals into a plan you actually follow, with a coach that won’t let you drift.",
+  },
 };
 
 type Illustration = (props: { className?: string }) => React.ReactNode;
@@ -419,6 +432,9 @@ export default function Landing() {
             <OrbitMark size={18} /> Orbit
           </span>
           <span className="flex items-center gap-4">
+            <a href="/guide" className="hover:text-label">
+              Guide
+            </a>
             <a href="/privacy" className="hover:text-label">
               Privacy
             </a>

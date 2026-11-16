@@ -114,6 +114,12 @@ export function HowItWorks() {
             ))}
           </ol>
         </div>
+        <p className="mt-16 text-center text-[17px] text-label-secondary">
+          Want the whole picture?{" "}
+          <a href="/guide" className="font-semibold text-accent-text hover:underline">
+            Read the guide to using Orbit →
+          </a>
+        </p>
       </div>
     </section>
   );

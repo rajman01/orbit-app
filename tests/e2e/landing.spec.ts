@@ -64,3 +64,37 @@ test("how it works: four steps, each with its screen", async ({ page }) => {
     page.getByText("I built Orbit because I’m a world-class procrastinator.", { exact: false }),
   ).toBeAttached();
 });
+
+test("link previews: the page has preview tags and the image renders", async ({ page, request }) => {
+  await page.goto("/");
+  const og = (p: string) => page.locator(`meta[property="${p}"]`).getAttribute("content");
+  expect(await og("og:title")).toBe("Orbit — Linear for your life");
+  expect(await og("og:site_name")).toBe("Orbit");
+  const image = await og("og:image");
+  expect(image).toMatch(/^https?:\/\/.+\/opengraph-image/);
+  expect(await page.locator('meta[name="twitter:card"]').getAttribute("content")).toBe("summary_large_image");
+  expect(await og("og:image:width")).toBe("1200");
+  // Fetch it from this server (the tag carries the production address).
+  const res = await request.get(new URL(image!).pathname + new URL(image!).search);
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toBe("image/png");
+  expect((await res.body()).length).toBeGreaterThan(20_000);
+});
+
+test("the guide: linked from the landing page, every section reachable, no sideways scrolling", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Read the guide to using Orbit →" }).click();
+  await expect(page).toHaveURL(/\/guide$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("How to use Orbit, all of it.");
+  const sections = page.locator("main section[id]");
+  await expect(sections).toHaveCount(23);
+  // The contents list links to every section.
+  const phone = test.info().project.name === "phone";
+  if (phone) await page.locator("summary", { hasText: "Contents" }).click();
+  const toc = page.getByRole("navigation", { name: "Guide contents" }).or(page.locator("details"));
+  await toc.getByRole("link", { name: "The coach" }).first().click();
+  await expect(page).toHaveURL(/#coach$/);
+  await expect(page.getByRole("heading", { name: "The coach", level: 2 })).toBeInViewport();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});

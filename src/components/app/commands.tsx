@@ -2,6 +2,7 @@
 
 import { Command } from "cmdk";
 import {
+  LifeBuoy,
   Award,
   BarChart3,
   NotebookPen,
@@ -477,6 +478,7 @@ function Palette({
                         ["Notifications", "/notifications", Bell, ""],
                         ["Cycle", "/cycle", CalendarSync, "G C"],
                         ["Settings", "/settings", Settings, "G S"],
+                        ["How to use Orbit (guide)", "/guide", LifeBuoy, ""],
                       ].map(([label, href, Icon, keys]) => {
                         const I = Icon as typeof Sun;
                         return (

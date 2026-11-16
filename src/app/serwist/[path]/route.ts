@@ -34,6 +34,7 @@ const shells = [
   "/skill",
   "/learning",
   "/learning/item",
+  "/guide",
   "/jobs",
   "/jobs/profile",
   "/jobs/lead",

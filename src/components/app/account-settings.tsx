@@ -54,6 +54,12 @@ export function ConnectedAccounts() {
           <ChevronRight className="size-4" />
         </span>
       </Link>
+      <Link href="/guide" className={`${row} hover:bg-fill`}>
+        <span className="text-body">How to use Orbit</span>
+        <span className="flex items-center gap-1 text-body text-label-secondary">
+          The guide <ChevronRight className="size-4" />
+        </span>
+      </Link>
     </>
   );
 }
