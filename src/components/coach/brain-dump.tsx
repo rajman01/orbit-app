@@ -1,9 +1,10 @@
 "use client";
 
 import { ChevronDown, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DictateButton, useDictation } from "@/components/ui/dictation";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
 import type { CapturedTask } from "@/features/coach/capture";
@@ -25,8 +26,11 @@ export function BrainDump({ initialText = "" }: { initialText?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState<(CapturedTask & { keep: boolean })[] | null>(null);
+  const dictation = useDictation(text, setText);
+  const fieldId = useId();
 
   const sort = async () => {
+    dictation.stop();
     setError(null);
     if (!navigator.onLine) {
       setError("Sorting needs a connection. You can still add tasks one at a time with quick add.");
@@ -136,9 +140,12 @@ export function BrainDump({ initialText = "" }: { initialText?: string }) {
         </>
       ) : (
         <>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-headline">Brain dump</span>
+          <div className="relative flex flex-col gap-1.5">
+            <label htmlFor={fieldId} className="text-headline">
+              Brain dump
+            </label>
             <textarea
+              id={fieldId}
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -146,16 +153,23 @@ export function BrainDump({ initialText = "" }: { initialText?: string }) {
               placeholder={
                 "Call the landlord about the boiler\nbook dentist next week, pay rent by Friday!\nideas for mum's birthday"
               }
-              className="field-sizing-content min-h-28 resize-none rounded-lg bg-surface-sunken px-3 py-2 text-body outline-none placeholder:text-label-tertiary focus-visible:ring-2 focus-visible:ring-accent"
+              className="field-sizing-content min-h-28 resize-none rounded-lg bg-surface-sunken py-2 pr-11 pl-3 text-body outline-none placeholder:text-label-tertiary focus-visible:ring-2 focus-visible:ring-accent"
             />
-          </label>
+            <DictateButton dictation={dictation} className="absolute right-1.5 bottom-1.5" />
+          </div>
           {error ? (
             <p role="alert" className="text-callout text-label-secondary">
               {error}
             </p>
           ) : null}
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setOpen(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                dictation.stop();
+                setOpen(false);
+              }}
+            >
               Cancel
             </Button>
             <Button

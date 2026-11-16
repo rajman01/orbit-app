@@ -15,6 +15,7 @@ import {
   Briefcase,
 } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { DictateButton, useDictation } from "@/components/ui/dictation";
 import { CHECKIN_MARK } from "@/features/coach/protocol";
 import { WRITE_TOOLS, type CoachToolName } from "@/features/coach/tools";
 import { cn } from "@/lib/cn";
@@ -260,6 +261,7 @@ function Composer({
 }) {
   const [text, setText] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
+  const dictation = useDictation(text, setText);
   useEffect(() => {
     if (autoFocus) input.current?.focus();
   }, [autoFocus]);
@@ -274,6 +276,7 @@ function Composer({
   }, [busy, onSend]);
   const submit = () => {
     if (!text.trim() || queued.current) return;
+    dictation.stop();
     const t = text;
     setText("");
     if (busy) queued.current = t;
@@ -304,6 +307,7 @@ function Composer({
           maxLength={4000}
           className="field-sizing-content max-h-40 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-callout outline-none placeholder:text-label-tertiary"
         />
+        <DictateButton dictation={dictation} />
         {busy ? (
           <button
             type="button"

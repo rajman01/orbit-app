@@ -479,7 +479,7 @@ The AI coach is a conversational assistant built on Claude that knows the user's
 | AI-7 | **Proactive check-ins** (§8.4) and weekly summaries with patterns. | P1 |
 | AI-8 | **Quick capture parser**: messy text/voice → structured tasks into inbox. | P1 |
 | AI-9 | **Memory**: persistent notes about the user (preferences, context, what works for them), viewable and editable by the user. | P1 |
-| AI-10 | Voice input in chat (browser speech-to-text). | P2 |
+| AI-10 | Voice input in chat (browser speech-to-text). Built in Phase 3G (2026-11-16) for the coach chat and the brain dump. | P2 |
 
 ### 10.2 Tools (actions the AI can take)
 
@@ -1000,7 +1000,7 @@ The detailed plan for each phase — scope, data model changes, decisions, steps
 | [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | ✅ Deployed (2026-11-12) |
 | [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | ✅ Deployed (2026-11-12) — trial running |
 | [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, QTR-1–6, RIT-7, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | 2A deployed (2026-11-14), 2B planned |
-| [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–6, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, email capture | Insights reflect four cycles of real data | In progress (3A–3F built 2026-11-16) |
+| [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–6, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, AI-10, email capture | Insights reflect four cycles of real data | In progress (3A–3G built 2026-11-16) |
 | [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |
 
 PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
@@ -1084,3 +1084,4 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 | D40 | Job assistant (CAR-5), Phase 3D after routines: semi-automated. Orbit finds and ranks roles, tailors CVs and letters from the user's own profile facts (unbacked lines flagged) and prepares an application pack; the user reviews and submits. No auto-applying, no scraping of LinkedIn/Indeed (links are pasted or shared instead); CVs stored as structured data and rendered to PDF on the device | Owner choice (2026-11-15). Application forms need humans (uploads, questions, CAPTCHAs); auto-apply bots break job sites' terms and lower reply rates; invented experience is the biggest risk |
 | D41 | Course sections and planning (CAR-6) as Phase 3F: sections live on the learning item and become ordinary tasks when planned, so cycles, Today, focus and insights work unchanged; progress is derived from sections done | Owner choice (2026-11-15); reuses planning instead of a separate course tracker |
 | D42 | Email to Inbox waits for the custom domain (Resend, inbound included); 3E sends the weekly report and important reminders through Postmark's free plan (100 emails a month, outbound only) | Owner choice (2026-11-16): Postmark's free plan has no inbound (Pro is about $16.50 a month); capture is already covered by the iOS Shortcut and sharing |
+| D43 | Voice input (AI-10) as Phase 3G, with the browser's own speech recognition only: a mic button that fills the text box as you speak (coach chat, brain dump), hidden where unsupported (Firefox). No audio reaches Orbit. A record-and-transcribe fallback on Orbit's server (a paid speech-to-text service) only if it proves unreliable in the installed iPhone app | Owner choice (2026-11-16): free, quick, no new processor for Orbit |

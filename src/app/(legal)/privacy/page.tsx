@@ -122,6 +122,11 @@ export default function Privacy() {
         </li>
         <li>Your browser&rsquo;s push service delivers notifications, if you turn them on.</li>
         <li>
+          Dictation (the microphone button in the coach and the brain dump) uses your browser&rsquo;s own speech
+          recognition: while you speak, your browser sends the audio to its maker&rsquo;s service (Google for Chrome,
+          Apple for Safari) to turn it into text. Orbit never receives or stores the audio, only the text you send.
+        </li>
+        <li>
           <strong>Postmark</strong> sends Orbit&rsquo;s emails (the weekly report, and important reminders when you
           haven&rsquo;t turned on notifications): it receives your email address and the email&rsquo;s content. You can
           turn both emails off in Settings.
