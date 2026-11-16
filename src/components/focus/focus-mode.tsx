@@ -448,6 +448,7 @@ function FocusPill({ task, clock, stage, onOpen }: { task: Task; clock: string; 
       transition={transition("default")}
       data-hide-on-keyboard
       data-focus-pill
+      data-pin-bottom
       className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-40 flex h-11 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full py-1 pr-4 pl-3 text-callout font-medium shadow-2 material-popover lg:right-6 lg:bottom-6"
     >
       <span

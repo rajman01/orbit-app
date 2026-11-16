@@ -118,6 +118,10 @@ html:has([data-bulk-bar]) [data-toasts] {
 html:has([data-bulk-bar]) [data-focus-pill] {
   display: none !important;
 }
+/* Bars pinned to the bottom follow the fix for iOS's stuck layout (see lib/keyboard.tsx). */
+[data-pin-bottom] {
+  translate: 0 var(--pin-fix, 0px);
+}
 html[data-keyboard="open"] [data-hide-on-keyboard] {
   display: none !important;
 }

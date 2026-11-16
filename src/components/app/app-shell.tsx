@@ -317,6 +317,7 @@ function TabBar() {
       <nav
         aria-label="Main"
         data-hide-on-keyboard
+        data-pin-bottom
         className="fixed inset-x-0 bottom-0 z-30 flex border-t border-separator pt-1.5 pb-[env(safe-area-inset-bottom)] material-chrome lg:hidden"
       >
         {tab("/today", "Today", Sun)}

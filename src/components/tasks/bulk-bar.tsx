@@ -45,6 +45,7 @@ export function BulkBar({ tasks, onDone }: { tasks: Task[]; onDone: () => void }
       role="toolbar"
       aria-label="Selected tasks"
       data-bulk-bar
+      data-pin-bottom
       className="fixed inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+62px)] z-30 mx-auto flex max-w-[760px] items-center gap-1 overflow-x-auto rounded-xl border border-separator p-1.5 shadow-3 material-popover lg:bottom-6"
     >
       <span className="shrink-0 px-2 text-callout font-semibold tabular" aria-live="polite">
