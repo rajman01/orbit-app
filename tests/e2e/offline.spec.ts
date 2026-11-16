@@ -62,7 +62,8 @@ test.describe("signed in", () => {
     laptop.on("console", (m) => m.text().startsWith("[sync]") && laptopLog.push(m.text()));
     await other.addInitScript(() => localStorage.setItem("orbit:debug-sync", "1"));
     await laptop.goto("/today");
-    await expect(laptop.getByText(offline, { exact: true })).toBeVisible();
+    // A fresh device downloads the whole account first; on a full run the shared test account is large.
+    await expect(laptop.getByText(offline, { exact: true })).toBeVisible({ timeout: 20_000 });
     try {
       await expect(laptop.getByRole("checkbox", { name: `Complete ${online}` })).toHaveAttribute(
         "aria-checked",

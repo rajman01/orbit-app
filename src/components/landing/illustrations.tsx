@@ -335,6 +335,94 @@ export function PeopleIllustration({ className }: P) {
   );
 }
 
+/** A week of events; a task's time block drops into a free slot and shows it's in your calendar too. */
+export function CalendarIllustration({ className }: P) {
+  const blue = "var(--area-blue)";
+  const days = ["M", "T", "W", "T", "F"];
+  const events: [number, number, number][] = [
+    [0, 30, 18],
+    [1, 52, 24],
+    [3, 26, 14],
+    [4, 60, 20],
+    [2, 84, 16],
+    [0, 86, 14],
+  ];
+  return (
+    <Svg w={240} h={140} className={className}>
+      <rect x={20} y={14} width={200} height={114} rx={12} fill={SURFACE} stroke={LINE} />
+      {days.map((day, i) => (
+        <g key={i}>
+          <text x={46 + i * 37} y={30} textAnchor="middle" fontSize={8} fontWeight={700} fill={MUTED}>
+            {day}
+          </text>
+          {i > 0 ? <line x1={28 + i * 37} y1={38} x2={28 + i * 37} y2={120} stroke={LINE} strokeOpacity={0.5} /> : null}
+        </g>
+      ))}
+      {events.map(([col, y, h], i) => (
+        <rect key={i} x={31 + col * 37} y={y + 8} width={31} height={h} rx={4} fill={mix(blue, 22)} />
+      ))}
+      <g className="il-pop" style={vars({ "--il-d": "0.6s", "--il-t": "5s" })}>
+        <rect x={105} y={42} width={31} height={30} rx={5} fill={A} />
+        <rect x={110} y={48} width={20} height={3.5} rx={1.75} fill="#fff" opacity={0.9} />
+        <rect x={110} y={55} width={13} height={3.5} rx={1.75} fill="#fff" opacity={0.6} />
+      </g>
+      <g className="il-pop" style={vars({ "--il-d": "1.3s", "--il-t": "5s" })}>
+        <g transform="translate(132 98)">
+          <rect width={98} height={24} rx={12} fill={SURFACE} stroke={LINE} />
+          <circle cx={13} cy={12} r={5} fill={mix(A, 25)} />
+          <path d="M10.5 12 l2 2 l3.5 -4" stroke={A} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+          <text x={24} y={15} fontSize={8} fontWeight={700} fill={LABEL}>
+            In your calendar
+          </text>
+        </g>
+      </g>
+    </Svg>
+  );
+}
+
+/** Why things slip, as bars that grow; the biggest reason gets a suggestion. */
+export function InsightsIllustration({ className }: P) {
+  const purple = "var(--area-purple)";
+  const rows: [string, number][] = [
+    ["Too big", 112],
+    ["Avoiding it", 84],
+    ["No time", 52],
+    ["Low energy", 30],
+  ];
+  return (
+    <Svg w={240} h={140} className={className}>
+      <text x={22} y={24} fontSize={9} fontWeight={700} fill={LABEL}>
+        Why things slipped
+      </text>
+      {rows.map(([label, w], i) => (
+        <g key={label}>
+          <text x={22} y={46 + i * 20} fontSize={8} fill={MUTED}>
+            {label}
+          </text>
+          <rect
+            className="il-grow-x"
+            style={d(i * 0.2)}
+            x={78}
+            y={39 + i * 20}
+            width={w}
+            height={9}
+            rx={4.5}
+            fill={i === 0 ? purple : mix(purple, 30)}
+          />
+        </g>
+      ))}
+      <g className="il-pop" style={d(1.4)}>
+        <g transform="translate(112 112)">
+          <rect width={114} height={22} rx={11} fill={mix(purple, 16)} />
+          <text x={57} y={14.5} textAnchor="middle" fontSize={8} fontWeight={700} fill={LABEL}>
+            Try smaller first steps
+          </text>
+        </g>
+      </g>
+    </Svg>
+  );
+}
+
 function Sparkle({
   x,
   y,

@@ -17,3 +17,50 @@ test("landing page shows the pitch and a way in, without sideways scrolling", as
   );
   expect(clipped).toBe(0);
 });
+
+test("the playable Today: tick, put one off and get asked why, start the timer", async ({ page }) => {
+  await page.goto("/");
+  const demo = page.getByRole("list", { name: "Sample must-dos" });
+  await demo.scrollIntoViewIfNeeded();
+  await demo.getByRole("checkbox", { name: "Done: Call mum" }).click();
+  await expect(page.getByText("Must-dos · 1 of 3 done")).toBeVisible();
+  await expect(page.getByText("10 XP", { exact: true })).toBeVisible();
+
+  // Putting off the stale one asks why; "Too big" offers a first step.
+  await page.getByRole("button", { name: "Update my CV: Not today" }).click();
+  const why = page.getByRole("group", { name: "Why are you putting this off?" });
+  await why.getByRole("button", { name: "Too big" }).click();
+  await expect(why).toContainText("Open the doc and rewrite the summary (2 min)");
+  await why.getByRole("button", { name: "Start 5 minutes" }).click();
+  const timer = page.getByRole("group", { name: "Focus timer" });
+  await expect(timer).toContainText("Update my CV");
+  await expect(timer).toContainText(/0[45]:\d\d/);
+  // Finishing a task you'd put off three times earns a bonus.
+  await timer.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByText("35 XP", { exact: true })).toBeVisible();
+
+  // "No time" moves it; Start over puts everything back.
+  await page.getByRole("button", { name: "Move £50 to savings: Not today" }).click();
+  await why.getByRole("button", { name: "No time" }).click();
+  await why.getByRole("button", { name: "Move it" }).click();
+  await expect(page.getByText("Moved to Thursday: Move £50 to savings")).toBeVisible();
+  await page.getByRole("button", { name: "Start over" }).click();
+  await expect(page.getByText("Must-dos · 0 of 3 done")).toBeVisible();
+  await expect(page.getByText("0 XP", { exact: true })).toBeVisible();
+});
+
+test("how it works: four steps, each with its screen", async ({ page }) => {
+  await page.goto("/");
+  const how = page.getByRole("region", { name: "One loop, every two weeks." });
+  for (const step of ["Capture", "Plan", "Do", "Review"])
+    await expect(how.getByRole("heading", { name: step, exact: true })).toBeAttached();
+  // The step being read shows its screen in the phone (wide screens).
+  if (test.info().project.name === "desktop") {
+    await how.getByRole("heading", { name: "Review", exact: true }).scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollBy(0, -window.innerHeight / 2 + 40));
+    await expect(how.getByText("Level 7 · +240 XP").first()).toBeVisible();
+  }
+  await expect(
+    page.getByText("I built Orbit because I’m a world-class procrastinator.", { exact: false }),
+  ).toBeAttached();
+});

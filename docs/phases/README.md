@@ -13,11 +13,13 @@ Each phase has its own plan so the [PRD](../PRD.md) stays the product spec, not 
 | 3 — Insight and growth | [phase-3.md](./phase-3.md) | In progress — 3A–3G built (2026-11-16); owner setup and real-use checks left |
 | 4 — Opening up | [phase-4.md](./phase-4.md) | Optional (outline) |
 
+**What's left for you:** [owner-checklist.md](../owner-checklist.md) — setup, phone checks and real use for Phases 1–3, in one list.
+
 **Side track** (doesn't block any phase):
 
 | Track | Doc | Status |
 |---|---|---|
-| Landing page — next round | [landing-page.md](./landing-page.md) | Planned — after Phase 1D |
+| Landing page — next round | [landing-page.md](./landing-page.md) | ✅ Built (2026-11-16) |
 
 ## How we use these docs
 

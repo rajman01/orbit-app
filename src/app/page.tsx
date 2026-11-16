@@ -3,20 +3,19 @@ import { WifiOff } from "lucide-react";
 import { OrbitMark } from "@/components/app/app-shell";
 import { PrimaryCta } from "@/components/landing/cta";
 import {
-  AccountabilityIllustration,
-  CaptureIllustration,
+  CalendarIllustration,
   ChaosToOrbitIllustration,
   CoachIllustration,
   CycleIllustration,
-  DoIllustration,
-  GoalsIllustration,
   HeroOrbits,
+  InsightsIllustration,
   PeopleIllustration,
-  PlanIllustration,
-  ReviewIllustration,
   Starfield,
   StartIllustration,
 } from "@/components/landing/illustrations";
+import { CareerMock } from "@/components/landing/career-mock";
+import { HowItWorks } from "@/components/landing/how-it-works";
+import { TryToday } from "@/components/landing/try-today";
 import { FocusDemo, GoalDemo } from "@/components/landing/demos";
 import { LandingNav } from "@/components/landing/nav";
 import { Reveal } from "@/components/landing/reveal";
@@ -30,70 +29,62 @@ export const metadata: Metadata = {
 
 type Illustration = (props: { className?: string }) => React.ReactNode;
 
-const FEATURES: {
+/** Two large features (what Orbit is most about), then four smaller ones. */
+const BIG_FEATURES: {
   art: Illustration;
   tint: string;
   title: string;
   body: string;
+  points: string[];
 }[] = [
-  {
-    art: GoalsIllustration,
-    tint: "var(--area-blue)",
-    title: "Goals with a next step",
-    body: "Every ambition becomes a goal with key results, milestones and one small next action — so nothing stays vague.",
-  },
-  {
-    art: CycleIllustration,
-    tint: "var(--accent)",
-    title: "Two-week cycles",
-    body: "Commit to what you’ll do this cycle, see your progress, and close it with a Sunday review. Sprints, but for your life.",
-  },
   {
     art: StartIllustration,
     tint: "var(--area-orange)",
     title: "Built for starting",
-    body: "Big tasks get a two-minute first step and a “just 5 minutes” focus timer. Starting stops being the hard part.",
-  },
-  {
-    art: AccountabilityIllustration,
-    tint: "var(--warning)",
-    title: "Real accountability",
-    body: "No silent skipping. Postpone something and Orbit asks why — then helps you shrink it, schedule it or let it go.",
-  },
-  {
-    art: PeopleIllustration,
-    tint: "var(--area-pink)",
-    title: "People who matter",
-    body: "Keep your close circle close: reminders to reach out, birthdays, and notes on what’s going on in their lives.",
+    body: "Starting is the hard part, so Orbit makes it small. Every big task gets a first step you can do in two minutes, and the focus timer begins with just five.",
+    points: [
+      "A two-minute first step on every big task",
+      "A “just 5 minutes” focus timer",
+      "Routines that walk you through your morning and evening",
+    ],
   },
   {
     art: CoachIllustration,
     tint: "var(--area-purple)",
     title: "A coach that acts",
-    body: "Tell the AI coach what you want. It drafts the plan, sets reminders and blocks time — and every change can be undone.",
+    body: "Tell the coach what you want, typed or spoken. It turns an ambition into a plan, books the time, sets reminders and runs your daily plan with you.",
+    points: [
+      "Plans a goal into milestones and tasks",
+      "Talk instead of type",
+      "Every change shows as a card you can undo",
+    ],
   },
 ];
 
-const STEPS: { art: Illustration; title: string; body: string }[] = [
+const FEATURES: { art: Illustration; tint: string; title: string; body: string }[] = [
   {
-    art: CaptureIllustration,
-    title: "Capture",
-    body: "Dump every idea and to-do into the inbox in two seconds.",
+    art: CycleIllustration,
+    tint: "var(--accent)",
+    title: "Goals in two-week cycles",
+    body: "Every ambition becomes a goal with a next step. Commit to a realistic two-week cycle, then close it with a review.",
   },
   {
-    art: PlanIllustration,
-    title: "Plan",
-    body: "Turn them into goals, then commit to a realistic two-week cycle.",
+    art: CalendarIllustration,
+    tint: "var(--area-blue)",
+    title: "Your calendar, both ways",
+    body: "Google and iCloud events sit beside your tasks. Block time for a task and it lands in your calendar; move it there and Orbit follows.",
   },
   {
-    art: DoIllustration,
-    title: "Do",
-    body: "Each morning pick three must-dos. Start with five minutes.",
+    art: PeopleIllustration,
+    tint: "var(--area-pink)",
+    title: "People who matter",
+    body: "Reminders to stay in touch, birthdays a week ahead, and notes on what’s going on in their lives.",
   },
   {
-    art: ReviewIllustration,
-    title: "Review",
-    body: "On Sunday, see what got done, why things slipped, and level up.",
+    art: InsightsIllustration,
+    tint: "var(--area-purple)",
+    title: "See why you stall",
+    body: "Reports show what got done, where your time went and why things slipped, so you can fix the pattern, not just the week.",
   },
 ];
 
@@ -238,25 +229,52 @@ export default function Landing() {
                 Everything between “someday” and done.
               </h2>
             </Reveal>
-            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-12 grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">
+              {BIG_FEATURES.map(({ art: Art, tint, title, body, points }, i) => (
+                <Reveal
+                  as="article"
+                  key={title}
+                  delay={i * 90}
+                  className="flex flex-col overflow-hidden rounded-[24px] border border-separator bg-surface shadow-1"
+                >
+                  <div
+                    className="flex aspect-[16/9] items-center justify-center p-6"
+                    style={{ background: `color-mix(in srgb, ${tint} 8%, var(--surface-sunken))` }}
+                  >
+                    <Art className="h-full w-full" />
+                  </div>
+                  <div className="p-7 pt-6">
+                    <h3 className="text-[24px] font-bold tracking-[-0.02em]">{title}</h3>
+                    <p className="mt-2 text-[16px] leading-[1.55] text-label-secondary">{body}</p>
+                    <ul className="mt-5 flex flex-col gap-2.5 text-[15px]">
+                      {points.map((t) => (
+                        <li key={t} className="flex gap-3">
+                          <span className="mt-2 size-1.5 shrink-0 rounded-full" style={{ background: tint }} />
+                          {t}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {FEATURES.map(({ art: Art, tint, title, body }, i) => (
                 <Reveal
                   as="article"
                   key={title}
-                  delay={(i % 3) * 90}
+                  delay={(i % 4) * 80}
                   className="overflow-hidden rounded-[20px] border border-separator bg-surface shadow-1"
                 >
                   <div
                     className="flex aspect-[12/7] items-center justify-center p-4"
-                    style={{
-                      background: `color-mix(in srgb, ${tint} 7%, var(--surface-sunken))`,
-                    }}
+                    style={{ background: `color-mix(in srgb, ${tint} 7%, var(--surface-sunken))` }}
                   >
                     <Art className="h-full w-full" />
                   </div>
-                  <div className="p-6 pt-5">
-                    <h3 className="text-[19px] font-semibold tracking-[-0.01em]">{title}</h3>
-                    <p className="mt-2 text-[15px] leading-[1.55] text-label-secondary">{body}</p>
+                  <div className="p-5 pt-4">
+                    <h3 className="text-[17px] font-semibold tracking-[-0.01em]">{title}</h3>
+                    <p className="mt-1.5 text-[14px] leading-[1.55] text-label-secondary">{body}</p>
                   </div>
                 </Reveal>
               ))}
@@ -312,31 +330,61 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* How it works */}
-        <section id="how" className="scroll-mt-16">
-          <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
-            <Reveal className="mx-auto max-w-2xl text-center">
-              <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">How it works</p>
+        {/* Try it */}
+        <section id="try" className="scroll-mt-16">
+          <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:py-28">
+            <Reveal>
+              <p className="text-[13px] font-semibold tracking-[0.08em] text-accent-text uppercase">Try it</p>
               <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
-                One loop, every two weeks.
+                Go on, skip something.
               </h2>
+              <p className="mt-5 text-[18px] leading-[1.55] text-label-secondary">
+                This is a working Today. Tick a task off, start the five-minute timer, or put one off and see what Orbit
+                asks. Nothing here is saved.
+              </p>
             </Reveal>
-            <ol className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {STEPS.map(({ art: Art, title, body }, i) => (
-                <Reveal as="li" key={title} delay={i * 90}>
-                  <div className="flex aspect-[5/3] items-center justify-center rounded-[20px] bg-surface-sunken p-3">
-                    <Art className="h-full w-full" />
-                  </div>
-                  <div className="mt-5 flex items-baseline gap-2.5">
-                    <span className="text-[13px] font-semibold text-accent-text tabular-nums">0{i + 1}</span>
-                    <h3 className="text-[19px] font-semibold tracking-[-0.01em]">{title}</h3>
-                  </div>
-                  <p className="mt-1.5 text-[15px] leading-[1.55] text-label-secondary">{body}</p>
-                </Reveal>
-              ))}
-            </ol>
+            <Reveal from="right" delay={100}>
+              <TryToday />
+            </Reveal>
           </div>
         </section>
+
+        {/* Career */}
+        <section className="border-y border-separator bg-bg-grouped">
+          <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
+            <Reveal from="left" className="lg:order-2">
+              <p className="text-[13px] font-semibold tracking-[0.08em] text-[color:var(--area-blue)] uppercase">
+                Career
+              </p>
+              <h2 className="mt-3 text-[clamp(1.9rem,4vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em]">
+                Grow on purpose.
+              </h2>
+              <p className="mt-5 text-[18px] leading-[1.55] text-label-secondary">
+                Track the skills you’re building and what you’re learning from them. Plan a course or book to a finish
+                date, part by part. And let Orbit find roles that fit you, tailor your CV from your real experience and
+                get each application ready for you to check and send.
+              </p>
+              <ul className="mt-8 flex flex-col gap-3 text-[16px]">
+                {[
+                  "Skills with a level and a target, linked to your goals",
+                  "Courses split into sections, planned onto your study days",
+                  "New roles ranked by fit every morning, with the reasons",
+                ].map((t) => (
+                  <li key={t} className="flex gap-3">
+                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[color:var(--area-blue)]" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
+            <Reveal from="right" delay={100} className="lg:order-1">
+              <CareerMock />
+            </Reveal>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <HowItWorks />
 
         {/* Final CTA */}
         <section className="px-4 pb-24 sm:px-6">
@@ -354,6 +402,13 @@ export default function Landing() {
             <div className="mt-9 flex justify-center">
               <PrimaryCta tone="inverse" />
             </div>
+            <figure className="mx-auto mt-12 max-w-xl border-t border-white/20 pt-8">
+              <blockquote className="text-[17px] leading-[1.55] text-white/90 italic">
+                “I built Orbit because I’m a world-class procrastinator. I had big plans and no system that got me to
+                start. This is the app I needed — maybe you need it too.”
+              </blockquote>
+              <figcaption className="mt-3 text-[14px] text-white/70">The maker of Orbit</figcaption>
+            </figure>
           </Reveal>
         </section>
       </main>

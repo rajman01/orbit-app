@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Planned — starts after the app's own flows have settled (after Phase 1D) |
+| **Status** | ✅ Built 2026-11-16 (items 3–7) |
 | **Depends on** | Phase 1 complete, so the screens and flows shown on the page stop changing |
 | **Design** | [DESIGN.md](../DESIGN.md) §7 (motion), §8 (gestures) |
 
@@ -24,6 +24,7 @@ Make the landing page memorable and make it sell the product by showing it, not 
 | 3 | **Scroll story for "How it works"** | Replace the four step cards with a pinned phone frame whose screen changes as you scroll through Capture → Plan → Do → Review. The copy for each step scrolls past beside it | Large |
 | 4 | **Something to play with** | A working mini Today on the page: tick a task, swipe one away and get asked "why?", start the 5-minute timer. Nothing is saved | Large |
 | 5 | **Varied feature layout** | Replace the six equal cards with two large cards (accountability, starting) and four small ones, so the page has rhythm and shows what matters most | Small |
+| 7 | **Content refresh** (added 2026-11-16) | The page was written after Phase 1: add the coach acting and listening, calendar sync, insights, skills and courses, and the job assistant | Medium |
 | 6 | **A personal line** | A short "built by someone who procrastinates, for people who do" note, in the owner's own words | Small |
 
 Order when the time comes: 5 and 6 first (small, no dependencies), then 3, then 4.
@@ -71,4 +72,4 @@ Order when the time comes: 5 and 6 first (small, no dependencies), then 3, then 
 
 | Date | What |
 |---|---|
-| | |
+| 2026-11-16 | Items 3–7 built (owner: "start the landing page"):<br>• **Features (5, 7):** two large cards, "Built for starting" and "A coach that acts" (typed or spoken; plans, books time, reminders, undo), each with three points; then four small ones: goals in two-week cycles, calendar both ways (new illustration), people, and "See why you stall" (insights; new illustration). **Change from the plan:** the second large card is the coach, not accountability, because the accountability spotlight section straight after already covers skipping in depth.<br>• **Career section (7):** "Grow on purpose": skills, courses planned to a date, and the job assistant (roles ranked by fit with reasons, a tailored CV and letter you check and send), beside a mock-up of a found role and a course on pace.<br>• **Try it (4):** a working Today in its own section after the accountability spotlight (owner answer): three sample must-dos (one put off three times), the app's own checkbox, swipe row (touch) and skip reasons; "Not today" asks why, and each reason answers as in the app (a first step, moved to Thursday, or five minutes); a five-minute timer with pause and Done; XP with the bonus for a task you'd put off; Start over. Held in memory, nothing saved or sent; keyboard and screen reader friendly. **Change:** the tasks aren't the real `TaskRow`, which needs the sync engine; the shared pieces are.<br>• **How it works (3):** a phone frame pinned beside the steps on wide screens; the screen cross-fades to the step crossing the middle of the window (Capture with a brain dump being sorted, Plan the cycle with capacity, Today with must-dos and a focus timer, the cycle Review with reasons and XP), and the step being read is highlighted. On phones, and with reduced motion, each step shows its own screen, stacked. **Changes:** phones stack rather than pin (a pinned 600px phone leaves no room to read); the screens are faithful copies, not the real components, for the same sync reason.<br>• **Personal line (6):** the owner's chosen words, as a quote under the final call to action, signed "The maker of Orbit".<br>• **Tests:** 2 new browser tests (`landing.spec.ts`: the playable Today — tick, put off with "Too big", start the timer, finish with the bonus XP, move one with "No time", start over; how it works has its four steps, the screen follows the step on desktop, and the personal line is there), plus the existing no-sideways-scrolling check.<br>• **Full suite:** 254 unit; 143 browser passed, 32 skipped, 1 failed — the offline test's "second device" check, which also failed on the previous full run: on a full run the shared test account is large, so a fresh device's first download took longer than the 5-second wait. It now waits up to 20 seconds, and passes. |
