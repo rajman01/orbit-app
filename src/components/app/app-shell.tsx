@@ -206,21 +206,9 @@ function Sidebar() {
   const areas = useAreas() ?? [];
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r border-separator px-3 pt-4 pb-3 material-thick lg:flex">
-      <div className="flex items-center gap-2 px-2">
+      <div className="flex items-center gap-2 pl-2">
         <LiveOrbitMark />
-        <span className="text-headline">Orbit</span>
-      </div>
-      <div className="flex gap-1.5">
-        <button
-          type="button"
-          onClick={() => openQuickAdd()}
-          className="flex h-8 flex-1 items-center gap-2 rounded-md bg-surface px-2 text-body font-medium shadow-1 hover:bg-fill dark:bg-surface-raised"
-        >
-          <Plus className="size-4 text-accent" /> New task{" "}
-          <span className="ml-auto">
-            <Kbd>C</Kbd>
-          </span>
-        </button>
+        <span className="flex-1 text-headline">Orbit</span>
         <button
           type="button"
           aria-label="Search (⌘K)"
@@ -232,6 +220,16 @@ function Sidebar() {
         </button>
         <NotificationBell />
       </div>
+      <button
+        type="button"
+        onClick={() => openQuickAdd()}
+        className="flex h-8 items-center gap-2 rounded-md bg-surface px-2 text-body font-medium whitespace-nowrap shadow-1 hover:bg-fill dark:bg-surface-raised"
+      >
+        <Plus className="size-4 shrink-0 text-accent" /> New task{" "}
+        <span className="ml-auto">
+          <Kbd>C</Kbd>
+        </span>
+      </button>
       <nav className="flex flex-col gap-0.5" aria-label="Main">
         {NAV_MAIN.map((n, i) => (
           <div key={n.href} className={i > 0 && NAV_MAIN[i - 1].group !== n.group ? "mt-3" : undefined}>
