@@ -648,7 +648,15 @@ export default function GuidePage() {
                   so re-uploading is safe.
                 </li>
                 <li>
-                  <b>Coming next:</b> debts with a payoff plan, and investments with daily prices.
+                  <b>Debts:</b> loans, cards, buy-now-pay-later, and money between you and people (pick the person, and
+                  settling up is noted on their page). Each shows what&rsquo;s left, what&rsquo;s been paid, the
+                  interest so far and the next due day; a reminder comes on the due day. <b>Record a payment</b> takes
+                  it from an account. The <b>payoff plan</b> puts the minimums on everything and the rest on one debt at
+                  a time, highest interest first or smallest first, and says when each clears and what paying a bit more
+                  a month would save. <b>Make clearing it a goal</b> adds a key result that follows the payments.
+                </li>
+                <li>
+                  <b>Coming next:</b> investments with daily prices, and net worth.
                 </li>
               </ul>
             </Section>

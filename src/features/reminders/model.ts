@@ -7,6 +7,7 @@ import { dateTitle, formatPersonDate, upcomingDates } from "@/features/people/mo
 import { addQuarters, quarterDates, quarterLabel, quarterOf } from "@/features/quarters/model";
 import { addDays } from "@/lib/dates";
 import { routineDueOn, runProgress } from "@/features/routines/model";
+import { formatMoney } from "@/features/money/model";
 
 type Ritual = Pick<SyncedDoc<"rituals">, "type" | "date" | "completedAt">;
 type Cycle = Pick<SyncedDoc<"cycles">, "id" | "number" | "endDate" | "reviewCompletedAt">;
@@ -69,6 +70,8 @@ export function dueNotifications(opts: {
   jobLeads?: Pick<SyncedDoc<"jobLeads">, "id" | "company" | "role" | "stage" | "nextStep" | "nextDate">[];
   /** Phase 5B: money logged today and in the last month; null when Money isn't used. */
   money?: { today: number; recent: number } | null;
+  /** Phase 5D: debts you owe with a payment due today. */
+  debtsDue?: { id: string; name: string; amount: number | null; currency: string }[];
   sent: Set<string>;
 }): Notification[] {
   const defaults = defaultSettings();
@@ -99,6 +102,20 @@ export function dueNotifications(opts: {
         url: "/today",
         tag: "orbit-plan",
       });
+    }
+    // 5D: a debt payment due today, at Daily Plan time.
+    if ((notify.money ?? true) && within(time, times.plan, 3)) {
+      for (const d of opts.debtsDue ?? []) {
+        push({
+          key: `debt:${d.id}:${today}`,
+          title: `${d.name}: payment due today`,
+          body: d.amount
+            ? `${formatMoney(d.amount, d.currency, { compact: true })} · record it in Money when it's paid.`
+            : "Record it in Money when it's paid.",
+          url: "/money?tab=debts",
+          tag: `orbit-debt-${d.id}`,
+        });
+      }
     }
     // 5B: at Shutdown time, a nudge to log the day's spending, for someone who uses Money.
     if (
@@ -284,6 +301,9 @@ export function notificationMeta(key: string): { kind: NotificationKind; ref: st
       return { kind: "job", ref: ref ?? null };
     case "routine":
       return { kind: "routine", ref: ref ?? null };
+    case "debt":
+    case "money":
+      return { kind: "other", ref: ref ?? null };
     case "jobsfound":
       return { kind: "jobs_found", ref: null };
     case "qplan":

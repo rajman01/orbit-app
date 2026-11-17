@@ -71,6 +71,7 @@ import { budgetId } from "./money/budgets";
 import { instanceFields, type DueOccurrence } from "./money/recurring";
 import { newPotFields, potBalance, type Pot, type PotFields } from "./money/pots";
 import { importFields, type ImportRow } from "./money/import";
+import { debtState, newDebtFields, type Debt, type DebtFields } from "./money/debts";
 import { formatMoney, minorPerMajor } from "./money/model";
 import { subjectThreadId, type CoachSubject } from "./coach/subject";
 import {
@@ -1577,6 +1578,104 @@ export function createActions(engine: SyncEngine, userId: string) {
         if (kr && !kr.deletedAt) await engine.remove("keyResults", kr.id);
       }
       await engine.update("savingsPots", pot.id, { goalId: null, keyResultId: null });
+    },
+
+    // ---- 5D: debts (D51)
+    async createDebt(fields: Partial<DebtFields> & { name: string; principal: number }) {
+      const s = await settings();
+      return engine.create("debts", newDebtFields({ startDate: today(s.timezone), ...fields }));
+    },
+    updateDebt: (id: string, patch: Partial<DebtFields>) => engine.update("debts", id, patch),
+    getDebt: async (id: string) => (await db.debts.get(id)) ?? null,
+    archiveDebt: (id: string, archived: boolean) => engine.update("debts", id, { archivedAt: archived ? now() : null }),
+    /** Deleting a debt keeps its payments, which just lose the debt. */
+    async deleteDebt(id: string) {
+      for (const t of await db.transactions.where("debtId").equals(id).toArray()) {
+        if (!t.deletedAt) await engine.update("transactions", t.id, { debtId: null });
+      }
+      await engine.remove("debts", id);
+    },
+
+    /**
+     * A payment: money out of an account for one you owe, into an account for one owed to you.
+     * Closes the debt when it reaches zero, keeps a linked key result in step, and notes a
+     * settlement with the person involved.
+     */
+    async payDebt(debt: Debt, amount: number, opts: { accountId?: string | null; date?: string; note?: string } = {}) {
+      const s = await settings();
+      const date = opts.date ?? today(s.timezone);
+      const account = opts.accountId ?? debt.accountId ?? null;
+      await engine.create(
+        "transactions",
+        newTransactionFields({
+          kind: "transfer",
+          amount,
+          debtId: debt.id,
+          accountId: debt.direction === "owe" ? account : null,
+          toAccountId: debt.direction === "owed" ? account : null,
+          date,
+          note: opts.note ?? "",
+        }),
+      );
+      const state = debtState(debt, await db.transactions.toArray(), date);
+      if (state.balance <= 0 && !debt.closedAt) {
+        await engine.update("debts", debt.id, { closedAt: now() });
+        if (debt.personId) {
+          await actions.logInteraction(debt.personId, {
+            date,
+            type: "other",
+            notes: debt.direction === "owe" ? `Paid back ${debt.name} in full.` : `${debt.name}: paid back in full.`,
+          });
+        }
+      }
+      await actions.syncDebtKeyResult(debt);
+    },
+
+    /** The linked key result counts what's been paid (major units), with the principal as its target. */
+    async syncDebtKeyResult(debt: Debt) {
+      if (!debt.keyResultId) return;
+      const kr = await db.keyResults.get(debt.keyResultId);
+      if (!kr || kr.deletedAt) return;
+      const s = await settings();
+      const per = minorPerMajor(s.currency ?? "NGN");
+      const state = debtState(debt, await db.transactions.toArray(), today(s.timezone));
+      const value = Math.min(kr.target, state.paid / per);
+      if (value !== kr.current) await actions.checkInKeyResult(kr, value, null);
+    },
+
+    async linkDebtToGoal(debt: Debt, goalId: string) {
+      const s = await settings();
+      const currency = s.currency ?? "NGN";
+      const per = minorPerMajor(currency);
+      const state = debtState(debt, await db.transactions.toArray(), today(s.timezone));
+      const krId = await actions.createKeyResult(goalId, {
+        title: `Clear ${debt.name} (${formatMoney(debt.principal, currency, { compact: true })})`.slice(0, 200),
+        type: "number",
+        start: 0,
+        target: debt.principal / per,
+        current: Math.min(debt.principal, state.paid) / per,
+        unit: currency,
+      });
+      await engine.update("debts", debt.id, { goalId, keyResultId: krId });
+    },
+
+    async makeDebtGoal(debt: Debt) {
+      await actions.ensurePresetAreas(["finance"]);
+      const goalId = await actions.createGoal({
+        title: `Clear ${debt.name}`.slice(0, 200),
+        areaId: presetAreaId(userId, "finance"),
+        status: "active",
+      });
+      await actions.linkDebtToGoal(debt, goalId);
+      return goalId;
+    },
+
+    async unlinkDebt(debt: Debt) {
+      if (debt.keyResultId) {
+        const kr = await db.keyResults.get(debt.keyResultId);
+        if (kr && !kr.deletedAt) await engine.remove("keyResults", kr.id);
+      }
+      await engine.update("debts", debt.id, { goalId: null, keyResultId: null });
     },
 
     /** 5C: rows from a statement, skipping any whose hash is already here. Returns how many were added. */

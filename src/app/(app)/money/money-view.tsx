@@ -13,6 +13,7 @@ import { TransactionForm } from "@/components/money/transaction-form";
 import { TransactionList } from "@/components/money/transaction-list";
 import { Budgets } from "@/components/money/budgets";
 import { Pots } from "@/components/money/pots";
+import { Debts } from "@/components/money/debts";
 import { ImportDialog } from "@/components/money/import-dialog";
 import { InOutChart } from "@/components/money/in-out-chart";
 import { dueOccurrences, upcomingOccurrences, type DueOccurrence } from "@/features/money/recurring";
@@ -42,7 +43,7 @@ import { useToday } from "@/features/use-today";
 import { ACCOUNT_TYPES } from "@/lib/sync/entities";
 import { cn } from "@/lib/cn";
 
-type Tab = "overview" | "transactions" | "budgets" | "pots" | "accounts";
+type Tab = "overview" | "transactions" | "budgets" | "pots" | "debts" | "accounts";
 
 /** Phase 5A: the Money page — this month at a glance, the ledger, and the accounts money sits in. */
 export function MoneyView() {
@@ -89,25 +90,29 @@ export function MoneyView() {
       />
       <PageBody>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-          <Segmented
-            label="Show"
-            value={tab}
-            onChange={(t) => go({ tab: t })}
-            compact
-            options={[
-              { value: "overview", label: "Overview" },
-              { value: "transactions", label: "Transactions" },
-              { value: "budgets", label: "Budgets" },
-              { value: "pots", label: "Pots" },
-              { value: "accounts", label: "Accounts" },
-            ]}
-          />
+          {/* Six tabs are wider than a phone: the strip scrolls, the page never does. */}
+          <div className="max-w-full [scrollbar-width:none] overflow-x-auto">
+            <Segmented
+              label="Show"
+              value={tab}
+              onChange={(t) => go({ tab: t })}
+              compact
+              options={[
+                { value: "overview", label: "Overview" },
+                { value: "transactions", label: "Transactions" },
+                { value: "budgets", label: "Budgets" },
+                { value: "pots", label: "Pots" },
+                { value: "debts", label: "Debts" },
+                { value: "accounts", label: "Accounts" },
+              ]}
+            />
+          </div>
           {tab === "transactions" ? (
             <Button variant="secondary" icon={<Upload className="size-4" />} onClick={() => setImporting(true)}>
               Import CSV
             </Button>
           ) : null}
-          {tab !== "accounts" && tab !== "pots" ? (
+          {tab !== "accounts" && tab !== "pots" && tab !== "debts" ? (
             <div className="flex items-center gap-1">
               <IconButton
                 label="Previous month"
@@ -124,7 +129,7 @@ export function MoneyView() {
           ) : null}
         </div>
 
-        {transactions && !transactions.length && tab !== "accounts" && tab !== "pots" ? (
+        {transactions && !transactions.length && tab !== "accounts" && tab !== "pots" && tab !== "debts" ? (
           <EmptyState
             icon={Wallet}
             title="Nothing logged yet"
@@ -149,6 +154,7 @@ export function MoneyView() {
         ) : null}
         {tab === "budgets" ? <Budgets transactions={transactions ?? []} month={month} todayDay={todayDay} /> : null}
         {tab === "pots" ? <Pots transactions={transactions ?? []} /> : null}
+        {tab === "debts" ? <Debts transactions={transactions ?? []} /> : null}
         {tab === "accounts" ? <Accounts transactions={transactions ?? []} /> : null}
       </PageBody>
 

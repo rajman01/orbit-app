@@ -42,7 +42,7 @@ export function Sheet({
               <Drawer.Description className="mt-1 text-subhead text-label-secondary">{description}</Drawer.Description>
             ) : null}
           </div>
-          <div className="overflow-y-auto px-4">{children}</div>
+          <div className="min-h-0 overflow-y-auto px-4">{children}</div>
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>

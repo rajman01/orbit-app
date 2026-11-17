@@ -432,3 +432,16 @@ export function useSavingsPots(opts: { includeArchived?: boolean } = {}): PotDoc
     [db, opts.includeArchived],
   );
 }
+
+export type DebtDoc = SyncedDoc<"debts">;
+
+export function useDebts(opts: { includeArchived?: boolean } = {}): DebtDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () =>
+      live(await db.debts.toArray())
+        .filter((d) => opts.includeArchived || d.archivedAt == null)
+        .sort((a, b) => Number(Boolean(a.closedAt)) - Number(Boolean(b.closedAt)) || a.order - b.order),
+    [db, opts.includeArchived],
+  );
+}

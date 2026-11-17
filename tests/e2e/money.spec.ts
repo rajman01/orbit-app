@@ -215,3 +215,66 @@ test("a savings pot: money put in, tied to a goal as a key result, and a stateme
   await expect(card).toHaveCount(0);
   await waitForSynced(page);
 });
+
+test("a debt: payments, interest, the payoff plan, a goal to clear it, and settling up", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "the same components; one run");
+  const r = run();
+  await page.clock.install({ time: new Date("2026-11-18T12:00:00") });
+  await page.goto("/money?tab=debts");
+  await waitForSynced(page);
+
+  await page.getByRole("button", { name: "New debt" }).click();
+  const form = page.getByRole("dialog", { name: "New debt" });
+  await form.getByRole("textbox", { name: "What" }).fill(`Visa card ${r}`);
+  await form.getByRole("textbox", { name: "Amount now" }).fill("300000");
+  await form.getByRole("radio", { name: "Credit card" }).click();
+  await form.getByRole("textbox", { name: "Interest % a year" }).fill("36");
+  await form.getByRole("textbox", { name: "Due day of month" }).fill("5");
+  await form.getByRole("textbox", { name: "Minimum a month" }).fill("15000");
+  await form.getByRole("button", { name: "Add debt" }).click();
+  const card = page.getByRole("region", { name: `Debt: Visa card ${r}` });
+  await expect(card).toContainText("₦300,000 left of ₦300,000");
+  await expect(card).toContainText("36% a year");
+  await expect(card).toContainText("overdue since Nov 5");
+
+  // A payment: less left, and the due day moves to next month.
+  await card.getByRole("button", { name: "Record a payment" }).click();
+  const pay = page.getByRole("dialog", { name: `Payment on Visa card ${r}` });
+  await expect(pay.getByRole("textbox", { name: "Amount" })).toHaveValue("15000");
+  await pay.getByRole("textbox", { name: "Amount" }).fill("100000");
+  await pay.getByRole("button", { name: "Record" }).click();
+  await expect(card).toContainText("₦200,000 left of ₦300,000");
+  await expect(card).toContainText("₦100,000 paid");
+  await expect(card).toContainText("next due Dec 5");
+
+  // The plan: this debt in it, a done month, and what more a month saves.
+  const plan = page.getByRole("region", { name: "Payoff plan" });
+  await expect(plan.getByRole("list", { name: "Order of payoff" })).toContainText(`Visa card ${r}`);
+  await expect(plan).toContainText("Everything cleared by");
+  await plan.getByRole("textbox", { name: "Monthly amount" }).fill("100000");
+  await expect(plan).toContainText("Paying");
+
+  // A goal to clear it, with a key result that counts what's paid.
+  await card.getByRole("button", { name: `More for Visa card ${r}` }).click();
+  await page.getByRole("menuitem", { name: "Make clearing it a goal" }).click();
+  await expect(page).toHaveURL(/\/goal\?id=/);
+  await expect(page.getByRole("textbox", { name: "Goal title" })).toHaveValue(`Clear Visa card ${r}`);
+  await expect(page.getByText(`Clear Visa card ${r} (₦300,000)`)).toBeVisible();
+  await expect(page.getByText("₦100,000 / ₦300,000")).toBeVisible();
+  const goalCard = page.getByRole("region", { name: `Debt: Visa card ${r}` });
+  await goalCard.getByRole("button", { name: "Record a payment" }).click();
+  await page.getByRole("button", { name: /^Settle in full/ }).click();
+  await page.getByRole("button", { name: "Record", exact: true }).click();
+  await expect(goalCard).toContainText("Cleared");
+  await expect(page.getByText("₦300,000 / ₦300,000")).toBeVisible();
+
+  // Tidy.
+  await page.getByRole("button", { name: "Goal actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete goal…" }).click();
+  await page.getByRole("button", { name: "Delete goal" }).click();
+  await page.goto("/money?tab=debts");
+  await card.getByRole("button", { name: `More for Visa card ${r}` }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(card).toHaveCount(0);
+  await waitForSynced(page);
+});

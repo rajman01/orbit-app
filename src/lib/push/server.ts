@@ -127,6 +127,7 @@ export async function dueFor(db: Db, userId: string, now: number) {
     routineRuns,
     moneyToday,
     moneyRecent,
+    debtsDue,
     sent,
   ] = await Promise.all([
     db
@@ -177,6 +178,11 @@ export async function dueFor(db: Db, userId: string, now: number) {
       .toArray(),
     db.collection("transactions").countDocuments(live({ userId, date: today })),
     db.collection("transactions").countDocuments(live({ userId, date: { $gte: addDays(today, -30) } })),
+    db
+      .collection("debts")
+      .find(live({ userId, direction: "owe", closedAt: null, archivedAt: null, dueDay: Number(today.slice(8, 10)) }))
+      .project({ name: 1, minimumPayment: 1 })
+      .toArray(),
     sentLog(db).find({ userId }).project({ _id: 1 }).toArray(),
   ]);
   const due: Notification[] = dueNotifications({
@@ -194,6 +200,12 @@ export async function dueFor(db: Db, userId: string, now: number) {
     routines: routines.map((r) => ({ ...r, id: String(r._id) })) as never,
     routineRuns: routineRuns as never,
     money: { today: moneyToday, recent: moneyRecent },
+    debtsDue: debtsDue.map((d) => ({
+      id: String(d._id),
+      name: String(d.name),
+      amount: (d.minimumPayment as number | null) ?? null,
+      currency: (settings.currency as string | undefined) ?? "NGN",
+    })),
     // 3D.4: no morning push while the search is paused.
     jobsFound: (await jobSearchPaused(db, userId, today))
       ? []

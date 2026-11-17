@@ -13,6 +13,8 @@ export interface ImportRow {
   kind: "expense" | "income";
   note: string;
   categoryId: string | null;
+  /** 5D: a payment on a debt whose name appears in the description. */
+  debtId: string | null;
   hash: string;
   /** The row as it was, for the preview. */
   raw: string[];
@@ -97,7 +99,11 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ");
 /** Rows from a statement, with categories guessed from words in the description. */
 export function importRows(
   rows: string[][],
-  ctx: { currency: string; categories: { id: string; name: string; kind: "expense" | "income" }[] },
+  ctx: {
+    currency: string;
+    categories: { id: string; name: string; kind: "expense" | "income" }[];
+    debts?: { id: string; name: string }[];
+  },
 ): { rows: ImportRow[]; problem: string | null } {
   if (rows.length < 2) return { rows: [], problem: "The file needs a header row and at least one entry." };
   const header = rows[0];
@@ -148,6 +154,7 @@ export function importRows(
       kind,
       note: desc.slice(0, 200),
       categoryId: category?.id ?? null,
+      debtId: (ctx.debts ?? []).find((d) => d.name.length > 2 && words.includes(norm(d.name)))?.id ?? null,
       hash: rowHash(date, String(amount), kind, desc),
       raw,
     });
@@ -156,6 +163,16 @@ export function importRows(
 }
 
 export function importFields(row: ImportRow): Partial<TransactionFields> & { amount: number; date: Day } {
+  if (row.debtId)
+    return {
+      kind: "transfer",
+      debtId: row.debtId,
+      amount: row.amount,
+      date: row.date,
+      note: row.note,
+      createdBy: "import",
+      importHash: row.hash,
+    };
   return {
     kind: row.kind,
     amount: row.amount,

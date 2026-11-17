@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
-import { useCategories, useTransactions } from "@/features/data";
+import { useCategories, useDebts, useTransactions } from "@/features/data";
 import { importRows, parseCsv, type ImportRow } from "@/features/money/import";
 import { dayLabel } from "@/lib/dates";
 import { useToday } from "@/features/use-today";
@@ -20,6 +20,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const currency = useCurrency();
   const todayDay = useToday();
   const categories = useCategories() ?? [];
+  const debts = useDebts() ?? [];
   const existing = new Set((useTransactions() ?? []).map((t) => t.importHash).filter(Boolean));
   const [rows, setRows] = useState<ImportRow[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   const read = async (file: File) => {
     const text = await file.text();
-    const res = importRows(parseCsv(text), { currency, categories });
+    const res = importRows(parseCsv(text), { currency, categories, debts });
     setRows(res.rows);
     setProblem(res.problem);
   };

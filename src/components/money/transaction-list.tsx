@@ -2,7 +2,7 @@
 
 import { ArrowLeftRight, Repeat } from "lucide-react";
 import { AreaIcon } from "@/components/areas/area-icon";
-import { useAccounts, useCategories, type TransactionDoc } from "@/features/data";
+import { useAccounts, useCategories, useDebts, useSavingsPots, type TransactionDoc } from "@/features/data";
 import { transactionLabel } from "@/features/money/model";
 import { dayLabel } from "@/lib/dates";
 import { Money } from "./amount";
@@ -23,6 +23,8 @@ export function TransactionList({
   const categories = useCategories({ includeArchived: true }) ?? [];
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const accountById = new Map(accounts.map((a) => [a.id, a]));
+  const pots = useSavingsPots({ includeArchived: true }) ?? [];
+  const debts = useDebts({ includeArchived: true }) ?? [];
   const rows = limit ? transactions.slice(0, limit) : transactions;
   const days = new Map<string, TransactionDoc[]>();
   for (const t of rows) days.set(t.date, [...(days.get(t.date) ?? []), t]);
@@ -38,6 +40,8 @@ export function TransactionList({
               const label = transactionLabel(t, {
                 category: (id) => categoryById.get(id)?.name,
                 account: (id) => accountById.get(id)?.name,
+                pot: (id) => pots.find((p) => p.id === id)?.name,
+                debt: (id) => debts.find((d) => d.id === id)?.name,
               });
               const account = t.accountId ? accountById.get(t.accountId)?.name : null;
               return (

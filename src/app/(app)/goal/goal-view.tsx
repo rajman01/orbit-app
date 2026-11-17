@@ -35,6 +35,8 @@ import { GoalPeople } from "@/components/people/goal-people";
 import { GoalValues } from "@/components/goals/goal-values";
 import { GoalRoadmap } from "@/components/goals/goal-roadmap";
 import { GoalPots } from "@/components/money/pots";
+import { GoalDebts } from "@/components/money/debts";
+import { formatMoney, minorPerMajor } from "@/features/money/model";
 import { GoalUpdates } from "@/components/goals/goal-updates";
 import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
@@ -261,6 +263,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
         <GoalValues goal={goal} />
 
         <GoalPots goalId={goal.id} />
+        <GoalDebts goalId={goal.id} />
 
         <SectionLabel>Roadmap</SectionLabel>
         <GoalRoadmap
@@ -349,7 +352,14 @@ function KeyResultRow({ kr, color }: { kr: KeyResult; color: string }) {
   const actions = useActions();
   const [checkingIn, setCheckingIn] = useState(false);
   const p = krProgress(kr);
-  const fmt = (n: number) => (kr.type === "percent" ? `${n}%` : `${n}${kr.unit ? ` ${kr.unit}` : ""}`);
+  // 5D: a key result in a currency (a savings pot's or a debt's) reads as money.
+  const money = kr.unit && /^[A-Z]{3}$/.test(kr.unit);
+  const fmt = (n: number) =>
+    kr.type === "percent"
+      ? `${n}%`
+      : money
+        ? formatMoney(Math.round(n * minorPerMajor(kr.unit!)), kr.unit!, { compact: true })
+        : `${n}${kr.unit ? ` ${kr.unit}` : ""}`;
   return (
     <div className="group flex items-center gap-3 rounded-md px-3 py-2 hover:bg-fill">
       {kr.type === "boolean" ? (
