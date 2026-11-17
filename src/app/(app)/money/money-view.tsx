@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ChevronLeft, ChevronRight, Pencil, Plus, Wallet } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, Pencil, Plus, Upload, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -12,6 +12,8 @@ import { Money, useCurrency } from "@/components/money/amount";
 import { TransactionForm } from "@/components/money/transaction-form";
 import { TransactionList } from "@/components/money/transaction-list";
 import { Budgets } from "@/components/money/budgets";
+import { Pots } from "@/components/money/pots";
+import { ImportDialog } from "@/components/money/import-dialog";
 import { InOutChart } from "@/components/money/in-out-chart";
 import { dueOccurrences, upcomingOccurrences, type DueOccurrence } from "@/features/money/recurring";
 import { SectionLabel } from "@/components/tasks/task-list";
@@ -40,7 +42,7 @@ import { useToday } from "@/features/use-today";
 import { ACCOUNT_TYPES } from "@/lib/sync/entities";
 import { cn } from "@/lib/cn";
 
-type Tab = "overview" | "transactions" | "budgets" | "accounts";
+type Tab = "overview" | "transactions" | "budgets" | "pots" | "accounts";
 
 /** Phase 5A: the Money page — this month at a glance, the ledger, and the accounts money sits in. */
 export function MoneyView() {
@@ -55,6 +57,7 @@ export function MoneyView() {
   const categories = useCategories();
   const [logging, setLogging] = useState(() => params.get("log") === "1");
   const [editing, setEditing] = useState<TransactionDoc | null>(null);
+  const [importing, setImporting] = useState(false);
 
   // The default categories appear the first time Money is opened.
   useEffect(() => {
@@ -95,10 +98,16 @@ export function MoneyView() {
               { value: "overview", label: "Overview" },
               { value: "transactions", label: "Transactions" },
               { value: "budgets", label: "Budgets" },
+              { value: "pots", label: "Pots" },
               { value: "accounts", label: "Accounts" },
             ]}
           />
-          {tab !== "accounts" ? (
+          {tab === "transactions" ? (
+            <Button variant="secondary" icon={<Upload className="size-4" />} onClick={() => setImporting(true)}>
+              Import CSV
+            </Button>
+          ) : null}
+          {tab !== "accounts" && tab !== "pots" ? (
             <div className="flex items-center gap-1">
               <IconButton
                 label="Previous month"
@@ -115,7 +124,7 @@ export function MoneyView() {
           ) : null}
         </div>
 
-        {transactions && !transactions.length && tab !== "accounts" ? (
+        {transactions && !transactions.length && tab !== "accounts" && tab !== "pots" ? (
           <EmptyState
             icon={Wallet}
             title="Nothing logged yet"
@@ -139,10 +148,12 @@ export function MoneyView() {
           <MonthTransactions transactions={transactions} month={month} todayDay={todayDay} onOpen={setEditing} />
         ) : null}
         {tab === "budgets" ? <Budgets transactions={transactions ?? []} month={month} todayDay={todayDay} /> : null}
+        {tab === "pots" ? <Pots transactions={transactions ?? []} /> : null}
         {tab === "accounts" ? <Accounts transactions={transactions ?? []} /> : null}
       </PageBody>
 
       <TransactionForm open={logging} onOpenChange={setLogging} />
+      <ImportDialog open={importing} onOpenChange={setImporting} />
       <TransactionForm open={editing != null} onOpenChange={(o) => !o && setEditing(null)} transaction={editing} />
       <span className="sr-only">{formatMoney(0, currency)}</span>
     </>

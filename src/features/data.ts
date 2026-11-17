@@ -419,3 +419,16 @@ export function useBudgets(): BudgetDoc[] | undefined {
   const { db } = useSync();
   return useLiveQuery(async () => live(await db.budgets.toArray()), [db]);
 }
+
+export type PotDoc = SyncedDoc<"savingsPots">;
+
+export function useSavingsPots(opts: { includeArchived?: boolean } = {}): PotDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () =>
+      live(await db.savingsPots.toArray())
+        .filter((p) => opts.includeArchived || p.archivedAt == null)
+        .sort((a, b) => a.order - b.order),
+    [db, opts.includeArchived],
+  );
+}

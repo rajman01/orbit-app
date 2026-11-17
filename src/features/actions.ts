@@ -69,6 +69,9 @@ import {
 } from "./money/model";
 import { budgetId } from "./money/budgets";
 import { instanceFields, type DueOccurrence } from "./money/recurring";
+import { newPotFields, potBalance, type Pot, type PotFields } from "./money/pots";
+import { importFields, type ImportRow } from "./money/import";
+import { formatMoney, minorPerMajor } from "./money/model";
 import { subjectThreadId, type CoachSubject } from "./coach/subject";
 import {
   learningPatch,
@@ -1490,6 +1493,103 @@ export function createActions(engine: SyncEngine, userId: string) {
       if (existing) return;
       await engine.create("transactions", instanceFields(due.template, due.date), due.id);
       if (skip) await engine.remove("transactions", due.id);
+    },
+
+    // ---- 5C: savings pots (D48)
+    createPot: (fields: Partial<PotFields> & { name: string }) => engine.create("savingsPots", newPotFields(fields)),
+    updatePot: (id: string, patch: Partial<PotFields>) => engine.update("savingsPots", id, patch),
+    getPot: async (id: string) => (await db.savingsPots.get(id)) ?? null,
+    archivePot: (id: string, archived: boolean) =>
+      engine.update("savingsPots", id, { archivedAt: archived ? now() : null }),
+    /** Deleting a pot keeps the money's history; its transfers just lose the pot. */
+    async deletePot(id: string) {
+      for (const t of await db.transactions.where("potId").equals(id).toArray()) {
+        if (!t.deletedAt) await engine.update("transactions", t.id, { potId: null });
+      }
+      await engine.remove("savingsPots", id);
+    },
+
+    /** Money into (or, with `out`, back from) a pot: a transfer that also moves the linked key result. */
+    async contributeToPot(
+      pot: Pot,
+      amount: number,
+      opts: { accountId?: string | null; date?: string; out?: boolean; note?: string } = {},
+    ) {
+      const s = await settings();
+      await engine.create(
+        "transactions",
+        newTransactionFields({
+          kind: "transfer",
+          amount,
+          potId: pot.id,
+          accountId: opts.out ? null : (opts.accountId ?? pot.accountId ?? null),
+          toAccountId: opts.out ? (opts.accountId ?? pot.accountId ?? null) : null,
+          date: opts.date ?? today(s.timezone),
+          note: opts.note ?? "",
+        }),
+      );
+      await actions.syncPotKeyResult(pot);
+    },
+
+    /** Keeps a pot's key result at the pot's balance (in the currency's major unit). */
+    async syncPotKeyResult(pot: Pot) {
+      if (!pot.keyResultId) return;
+      const kr = await db.keyResults.get(pot.keyResultId);
+      if (!kr || kr.deletedAt) return;
+      const s = await settings();
+      const per = minorPerMajor(s.currency ?? "NGN");
+      const balance = potBalance(pot.id, await db.transactions.toArray()) / per;
+      if (balance !== kr.current) await actions.checkInKeyResult(kr, balance, null);
+    },
+
+    /** Ties a pot to a goal with a money key result ("Save ₦X for …"); the KR follows the balance. */
+    async linkPotToGoal(pot: Pot, goalId: string) {
+      const s = await settings();
+      const currency = s.currency ?? "NGN";
+      const per = minorPerMajor(currency);
+      const krId = await actions.createKeyResult(goalId, {
+        title: `Save ${formatMoney(pot.target, currency, { compact: true })} for ${pot.name}`.slice(0, 200),
+        type: "number",
+        start: 0,
+        target: pot.target / per,
+        current: potBalance(pot.id, await db.transactions.toArray()) / per,
+        unit: currency,
+      });
+      await engine.update("savingsPots", pot.id, { goalId, keyResultId: krId });
+    },
+
+    /** A new goal in the Finance area for this pot, then linked. Returns the goal id. */
+    async makePotGoal(pot: Pot) {
+      await actions.ensurePresetAreas(["finance"]);
+      const goalId = await actions.createGoal({
+        title: pot.name,
+        areaId: presetAreaId(userId, "finance"),
+        targetDate: pot.targetDate,
+        status: "active",
+      });
+      await actions.linkPotToGoal(pot, goalId);
+      return goalId;
+    },
+
+    async unlinkPot(pot: Pot) {
+      if (pot.keyResultId) {
+        const kr = await db.keyResults.get(pot.keyResultId);
+        if (kr && !kr.deletedAt) await engine.remove("keyResults", kr.id);
+      }
+      await engine.update("savingsPots", pot.id, { goalId: null, keyResultId: null });
+    },
+
+    /** 5C: rows from a statement, skipping any whose hash is already here. Returns how many were added. */
+    async importTransactions(rows: ImportRow[]) {
+      const existing = new Set((await db.transactions.toArray()).map((t) => t.importHash).filter(Boolean));
+      let added = 0;
+      for (const r of rows) {
+        if (existing.has(r.hash)) continue;
+        await engine.create("transactions", newTransactionFields(importFields(r)));
+        existing.add(r.hash);
+        added++;
+      }
+      return added;
     },
 
     /** 5B: set (or clear, with 0) the budget for a category in a month ("*" for every month). */

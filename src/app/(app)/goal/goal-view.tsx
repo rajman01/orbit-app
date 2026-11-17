@@ -34,6 +34,7 @@ import { GoalPlanet } from "@/components/goals/goal-planet";
 import { GoalPeople } from "@/components/people/goal-people";
 import { GoalValues } from "@/components/goals/goal-values";
 import { GoalRoadmap } from "@/components/goals/goal-roadmap";
+import { GoalPots } from "@/components/money/pots";
 import { GoalUpdates } from "@/components/goals/goal-updates";
 import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
@@ -258,6 +259,8 @@ function GoalDetail({ goal }: { goal: Goal }) {
         />
 
         <GoalValues goal={goal} />
+
+        <GoalPots goalId={goal.id} />
 
         <SectionLabel>Roadmap</SectionLabel>
         <GoalRoadmap

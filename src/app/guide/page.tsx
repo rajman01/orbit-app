@@ -636,8 +636,19 @@ export default function GuidePage() {
                   the day (Settings → Notifications).
                 </li>
                 <li>
-                  <b>Coming next:</b> savings pots tied to goals, debts with a payoff plan, and investments with daily
-                  prices.
+                  <b>Savings pots:</b> money set aside for one thing, with a target and a date. &ldquo;Put money
+                  in&rdquo; moves it from an account into the pot; the card says when you&rsquo;ll get there at your
+                  recent rate and what a month needs to make the date. <b>Make this a goal</b> (or pick a goal when you
+                  create the pot) adds a key result &ldquo;Save ₦X for …&rdquo; that follows the balance, so the
+                  goal&rsquo;s progress, health and roadmap move as you save.
+                </li>
+                <li>
+                  <b>Import a statement:</b> on the Transactions tab, a CSV from your bank (date, amount or
+                  debit/credit, description) becomes entries with a guessed category. Rows already imported are skipped,
+                  so re-uploading is safe.
+                </li>
+                <li>
+                  <b>Coming next:</b> debts with a payoff plan, and investments with daily prices.
                 </li>
               </ul>
             </Section>

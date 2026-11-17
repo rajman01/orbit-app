@@ -143,3 +143,75 @@ test("a budget shows its pace, and a recurring entry comes back as due to confir
   await expect(row).toHaveCount(0);
   await waitForSynced(page);
 });
+
+test("a savings pot: money put in, tied to a goal as a key result, and a statement imported", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name === "phone", "the same components; one run");
+  const r = run();
+  await page.clock.install({ time: new Date("2026-11-17T12:00:00") });
+  await page.goto("/money?tab=pots");
+  await waitForSynced(page);
+
+  await page.getByRole("button", { name: "New pot" }).click();
+  const form = page.getByRole("dialog", { name: "New savings pot" });
+  await form.getByRole("textbox", { name: "What for" }).fill(`Canada fund ${r}`);
+  await form.getByRole("textbox", { name: "Target" }).fill("1000000");
+  await form.getByRole("button", { name: "Target date" }).click();
+  await page.locator('input[type="date"]').fill("2028-08-01");
+  await form.getByRole("button", { name: "Add pot" }).click();
+  const card = page.getByRole("region", { name: `Pot: Canada fund ${r}` });
+  await expect(card).toContainText("₦0 of ₦1,000,000");
+
+  // Money in: the balance, the bar and the projection move.
+  await card.getByRole("button", { name: "Put money in" }).click();
+  const put = page.getByRole("dialog", { name: `Put money in Canada fund ${r}` });
+  await put.getByRole("textbox", { name: "Amount" }).fill("100000");
+  await put.getByRole("button", { name: "Put in" }).click();
+  await expect(card).toContainText("₦100,000 of ₦1,000,000");
+  await expect(card).toContainText("At ₦100,000 a month, you reach it in August 2027");
+  await expect(card).toContainText("To make Aug 2028: ₦42,858 a month");
+
+  // Made into a goal: a key result follows the balance; the goal page shows the pot.
+  await card.getByRole("button", { name: `More for Canada fund ${r}` }).click();
+  await page.getByRole("menuitem", { name: "Make this a goal" }).click();
+  await expect(page).toHaveURL(/\/goal\?id=/);
+  await expect(page.getByRole("textbox", { name: "Goal title" })).toHaveValue(`Canada fund ${r}`);
+  await expect(page.getByText(`Save ₦1,000,000 for Canada fund ${r}`)).toBeVisible();
+  const goalPot = page.getByRole("region", { name: `Pot: Canada fund ${r}` });
+  await expect(goalPot).toContainText("₦100,000 of ₦1,000,000");
+  await goalPot.getByRole("button", { name: "Put money in" }).click();
+  await page
+    .getByRole("dialog", { name: `Put money in Canada fund ${r}` })
+    .getByRole("textbox", { name: "Amount" })
+    .fill("50000");
+  await page.getByRole("button", { name: "Put in", exact: true }).click();
+  await expect(goalPot).toContainText("₦150,000 of ₦1,000,000");
+  await expect(page.getByText("15%", { exact: true })).toBeVisible();
+
+  // A statement, imported twice: the second time adds nothing.
+  await page.goto("/money?tab=transactions");
+  await page.getByRole("button", { name: "Import CSV" }).click();
+  const dialog = page.getByRole("dialog", { name: "Import a statement" });
+  await dialog.getByLabel("Statement CSV").setInputFiles("tests/e2e/fixtures/statement.csv");
+  const rows = dialog.getByRole("list", { name: "Rows to import" });
+  await expect(rows).toContainText("CHICKEN REPUBLIC FOOD");
+  await expect(rows).toContainText("+₦250,000.00");
+  const n = Number((await dialog.getByRole("button", { name: /^Import \d+$/ }).textContent())!.replace(/\D/g, ""));
+  await dialog.getByRole("button", { name: `Import ${n}` }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: n ? `${n} imported` : "Nothing new to import" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Import CSV" }).click();
+  await dialog.getByLabel("Statement CSV").setInputFiles("tests/e2e/fixtures/statement.csv");
+  await expect(dialog).toContainText("3 already here");
+  await expect(dialog.getByRole("button", { name: "Import 0" })).toBeDisabled();
+  await page.keyboard.press("Escape");
+
+  // Tidy: the pot and goal go.
+  await page.goto("/money?tab=pots");
+  await card.getByRole("button", { name: `More for Canada fund ${r}` }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(card).toHaveCount(0);
+  await waitForSynced(page);
+});
