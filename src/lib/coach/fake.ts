@@ -5,7 +5,8 @@ import type { CoachEvent, CoachMessage } from "@/features/coach/protocol";
  * A scripted stand-in for the model, used by tests (COACH_FAKE=1): no network, no cost.
  * - A user message containing `[tool:name {json}]` gets a tool call to that tool.
  * - After tool results, it replies "Done:" with the start of each result.
- * - Anything else is echoed back: "You said: …".
+ * - Anything else is echoed back: "You said: …", noting the item a focused conversation is about
+ *   ("[about the goal “…”]") and whether older messages arrived as a summary ("[summarised]").
  */
 export async function* fakeCoachTurn(messages: CoachMessage[]): AsyncGenerator<CoachEvent> {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -39,7 +40,15 @@ export async function* fakeCoachTurn(messages: CoachMessage[]): AsyncGenerator<C
     };
     return;
   }
-  yield* streamText(`You said: ${said}`);
+  const context = [...messages].reverse().find((m) => m.role === "system");
+  const contextText = (context?.content ?? []).map((b) => String(b.text ?? "")).join(" ");
+  const about = /This conversation is about one (\w+): “([^”]*)”/.exec(contextText);
+  const summarised = messages.some((m) =>
+    m.content.some((b) => b.type === "text" && String(b.text).startsWith("[Summary of the earlier conversation]")),
+  );
+  yield* streamText(
+    `You said: ${said}${about ? ` [about the ${about[1]} “${about[2]}”]` : ""}${summarised ? " [summarised]" : ""}`,
+  );
 }
 
 async function* streamText(text: string): AsyncGenerator<CoachEvent> {

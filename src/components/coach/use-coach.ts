@@ -6,7 +6,9 @@ import { useCurrentUser } from "@/components/app/auth-gate";
 import { useSync } from "@/components/app/sync-provider";
 import { useActions } from "@/features/actions";
 import { coachContext, requestMessages, runCoachTool } from "@/features/coach/device";
+import { condensePlan, transcript, withSummary, type StoredMessage } from "@/features/coach/condense";
 import type { CoachEvent, CoachMessage } from "@/features/coach/protocol";
+import { subjectOf } from "@/features/coach/subject";
 import type { SyncedDoc } from "@/lib/sync/entities";
 
 export type StoredCoachMessage = SyncedDoc<"aiMessages">;
@@ -40,12 +42,37 @@ export function useCoachChat(threadId: string | null, onThread: (id: string) => 
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
 
-  const load = useCallback(
-    async (id: string): Promise<CoachMessage[]> => {
+  const rowsOf = useCallback(
+    async (id: string): Promise<StoredMessage[]> => {
       const rows = await db.aiMessages.where("[threadId+seq]").between([id, -Infinity], [id, Infinity]).toArray();
-      return rows.filter((m) => m.deletedAt == null).map((m) => ({ role: m.role, content: m.content }));
+      return rows.filter((m) => m.deletedAt == null).map((m) => ({ role: m.role, content: m.content, seq: m.seq }));
     },
     [db],
+  );
+  /** What to send: older parts of a long conversation go as their summary (Phase 3H). */
+  const load = useCallback(
+    async (id: string): Promise<CoachMessage[]> => withSummary(await rowsOf(id), (await db.aiThreads.get(id))?.summary),
+    [db, rowsOf],
+  );
+  /** Condenses the oldest part once a conversation gets long. If it fails, the full history goes. */
+  const condense = useCallback(
+    async (id: string, signal: AbortSignal) => {
+      const previous = (await db.aiThreads.get(id))?.summary;
+      const plan = condensePlan(await rowsOf(id), previous);
+      if (!plan) return;
+      try {
+        const res = await fetch("/api/coach/summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ previous: previous?.text, transcript: transcript(plan.summarise) }),
+          signal,
+        });
+        if (!res.ok) return;
+        const { summary } = (await res.json()) as { summary?: string };
+        if (summary) await actions.saveCoachSummary(id, { text: summary, upToSeq: plan.upToSeq });
+      } catch {}
+    },
+    [db, rowsOf, actions],
   );
 
   const send = useCallback(
@@ -66,10 +93,13 @@ export function useCoachChat(threadId: string | null, onThread: (id: string) => 
           id = await actions.createCoachThread(message.length > 60 ? `${message.slice(0, 57)}…` : message);
           onThread(id);
         }
+        const thread = await db.aiThreads.get(id);
+        const subject = thread ? subjectOf(thread) : null;
         await actions.appendCoachMessage(id, "user", [{ type: "text", text: message }]);
         await actions.appendCoachMessage(id, "system", [
-          { type: "text", text: await coachContext(db, user.id, Date.now()) },
+          { type: "text", text: await coachContext(db, user.id, Date.now(), subject) },
         ]);
+        await condense(id, controller.signal);
 
         const turn = { writes: 0 };
         for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -123,7 +153,7 @@ export function useCoachChat(threadId: string | null, onThread: (id: string) => 
         abort.current = null;
       }
     },
-    [busy, threadId, actions, onThread, db, engine, user.id, load],
+    [busy, threadId, actions, onThread, db, engine, user.id, load, condense],
   );
 
   const stop = useCallback(() => abort.current?.abort(), []);

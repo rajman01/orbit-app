@@ -14,9 +14,12 @@ import {
   TrendingUp,
   Briefcase,
 } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useSync } from "@/components/app/sync-provider";
 import { DictateButton, useDictation } from "@/components/ui/dictation";
 import { CHECKIN_MARK } from "@/features/coach/protocol";
+import { SUBJECT_INTRO, SUBJECT_SUGGESTIONS, subjectOf, type CoachSubject } from "@/features/coach/subject";
 import { WRITE_TOOLS, type CoachToolName } from "@/features/coach/tools";
 import { cn } from "@/lib/cn";
 import { ActionList } from "./action-card";
@@ -44,6 +47,9 @@ export function CoachConversation({
   onPromptSent?: () => void;
 }) {
   const messages = useCoachMessages(threadId);
+  const { db } = useSync();
+  const thread = useLiveQuery(() => (threadId ? db.aiThreads.get(threadId) : undefined), [db, threadId]);
+  const subject = thread ? subjectOf(thread) : null;
   const { send, stop, draft, busy, error } = useCoachChat(threadId, onThread);
   const scroller = useRef<HTMLDivElement>(null);
   const sentPrompt = useRef(0);
@@ -74,7 +80,7 @@ export function CoachConversation({
     <div className="flex min-h-0 flex-1 flex-col">
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 py-4" aria-live="polite">
         {visible.length === 0 && !busy ? (
-          <Welcome onPick={(s) => void send(s)} />
+          <Welcome subject={subject} title={thread?.title} onPick={(s) => void send(s)} />
         ) : (
           <div className="mx-auto flex max-w-[68ch] flex-col gap-4">
             {visible.map((m) => (
@@ -117,20 +123,31 @@ function isShown(m: StoredCoachMessage): boolean {
   return m.content.some((b) => b.type === "text" || b.type === "tool_use");
 }
 
-function Welcome({ onPick }: { onPick: (s: string) => void }) {
+function Welcome({
+  subject,
+  title,
+  onPick,
+}: {
+  subject: CoachSubject | null;
+  title?: string;
+  onPick: (s: string) => void;
+}) {
+  const suggestions = subject ? SUBJECT_SUGGESTIONS[subject.kind] : SUGGESTIONS;
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center gap-4 pt-10 text-center">
       <span className="grid size-12 place-items-center rounded-full bg-accent-fill text-accent">
         <Sparkles className="size-6" aria-hidden />
       </span>
       <div>
-        <p className="text-headline">Your coach</p>
+        <p className="text-headline">{subject ? title || "Your coach" : "Your coach"}</p>
         <p className="mt-1 text-callout text-label-secondary">
-          Ask about your day, your cycle or a goal. It looks at what&rsquo;s in Orbit before answering.
+          {subject
+            ? SUBJECT_INTRO[subject.kind]
+            : "Ask about your day, your cycle or a goal. It looks at what\u2019s in Orbit before answering."}
         </p>
       </div>
       <div className="flex w-full flex-col gap-2">
-        {SUGGESTIONS.map((s) => (
+        {suggestions.map((s) => (
           <button
             key={s}
             type="button"

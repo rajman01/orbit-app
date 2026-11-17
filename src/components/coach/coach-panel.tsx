@@ -7,9 +7,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSync } from "@/components/app/sync-provider";
+import { useTaskPanel } from "@/components/tasks/task-panel";
 import { Button } from "@/components/ui/button";
+import { useActions } from "@/features/actions";
+import { SUBJECT_LABEL, subjectHref, subjectOf, type CoachSubject } from "@/features/coach/subject";
+import { cn } from "@/lib/cn";
 import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
 import { useIsDesktop } from "@/lib/use-media-query";
+import { onCoachAbout } from "./coach-about";
 import { CoachConversation } from "./conversation";
 
 interface CoachPanelContext {
@@ -64,6 +69,23 @@ export function CoachPanelProvider({ children }: { children: React.ReactNode }) 
   const value = useMemo(() => ({ open, close, toggle, ask }), [open, close, toggle, ask]);
   // The /coach page is the coach; the panel stays out of its way.
   const shown = isOpen && pathname !== "/coach";
+
+  // Phase 3H: "Coach" on a goal, task, job or course opens that item's own conversation.
+  const actions = useActions();
+  useEffect(
+    () =>
+      onCoachAbout(async ({ subject, title }) => {
+        const id = await actions.openSubjectThread(subject, title);
+        if (pathname === "/coach") {
+          router.replace(`/coach?t=${id}`);
+          return;
+        }
+        setPending(null);
+        setThreadId(id);
+        setOpen(true);
+      }),
+    [actions, pathname, router],
+  );
 
   useEffect(() => {
     const onAsk = (e: Event) => ask(String((e as CustomEvent).detail));
@@ -127,6 +149,7 @@ function Panel({
   const { db } = useSync();
   const thread = useLiveQuery(() => (threadId ? db.aiThreads.get(threadId) : undefined), [db, threadId]);
   const from = reduced ? { opacity: 0 } : isDesktop ? { x: 440 } : { y: "100%" };
+  const subject = thread ? subjectOf(thread) : null;
   return (
     <motion.aside
       role="dialog"
@@ -144,7 +167,11 @@ function Panel({
       transition={transition("default")}
     >
       <header className="flex h-12 shrink-0 items-center gap-1 border-b border-separator pr-2 pl-4">
-        <h2 className="min-w-0 flex-1 truncate text-headline">{thread?.title || "Coach"}</h2>
+        {subject ? (
+          <SubjectHeading subject={subject} title={thread?.title ?? ""} onLeave={onClose} />
+        ) : (
+          <h2 className="min-w-0 flex-1 truncate text-headline">{thread?.title || "Coach"}</h2>
+        )}
         <Button variant="ghost" size="icon" aria-label="New chat" title="New chat" onClick={() => setThreadId(null)}>
           <SquarePen className="size-[18px]" />
         </Button>
@@ -169,5 +196,48 @@ function Panel({
         onPromptSent={onSent}
       />
     </motion.aside>
+  );
+}
+
+/**
+ * A focused conversation's heading: what it's about, with a way back to the item (tasks open in
+ * the task panel, so the coach steps aside first).
+ */
+export function SubjectHeading({
+  subject,
+  title,
+  onLeave,
+}: {
+  subject: CoachSubject;
+  title: string;
+  onLeave?: () => void;
+}) {
+  const tasks = useTaskPanel();
+  const href = subjectHref(subject);
+  const label = SUBJECT_LABEL[subject.kind];
+  const linkClass = "block truncate text-headline hover:underline";
+  return (
+    <div className="min-w-0 flex-1 leading-tight">
+      <p className="text-caption font-semibold tracking-[0.06em] text-accent-text uppercase">{label}</p>
+      <h2 className="min-w-0 truncate">
+        {href ? (
+          <Link href={href} onClick={onLeave} className={linkClass} title={`Open this ${label.toLowerCase()}`}>
+            {title || label}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className={cn(linkClass, "max-w-full text-left")}
+            title="Open this task"
+            onClick={() => {
+              onLeave?.();
+              tasks.open(subject.id);
+            }}
+          >
+            {title || label}
+          </button>
+        )}
+      </h2>
+    </div>
   );
 }

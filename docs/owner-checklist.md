@@ -30,6 +30,7 @@ Every planned build step in Phases 1–3 is done (as of 2026-11-16). What's left
 - [ ] **Coach plan (2A):** ask the coach to plan a real ambition; the goal, milestones and tasks appear on every device; Undo takes it all back — [2A](./phases/phase-2a.md).
 - [ ] **Calendars (2B):** connect Google and iCloud; today's events show on Today; block time for a task, drag it in Google Calendar and see it move in Orbit — [2B](./phases/phase-2b.md).
 - [ ] **People (2C):** someone overdue shows on Today; log a call with a follow-up and the task appears — [2C](./phases/phase-2c.md).
+- [ ] **Focused coach conversations (3H):** press Coach on a real goal, task, job lead and course; check the answers use that item's details, that what it creates lands on the item, and that the conversation is still there on your phone — [3H](./phases/phase-3.md).
 - [ ] **Phase 2 goal:** the coach builds a plan that shows in Orbit and your calendar, and relationship reminders arrive on your phone — [Phase 2](./phases/phase-2.md).
 
 ## Using it for real (the trial)

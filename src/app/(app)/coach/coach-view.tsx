@@ -1,12 +1,23 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { ChevronLeft, MessageSquare, Sparkles, SquarePen } from "lucide-react";
+import {
+  Briefcase,
+  ChevronLeft,
+  CircleCheck,
+  GraduationCap,
+  MessageSquare,
+  Sparkles,
+  SquarePen,
+  Target,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import { SyncIndicator } from "@/components/app/sync-indicator";
 import { useSync } from "@/components/app/sync-provider";
+import { SubjectHeading } from "@/components/coach/coach-panel";
 import { CoachConversation } from "@/components/coach/conversation";
+import { SUBJECT_LABEL, subjectOf, type CoachSubjectKind } from "@/features/coach/subject";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { useToday } from "@/features/use-today";
@@ -28,6 +39,7 @@ export function CoachView() {
   );
   const select = useCallback((id: string | null) => router.replace(id ? `/coach?t=${id}` : "/coach?new=1"), [router]);
   const showChat = threadId != null || composing;
+  const current = threads?.find((t) => t.id === threadId);
   // Another screen asked the coach something ("Break down …"): send it once.
   const askText = params.get("ask");
   const prompt = useMemo(() => (askText ? { text: askText, n: 1 } : null), [askText]);
@@ -61,9 +73,11 @@ export function CoachView() {
           >
             <ChevronLeft className="size-5" />
           </Button>
-          <h2 className="min-w-0 flex-1 truncate text-headline">
-            {threads?.find((t) => t.id === threadId)?.title || "New chat"}
-          </h2>
+          {current && subjectOf(current) ? (
+            <SubjectHeading subject={subjectOf(current)!} title={current.title} />
+          ) : (
+            <h2 className="min-w-0 flex-1 truncate text-headline">{current?.title || "New chat"}</h2>
+          )}
         </div>
         <CoachConversation threadId={threadId} onThread={select} autoFocus prompt={prompt} />
       </section>
@@ -76,7 +90,7 @@ function ThreadList({
   selected,
   onSelect,
 }: {
-  threads: { id: string; title: string; lastMessageAt: number }[] | undefined;
+  threads: { id: string; title: string; lastMessageAt: number; subjectKind?: CoachSubjectKind | null }[] | undefined;
   selected: string | null;
   onSelect: (id: string) => void;
 }) {
@@ -103,12 +117,15 @@ function ThreadList({
         >
           {t.id.startsWith("ck") ? (
             <Sparkles className="mt-0.5 size-4 shrink-0 text-accent" aria-label="Check-in from your coach" role="img" />
+          ) : t.subjectKind ? (
+            <SubjectIcon kind={t.subjectKind} />
           ) : (
             <MessageSquare className="mt-0.5 size-4 shrink-0 text-label-tertiary" aria-hidden />
           )}
           <span className="min-w-0 flex-1">
             <span className="block truncate text-body">{t.title || "Untitled"}</span>
             <span className="text-footnote text-label-tertiary">
+              {t.subjectKind ? `${SUBJECT_LABEL[t.subjectKind]} · ` : ""}
               {dayLabel(dayOf(t.lastMessageAt, deviceTimezone()), todayDay)}
             </span>
           </span>
@@ -116,4 +133,16 @@ function ThreadList({
       ))}
     </nav>
   );
+}
+
+const SUBJECT_ICONS: Record<CoachSubjectKind, typeof Target> = {
+  goal: Target,
+  task: CircleCheck,
+  job: Briefcase,
+  course: GraduationCap,
+};
+
+function SubjectIcon({ kind }: { kind: CoachSubjectKind }) {
+  const Icon = SUBJECT_ICONS[kind];
+  return <Icon className="mt-0.5 size-4 shrink-0 text-accent" aria-label={SUBJECT_LABEL[kind]} role="img" />;
 }

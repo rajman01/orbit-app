@@ -8,6 +8,7 @@ import { PageBody, PageHeader } from "@/components/app/app-shell";
 import { EmptyState } from "@/components/app/empty-state";
 import { LearningDialog } from "@/components/career/forms";
 import { SectionLabel } from "@/components/tasks/task-list";
+import { CoachAboutButton } from "@/components/coach/coach-about";
 import { Button, IconButton } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
@@ -87,7 +88,12 @@ function ItemPage({ item }: { item: LearningItem }) {
             {item.author ? ` · ${item.author}` : ""} · {LEARNING_STATUS_LABEL[item.status]}
           </Link>
         }
-        actions={<IconButton label="Edit" icon={<Pencil className="size-4" />} onClick={() => setEditing(true)} />}
+        actions={
+          <>
+            <CoachAboutButton subject={{ kind: "course", id: item.id }} title={item.title} />
+            <IconButton label="Edit" icon={<Pencil className="size-4" />} onClick={() => setEditing(true)} />
+          </>
+        }
       />
       <PageBody className="max-w-[720px]">
         <section

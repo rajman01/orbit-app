@@ -92,6 +92,9 @@ export const tailoredCvSchema = z.object({
 });
 export type TailoredCv = z.infer<typeof tailoredCvSchema>;
 
+/** Phase 3H: what a focused coach conversation can be about. */
+export const COACH_SUBJECT_KINDS = ["goal", "task", "job", "course"] as const;
+
 export const applicationPackSchema = z.object({
   cv: tailoredCvSchema,
   coverLetter: z.string().max(6000),
@@ -377,6 +380,14 @@ export const entitySchemas = {
     title: z.string().trim().max(200),
     lastMessageAt: ms,
     archivedAt: ms.nullable(),
+    /** Phase 3H: the goal, task, job or course this conversation is about. Optional for older documents. */
+    subjectKind: z.enum(COACH_SUBJECT_KINDS).nullable().optional(),
+    subjectId: ref.optional(),
+    /** Phase 3H: older messages condensed for the coach; messages up to `upToSeq` aren't sent. */
+    summary: z
+      .object({ text: z.string().max(8000), upToSeq: z.number().int().min(0).max(100000) })
+      .nullable()
+      .optional(),
   }),
   /**
    * One entry in a conversation, kept exactly as sent to / returned by the API (append-only, so

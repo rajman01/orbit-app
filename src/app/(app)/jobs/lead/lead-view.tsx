@@ -22,6 +22,7 @@ import { useSync } from "@/components/app/sync-provider";
 import { JobLeadDialog } from "@/components/career/forms";
 import { area, TagInput } from "@/components/jobs/inputs";
 import { SectionLabel } from "@/components/tasks/task-list";
+import { CoachAboutButton } from "@/components/coach/coach-about";
 import { Button, IconButton } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/segmented";
@@ -118,7 +119,15 @@ function LeadPage({ lead }: { lead: JobLead }) {
             {lead.company} · {JOB_STAGE_LABEL[lead.stage]}
           </Link>
         }
-        actions={<IconButton label="Edit lead" icon={<Pencil className="size-4" />} onClick={() => setEditing(true)} />}
+        actions={
+          <>
+            <CoachAboutButton
+              subject={{ kind: "job", id: lead.id }}
+              title={lead.role ? `${lead.role} at ${lead.company}` : lead.company}
+            />
+            <IconButton label="Edit lead" icon={<Pencil className="size-4" />} onClick={() => setEditing(true)} />
+          </>
+        }
       />
       <PageBody className="max-w-[760px]">
         <section

@@ -134,6 +134,45 @@ export async function* coachTurn(db: Db, userId: string, messages: CoachMessage[
   }
 }
 
+const SUMMARY_PROMPT = `You condense the older part of a conversation between a person and their coach in Orbit, a life-management app, so the coach can carry on without the full transcript.
+Write a factual summary in plain sentences or short lists, at most about 400 words: what they're working on, what was decided or agreed (with dates), what the coach changed in Orbit, what's blocking them, how they've felt about it, and anything they asked the coach to keep in mind. Keep names, numbers and dates exact. Leave out greetings and small talk. Don't add advice.`;
+
+/** Phase 3H: a summary of the older part of a long conversation (the light model). */
+export async function summariseConversation(
+  db: Db,
+  userId: string,
+  transcript: string,
+  previous?: string,
+): Promise<string | null> {
+  if (process.env.COACH_FAKE === "1") {
+    return `Summary (${transcript.split("\n").length} lines): ${transcript.slice(0, 200)}`;
+  }
+  client ??= new Anthropic();
+  try {
+    const message = await client.messages.create({
+      model: coachModels().light,
+      max_tokens: 1500,
+      system: SUMMARY_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `${previous ? `The summary so far:\n${previous}\n\nWhat was said after it:\n` : ""}${transcript}\n\nWrite the updated summary.`,
+        },
+      ],
+    });
+    await recordUsage(db, userId, message.usage, "light").catch(() => {});
+    const text = message.content
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
+    return text ? text.slice(0, 8000) : null;
+  } catch (err) {
+    console.error("coach: summary failed", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 function toCoachError(err: unknown): CoachEvent {
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
     return { t: "error", code: "setup", message: "The coach's API key isn't working. Check ANTHROPIC_API_KEY." };

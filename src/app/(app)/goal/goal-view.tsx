@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/app/empty-state";
 import { SyncIndicator } from "@/components/app/sync-indicator";
 import { AreaPicker, DatePicker } from "@/components/tasks/pickers";
 import { SectionLabel, TaskList } from "@/components/tasks/task-list";
+import { CoachAboutButton } from "@/components/coach/coach-about";
 import { Button, IconButton } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
@@ -118,6 +119,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
             <span className="lg:hidden">
               <SyncIndicator />
             </span>
+            <CoachAboutButton subject={{ kind: "goal", id: goal.id }} title={goal.title} />
             <Menu
               trigger={<IconButton label="Goal actions" icon={<MoreHorizontal className="size-4" />} />}
               align="end"

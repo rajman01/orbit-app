@@ -56,7 +56,9 @@ import {
   upcomingDates,
 } from "@/features/people/model";
 import type { OrbitDB } from "@/lib/local-db/db";
+import { coursePace } from "@/features/career/course";
 import type { CoachMessage } from "./protocol";
+import { SUBJECT_LABEL, type CoachSubject } from "./subject";
 import { COACH_TOOLS, isCoachTool, WRITE_TOOLS } from "./tools";
 import { runWriteTool, type WriteDeps, type WriteToolName } from "./write-tools";
 
@@ -96,7 +98,12 @@ function taskBrief(t: Task) {
 }
 
 /** The per-turn context sent as a system message after each user message (date, time, memories). */
-export async function coachContext(db: OrbitDB, userId: string, now: number): Promise<string> {
+export async function coachContext(
+  db: OrbitDB,
+  userId: string,
+  now: number,
+  subject?: CoachSubject | null,
+): Promise<string> {
   const s = await loadSettings(db, userId);
   const day = todayOf(s.timezone, now);
   const memories = live(await db.aiMemories.toArray()).filter((m) => m.archivedAt == null);
@@ -115,7 +122,157 @@ export async function coachContext(db: OrbitDB, userId: string, now: number): Pr
       ? `What you remember about them:\n${memories.map((m) => `- [${m.id}] ${m.text}`).join("\n")}`
       : "You have no saved notes about them yet.",
   ];
+  if (subject) lines.push("", await subjectContext(db, userId, now, subject));
   return lines.join("\n");
+}
+
+/** How the coach keeps what it makes attached to the item. */
+const SUBJECT_LINKS: Record<CoachSubject["kind"], (id: string) => string> = {
+  goal: (id) =>
+    `New tasks, milestones, key results, updates and wins for it go on this goal (goalId ${id}); a plan for it goes through propose_plan with this goal.`,
+  task: (id) =>
+    `Steps go on this task with break_down_task (id ${id}); its next step, dates and priority with update_task; when it's done, complete_task.`,
+  job: (id) =>
+    `Keep this lead's stage, next step and date current with save_job_lead (id ${id}); prep work can be tasks with a scheduled day. The tailored CV and letter come from "Prepare application" on the lead's page.`,
+  course: (id) =>
+    `Plan or re-plan it with plan_course (learningItemId ${id}); study sessions are its section tasks. Raise the linked skill's level only when they describe real growth.`,
+};
+
+/**
+ * Phase 3H: the part of the per-turn context for a conversation about one item: what to focus on,
+ * and the item as it is now (so the coach never works from an old picture of it).
+ */
+export async function subjectContext(db: OrbitDB, userId: string, now: number, subject: CoachSubject) {
+  const facts = await subjectFacts(db, userId, now, subject);
+  const kind = SUBJECT_LABEL[subject.kind].toLowerCase();
+  if (typeof facts === "string") {
+    return `This conversation was about one ${kind}, but it ${facts} Tell them, and help with whatever they need now.`;
+  }
+  return [
+    `This conversation is about one ${kind}: “${facts.title}” (id ${subject.id}). Your job here is to help them get it done.`,
+    `- Stay on it. If they raise something else, help briefly, then bring it back.`,
+    `- Its details below are current, so trust them over anything said earlier in this conversation.`,
+    `- Move it forward: find what's blocking it, make the next step small and concrete, and agree when they'll do it.`,
+    `- ${SUBJECT_LINKS[subject.kind](subject.id)}`,
+    `Details: ${JSON.stringify(facts.details)}`,
+  ].join("\n");
+}
+
+async function subjectFacts(
+  db: OrbitDB,
+  userId: string,
+  now: number,
+  subject: CoachSubject,
+): Promise<string | { title: string; details: unknown }> {
+  const deps = { db, userId, now } as unknown as Deps;
+  switch (subject.kind) {
+    case "goal": {
+      const g = await TOOL_RUNNERS.get_goal({ id: subject.id }, deps);
+      if (typeof g === "string") return "has since been deleted.";
+      const events = live(await db.goalEvents.where("goalId").equals(subject.id).toArray())
+        .sort((a, b) => b.at - a.at)
+        .slice(0, 8);
+      const details = {
+        ...(g as Record<string, unknown>),
+        recentUpdates: events.length
+          ? events.map((e) => ({
+              type: e.type,
+              change: e.type !== "note" && e.to ? `${e.from ?? "?"} → ${e.to}` : undefined,
+              text: e.text?.slice(0, 300) || undefined,
+              by: e.actor === "ai" ? "coach" : undefined,
+              on: dayOf(e.at, "UTC"),
+            }))
+          : undefined,
+      };
+      return { title: String((g as { title: string }).title), details };
+    }
+    case "task": {
+      const t = await TOOL_RUNNERS.get_task({ id: subject.id }, deps);
+      if (typeof t === "string") return "has since been deleted.";
+      return { title: String((t as { title: string }).title), details: t };
+    }
+    case "job": {
+      const l = await db.jobLeads.get(subject.id);
+      if (!l || l.deletedAt != null) return "has since been deleted.";
+      const posting = l.postingId ? await db.jobPostings.get(l.postingId) : undefined;
+      const profile = await db.careerProfile.get(careerProfileId(userId));
+      return {
+        title: `${l.role ? `${l.role} at ` : ""}${l.company}`,
+        details: {
+          company: l.company,
+          role: l.role || undefined,
+          location: l.location ?? undefined,
+          salary: l.salary ?? undefined,
+          url: l.url ?? undefined,
+          stage: l.stage,
+          outcome: l.outcome ?? undefined,
+          nextStep: l.nextStep || undefined,
+          nextDate: l.nextDate ?? undefined,
+          appliedOn: l.appliedAt ? dayOf(l.appliedAt, "UTC") : undefined,
+          notes: l.notes.trim() ? l.notes.trim().slice(0, 3000) : undefined,
+          role_found: posting
+            ? {
+                fit: posting.fit ?? undefined,
+                why: posting.why.length ? posting.why : undefined,
+                gaps: posting.gaps.length ? posting.gaps : undefined,
+                description: posting.description.slice(0, 2500),
+              }
+            : undefined,
+          applicationPack: l.pack
+            ? {
+                prepared: dayOf(l.pack.generatedAt, "UTC"),
+                coverLetterOpening: l.pack.coverLetter.slice(0, 600),
+                toCheck: l.pack.flags.length ? l.pack.flags : undefined,
+              }
+            : "None yet (Prepare application on the lead's page makes one).",
+          theirHeadline: profile && !profile.deletedAt ? profile.headline || undefined : undefined,
+        },
+      };
+    }
+    case "course": {
+      const c = await db.learningItems.get(subject.id);
+      if (!c || c.deletedAt != null) return "has since been deleted.";
+      const s = await loadSettings(db, userId);
+      const day = todayOf(s.timezone, now);
+      const skill = c.skillId ? await db.skills.get(c.skillId) : undefined;
+      const sections = c.sections ?? [];
+      const tasks = sections.length ? await db.tasks.where("learningItemId").equals(c.id).toArray() : [];
+      const byId = new Map(tasks.filter((t) => t.deletedAt == null).map((t) => [t.id, t]));
+      const p = coursePace(sections, tasks, c.plan, day);
+      return {
+        title: c.title,
+        details: {
+          today: day,
+          kind: c.kind,
+          author: c.author ?? undefined,
+          status: c.status,
+          progress: `${c.progress}%`,
+          skill:
+            skill && !skill.deletedAt
+              ? `${skill.name} (level ${skill.level} of 5, aiming for ${skill.targetLevel})`
+              : undefined,
+          plan: c.plan
+            ? {
+                finishBy: c.plan.targetDate,
+                studyDays: c.plan.days,
+                minutesPerDay: c.plan.minutesPerDay,
+                sectionsBehind: p.behind || undefined,
+                daysLeft: p.daysLeft ?? undefined,
+              }
+            : "Not planned yet.",
+          sections: sections.length
+            ? sections.slice(0, 80).map((x) => ({
+                title: x.title,
+                minutes: x.minutes ?? undefined,
+                done: x.doneAt != null || undefined,
+                plannedFor: (x.taskId ? byId.get(x.taskId)?.scheduledDate : undefined) ?? undefined,
+              }))
+            : "No sections yet.",
+          notes: c.notes.trim() ? c.notes.trim().slice(0, 2000) : undefined,
+        },
+      };
+    }
+  }
 }
 
 const AUTONOMY_TEXT = {

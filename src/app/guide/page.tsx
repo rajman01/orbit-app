@@ -504,6 +504,25 @@ export default function GuidePage() {
                 <li>&ldquo;Fit this SQL course in by the end of December.&rdquo;</li>
                 <li>&ldquo;Who haven&rsquo;t I spoken to in a while?&rdquo;</li>
               </ul>
+              <h3>A conversation about one thing</h3>
+              <p>
+                Goals, tasks, job leads and courses each have their own conversation with the coach. Press <b>Coach</b>{" "}
+                on a goal, job or course page, or the speech-bubble button in a task&rsquo;s panel. That conversation
+                stays about that one thing: the coach sees its latest details every time (milestones and tasks, steps
+                and how often you&rsquo;ve put it off, the role and your application, sections and pace), and what it
+                creates is attached to it.
+              </p>
+              <ul>
+                <li>Come back to it any time; it carries on where you left off, on every device.</li>
+                <li>
+                  On the Coach page these conversations are marked with what they&rsquo;re about, and the title takes
+                  you back to the item.
+                </li>
+                <li>
+                  Long conversations are summarised behind the scenes, so the coach keeps the gist without slowing down.
+                  You still see every message.
+                </li>
+              </ul>
               <h3>Staying in control</h3>
               <ul>
                 <li>

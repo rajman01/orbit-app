@@ -13,6 +13,7 @@ import { useTaskPanel } from "./task-panel";
 import { TaskLinks } from "./task-links";
 import { TaskTimeBlocks } from "@/components/calendar/block-time";
 import { useState } from "react";
+import { CoachAboutButton } from "@/components/coach/coach-about";
 import { IconButton } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChipButton, Picker } from "@/components/ui/picker";
@@ -126,6 +127,9 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
                 );
               }}
             />
+          ) : null}
+          {!task.parentTaskId ? (
+            <CoachAboutButton compact subject={{ kind: "task", id: task.id }} title={task.title} onOpen={onClose} />
           ) : null}
           <IconButton
             label="Delete task"

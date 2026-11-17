@@ -57,6 +57,7 @@ import {
   type RoutineFields,
 } from "./routines/model";
 import { newlyUnblocked, wouldLoop } from "./tasks/links";
+import { subjectThreadId, type CoachSubject } from "./coach/subject";
 import {
   learningPatch,
   learningXp,
@@ -1057,6 +1058,35 @@ export function createActions(engine: SyncEngine, userId: string) {
       await engine.update("aiThreads", threadId, { lastMessageAt: at });
       return id;
     },
+
+    /**
+     * Phase 3H: the one conversation about a goal, task, job or course (a fixed id, so every device
+     * finds the same one). Made on first use; brought back if it was archived; kept titled after it.
+     */
+    async openSubjectThread(subject: CoachSubject, title: string): Promise<string> {
+      const id = subjectThreadId(subject);
+      const existing = await db.aiThreads.get(id);
+      const name = title.slice(0, 200);
+      if (!existing) {
+        await engine.create(
+          "aiThreads",
+          {
+            title: name,
+            lastMessageAt: now(),
+            archivedAt: null,
+            subjectKind: subject.kind,
+            subjectId: subject.id,
+            summary: null,
+          },
+          id,
+        );
+      } else if (existing.archivedAt != null || existing.title !== name) {
+        await engine.update("aiThreads", id, { archivedAt: null, title: name });
+      }
+      return id;
+    },
+    saveCoachSummary: (id: string, summary: { text: string; upToSeq: number }) =>
+      engine.update("aiThreads", id, { summary: { text: summary.text.slice(0, 8000), upToSeq: summary.upToSeq } }),
 
     renameCoachThread: (id: string, title: string) => engine.update("aiThreads", id, { title: title.slice(0, 200) }),
     archiveCoachThread: (id: string) => engine.update("aiThreads", id, { archivedAt: now() }),
