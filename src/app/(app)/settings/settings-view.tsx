@@ -22,7 +22,7 @@ import { defaultSettings, WEEKDAYS } from "@/features/settings/model";
 import { authClient } from "@/lib/auth/client";
 import { usePush } from "@/lib/push/client";
 import { deviceTimezone } from "@/lib/dates";
-import { CURRENCIES } from "@/features/money/model";
+import { CURRENCIES, DEFAULT_CURRENCY } from "@/features/money/model";
 import Link from "next/link";
 
 export function SettingsView() {
@@ -90,7 +90,7 @@ export function SettingsView() {
           <Row label="Currency">
             <select
               aria-label="Currency"
-              value={settings.currency ?? "USD"}
+              value={settings.currency ?? DEFAULT_CURRENCY}
               onChange={(e) => save({ currency: e.target.value })}
               className="rounded-md bg-fill px-2 py-1 text-body text-label"
             >
@@ -100,7 +100,7 @@ export function SettingsView() {
                 </option>
               ))}
               {CURRENCIES.some(([c]) => c === settings.currency) ? null : (
-                <option value={settings.currency ?? "USD"}>{settings.currency}</option>
+                <option value={settings.currency ?? DEFAULT_CURRENCY}>{settings.currency}</option>
               )}
             </select>
           </Row>

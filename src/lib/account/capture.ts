@@ -4,7 +4,7 @@ import { ulid } from "ulid";
 import { defaultSettings, settingsId } from "@/features/settings/model";
 import { parseQuickAdd } from "@/features/quick-add/parse";
 import { newTaskFields } from "@/features/tasks/model";
-import { formatMoney, newTransactionFields } from "@/features/money/model";
+import { DEFAULT_CURRENCY, formatMoney, newTransactionFields } from "@/features/money/model";
 import { parseMoney } from "@/features/money/parse";
 import { today } from "@/lib/dates";
 import { applyMutations } from "@/lib/sync/server";
@@ -34,7 +34,7 @@ export async function capture(db: Db, userId: string, input: { text: string; not
       .toArray(),
   ]);
   const timezone = (settings?.timezone as string | undefined) ?? defaultSettings().timezone;
-  const currency = (settings?.currency as string | undefined) ?? "USD";
+  const currency = (settings?.currency as string | undefined) ?? DEFAULT_CURRENCY;
 
   // "spent 12.50 lunch" is money, not a task (5A).
   const money = parseMoney(text, {

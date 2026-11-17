@@ -31,7 +31,10 @@ export const CURRENCIES = [
   ["AED", "UAE dirham"],
 ] as const;
 
-/** The currency the device's locale suggests, or USD. */
+/** The currency to start with: naira (the owner's), whatever the device says. */
+export const DEFAULT_CURRENCY = "NGN";
+
+/** The currency the device's locale suggests, or USD; offered as a hint in Settings. */
 export function deviceCurrency(): string {
   try {
     const region = new Intl.Locale(navigator.language).maximize().region;
@@ -81,6 +84,7 @@ export function formatMoney(
     const f = new Intl.NumberFormat(opts.locale, {
       style: "currency",
       currency,
+      currencyDisplay: "narrowSymbol",
       minimumFractionDigits: opts.compact && whole ? 0 : undefined,
       maximumFractionDigits: opts.compact && whole ? 0 : undefined,
       signDisplay: opts.sign ? "exceptZero" : "auto",

@@ -20,7 +20,7 @@ test("money is logged from the Money page and Quick Add, shown by month, edited 
   await expect(page.getByRole("status").filter({ hasText: "Spending logged" })).toBeVisible();
   const lunch = page.getByRole("button", { name: `Open Lunch ${r}` });
   await expect(lunch).toBeVisible();
-  await expect(lunch).toContainText("-$12.50");
+  await expect(lunch).toContainText("-₦12.50");
   await expect(lunch).toContainText("Food & drink");
   await expect(page.getByRole("list", { name: "Spending by category" })).toContainText("Food & drink");
 
@@ -29,12 +29,12 @@ test("money is logged from the Money page and Quick Add, shown by month, edited 
   const quick = page.getByRole("dialog", { name: "New task" });
   const input = quick.getByRole("textbox", { name: "New task" });
   await input.fill(`got 40 from Ada ${r}`);
-  await expect(quick).toContainText("Received $40.00");
+  await expect(quick).toContainText("Received ₦40.00");
   await input.press("Enter");
   await input.press("Escape");
   const ada = page.getByRole("button", { name: `Open Ada ${r}` });
   await expect(ada).toBeVisible();
-  await expect(ada).toContainText("+$40.00");
+  await expect(ada).toContainText("+₦40.00");
 
   // The Transactions tab lists the month; the previous month doesn't have them.
   await page.getByRole("radio", { name: "Transactions" }).click();
@@ -67,7 +67,7 @@ test("accounts hold a balance, and the Shortcut logs money from outside", async 
   await form.getByRole("textbox", { name: /Balance today/ }).fill("100");
   await form.getByRole("button", { name: "Add account" }).click();
   const row = page.getByRole("listitem").filter({ hasText: `Cash ${r}` });
-  await expect(row).toContainText("$100.00");
+  await expect(row).toContainText("₦100.00");
 
   // Spending from that account lowers it.
   await page.getByRole("button", { name: "Log", exact: true }).click();
@@ -76,7 +76,7 @@ test("accounts hold a balance, and the Shortcut logs money from outside", async 
   await log.getByRole("button", { name: "Account" }).click();
   await page.getByRole("menuitem", { name: `Cash ${r}` }).click();
   await log.getByRole("button", { name: "Log it" }).click();
-  await expect(row).toContainText("$70.00");
+  await expect(row).toContainText("₦70.00");
   await waitForSynced(page);
 
   // As the iOS Shortcut would, with a token and no cookies.
@@ -90,7 +90,7 @@ test("accounts hold a balance, and the Shortcut logs money from outside", async 
     data: { text: `spent 7.5 taxi ${r}` },
   });
   expect(res.status()).toBe(200);
-  expect(await res.json()).toMatchObject({ ok: true, message: `Logged: Spent $7.50 · taxi ${r}` });
+  expect(await res.json()).toMatchObject({ ok: true, message: `Logged: Spent ₦7.50 · taxi ${r}` });
   await page.goto("/money?tab=transactions");
   await expect(page.getByRole("button", { name: `Open taxi ${r}` })).toBeVisible({ timeout: 20_000 });
 });

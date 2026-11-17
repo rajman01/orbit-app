@@ -1,6 +1,6 @@
 import type { EntityFields } from "@/lib/sync/entities";
 import { deviceTimezone } from "@/lib/dates";
-import { deviceCurrency } from "@/features/money/model";
+import { DEFAULT_CURRENCY } from "@/features/money/model";
 
 export type Settings = EntityFields<"settings">;
 
@@ -35,7 +35,7 @@ export function defaultSettings(): Settings {
     strictness: "firm",
     email: { weeklyReport: true, reminders: true },
     badge: "unread",
-    currency: deviceCurrency(),
+    currency: DEFAULT_CURRENCY,
     money: { monthStartDay: 1 },
     onboardingCompletedAt: null,
   };

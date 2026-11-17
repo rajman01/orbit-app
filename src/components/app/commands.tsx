@@ -46,7 +46,7 @@ import { useActions } from "@/features/actions";
 import { useAllTasks, useAreas, useCategories, useGoals, usePeople, useSavedViews, useSettings } from "@/features/data";
 import { PersonAvatar } from "@/components/people/avatar";
 import { parseQuickAdd, type QuickAddToken } from "@/features/quick-add/parse";
-import { formatMoney } from "@/features/money/model";
+import { DEFAULT_CURRENCY, formatMoney } from "@/features/money/model";
 import { parseMoney } from "@/features/money/parse";
 import { isOpen, taskCode, type TaskFields } from "@/features/tasks/model";
 import { cn } from "@/lib/cn";
@@ -217,7 +217,7 @@ function QuickAddPanel({
 }) {
   const actions = useActions();
   const toast = useToast();
-  const { timezone, currency = "USD" } = useSettings();
+  const { timezone, currency = DEFAULT_CURRENCY } = useSettings();
   const areasRaw = useAreas();
   const goalsRaw = useGoals();
   const areas = useMemo(() => areasRaw ?? [], [areasRaw]);

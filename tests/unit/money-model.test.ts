@@ -46,6 +46,7 @@ describe("money amounts (5A, D47)", () => {
     expect(parseAmount("abc", "GBP")).toBeNull();
     expect(parseAmount("0", "GBP")).toBeNull();
     expect(formatMoney(1250, "GBP", { locale: "en-GB" })).toBe("£12.50");
+    expect(formatMoney(1250, "NGN", { locale: "en-US" })).toBe("₦12.50");
     expect(formatMoney(250000, "USD", { compact: true, locale: "en-US" })).toBe("$2,500");
     expect(formatMoney(-420, "USD", { sign: true, locale: "en-US" })).toBe("-$4.20");
     expect(formatMoney(420, "USD", { sign: true, locale: "en-US" })).toBe("+$4.20");

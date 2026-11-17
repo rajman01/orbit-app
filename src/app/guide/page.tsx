@@ -601,9 +601,9 @@ export default function GuidePage() {
 
             <Section id="money" title="Money">
               <p>
-                One place for what comes in and goes out, in the currency you pick in Settings. Everything is logged by
-                you: there is no bank connection, so it works offline and nothing about your accounts leaves your
-                devices except through Orbit&rsquo;s own sync.
+                One place for what comes in and goes out, in naira (or another currency picked in Settings). Everything
+                is logged by you: there is no bank connection, so it works offline and nothing about your accounts
+                leaves your devices except through Orbit&rsquo;s own sync.
               </p>
               <ul>
                 <li>

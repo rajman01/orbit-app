@@ -1,12 +1,12 @@
 "use client";
 
 import { useSettings } from "@/features/data";
-import { formatMoney, minorPerMajor, parseAmount, toMajor } from "@/features/money/model";
+import { DEFAULT_CURRENCY, formatMoney, minorPerMajor, parseAmount, toMajor } from "@/features/money/model";
 import { cn } from "@/lib/cn";
 
 /** The one currency money is kept in (D47). */
 export function useCurrency(): string {
-  return useSettings().currency ?? "USD";
+  return useSettings().currency ?? DEFAULT_CURRENCY;
 }
 
 /** An amount, formatted in the main currency; `signed` colours income green and spending plain. */
