@@ -10,7 +10,6 @@ import {
   Pencil,
   RotateCcw,
   Send,
-  Sparkles,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -35,6 +34,7 @@ import { buildCvPdf, cvFileName } from "@/features/jobs/pdf";
 import { useToday } from "@/features/use-today";
 import { addDays, dayLabel } from "@/lib/dates";
 import { cn } from "@/lib/cn";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 /** CAR-5: one lead — the posting, the tailored application pack, and applying. */
 export function LeadView() {
@@ -224,7 +224,7 @@ function LeadPage({ lead }: { lead: JobLead }) {
             {error ? <p className="text-footnote text-danger-text">{error}</p> : null}
             <div>
               <Button
-                icon={<Sparkles className="size-4" />}
+                icon={<CoachIcon mono className="size-4" />}
                 loading={busy}
                 disabled={!canTailor}
                 onClick={() => void prepare()}

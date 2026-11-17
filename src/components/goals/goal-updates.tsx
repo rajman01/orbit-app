@@ -1,7 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { Activity, CheckCircle2, Diamond, HeartPulse, MessageSquare, Sparkles, Trash2 } from "lucide-react";
+import { Activity, CheckCircle2, Diamond, HeartPulse, MessageSquare, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useSync } from "@/components/app/sync-provider";
 import { SectionLabel } from "@/components/tasks/task-list";
@@ -12,11 +12,12 @@ import { useToday } from "@/features/use-today";
 import { dayLabel } from "@/lib/dates";
 import { useSettings } from "@/features/data";
 import { dayOf } from "@/lib/dates";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 interface Item {
   key: string;
   at: number;
-  icon: typeof Activity;
+  icon: typeof Activity | typeof CoachIcon;
   text: React.ReactNode;
   detail?: string | null;
   by?: "coach";
@@ -106,7 +107,7 @@ export function GoalUpdates({ goal }: { goal: Goal }) {
         (a.changes as { entity: string; id: string; before: unknown }[]).some(
           (c) => c.entity === "goals" && c.id === goal.id && c.before === null,
         );
-      if (touches) out.push({ key: a.id, at: a.at, icon: Sparkles, text: a.summary, by: "coach" });
+      if (touches) out.push({ key: a.id, at: a.at, icon: CoachIcon, text: a.summary, by: "coach" });
     }
     return out.sort((x, y) => y.at - x.at);
   }, [db, goal.id]);

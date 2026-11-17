@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { AreaIcon } from "@/components/areas/area-icon";
+import { CoachIcon } from "@/components/coach/coach-icon";
 import { AreaDialog } from "@/components/areas/area-form";
 import { CoachPanelProvider } from "@/components/coach/coach-panel";
 import { FocusProvider } from "@/components/focus/focus-mode";
@@ -136,7 +137,7 @@ function NavLink({
 }: {
   href: string;
   label: string;
-  icon: typeof Sun;
+  icon: typeof Sun | typeof CoachIcon;
   badge?: number;
 }) {
   const pathname = usePathname();

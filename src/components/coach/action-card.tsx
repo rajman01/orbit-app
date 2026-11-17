@@ -1,7 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { Check, Sparkles, Undo2 } from "lucide-react";
+import { Check, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useCurrentUser } from "@/components/app/auth-gate";
@@ -13,6 +13,7 @@ import { acceptProposal, dismissProposal, undoAction } from "@/features/coach/wr
 import { cn } from "@/lib/cn";
 import { PlanCard } from "./plan-card";
 import type { SyncedDoc } from "@/lib/sync/entities";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 export type AiAction = SyncedDoc<"aiActions">;
 
@@ -137,7 +138,7 @@ function ActionRow({ action }: { action: AiAction }) {
       )}
       data-ai-action={action.status}
     >
-      <Sparkles className="size-3.5 shrink-0 text-accent" aria-hidden />
+      <CoachIcon className="size-3.5 shrink-0" />
       <span className={cn("min-w-0 flex-1 text-footnote", done && "text-label-tertiary line-through")}>
         {action.summary}
       </span>

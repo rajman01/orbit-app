@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Minus, Plus, Search, Sparkles, Target } from "lucide-react";
+import { AlertTriangle, Minus, Plus, Search, Target } from "lucide-react";
 import { askCoach } from "@/components/coach/coach-panel";
 import { useMemo, useState } from "react";
 import { AreaDot } from "@/components/areas/area-icon";
@@ -19,6 +19,7 @@ import { dayLabel } from "@/lib/dates";
 import Link from "next/link";
 import { quarterKey, quarterLabel, quarterOf } from "@/features/quarters/model";
 import { useQuarter } from "@/features/quarters/use-quarter";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 /**
  * PRD CYC-2: pull work into a cycle, watch the capacity meter, then commit explicitly.
@@ -149,7 +150,7 @@ export function CyclePlanner({
         }
         className="flex items-center gap-2.5 self-start rounded-full bg-accent-fill px-3.5 py-2 text-callout font-semibold text-accent-text hover:brightness-95"
       >
-        <Sparkles className="size-4" aria-hidden /> Plan with coach
+        <CoachIcon className="size-4" /> Plan with coach
       </button>
       {/* capacity */}
       <section aria-label="Capacity" className="rounded-lg bg-surface-sunken p-4">

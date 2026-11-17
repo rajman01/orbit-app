@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,6 +12,7 @@ import { PRIORITY_META } from "@/features/tasks/model";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { dayLabel } from "@/lib/dates";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 /**
  * AI-8: paste anything (notes, a list, an email) and the coach pulls out the tasks. They're shown
@@ -81,7 +82,7 @@ export function BrainDump({ initialText = "" }: { initialText?: string }) {
         onClick={() => setOpen(true)}
         className="mb-4 flex w-full items-center gap-3 rounded-lg border border-dashed border-separator px-4 py-3 text-left hover:bg-fill"
       >
-        <Sparkles className="size-4 shrink-0 text-accent" aria-hidden />
+        <CoachIcon className="size-4 shrink-0" />
         <span className="min-w-0 flex-1">
           <span className="block text-body font-medium">Brain dump</span>
           <span className="block text-footnote text-label-secondary">
@@ -175,7 +176,7 @@ export function BrainDump({ initialText = "" }: { initialText?: string }) {
             <Button
               loading={busy}
               disabled={!text.trim()}
-              icon={<Sparkles className="size-4" />}
+              icon={<CoachIcon mono className="size-4" />}
               onClick={() => void sort()}
             >
               Turn into tasks

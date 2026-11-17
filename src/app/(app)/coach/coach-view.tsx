@@ -1,16 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import {
-  Briefcase,
-  ChevronLeft,
-  CircleCheck,
-  GraduationCap,
-  MessageSquare,
-  Sparkles,
-  SquarePen,
-  Target,
-} from "lucide-react";
+import { Briefcase, ChevronLeft, CircleCheck, GraduationCap, MessageSquare, SquarePen, Target } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import { SyncIndicator } from "@/components/app/sync-indicator";
@@ -22,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { useToday } from "@/features/use-today";
 import { dayLabel, dayOf, deviceTimezone } from "@/lib/dates";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 /** PRD §10.6: the standalone coach page with its list of conversations. */
 export function CoachView() {
@@ -116,7 +108,7 @@ function ThreadList({
           )}
         >
           {t.id.startsWith("ck") ? (
-            <Sparkles className="mt-0.5 size-4 shrink-0 text-accent" aria-label="Check-in from your coach" role="img" />
+            <CoachIcon className="mt-0.5 size-4 shrink-0" aria-label="Check-in from your coach" role="img" />
           ) : t.subjectKind ? (
             <SubjectIcon kind={t.subjectKind} />
           ) : (

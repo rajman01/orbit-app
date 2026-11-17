@@ -1,10 +1,11 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { Plus, Sparkles, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import { useSync } from "@/components/app/sync-provider";
 import { useActions } from "@/features/actions";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 /** AI-9: what the coach remembers about you, visible and editable. */
 export function CoachMemories() {
@@ -80,7 +81,7 @@ function MemoryRow({
   return (
     <div className="flex items-center gap-2 px-4 py-1.5">
       {byCoach ? (
-        <Sparkles className="size-4 shrink-0 text-accent" aria-label="Saved by the coach" role="img" />
+        <CoachIcon className="size-4 shrink-0" aria-label="Saved by the coach" role="img" />
       ) : (
         <span className="size-4 shrink-0" aria-hidden />
       )}

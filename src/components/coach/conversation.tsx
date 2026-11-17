@@ -24,6 +24,7 @@ import { WRITE_TOOLS, type CoachToolName } from "@/features/coach/tools";
 import { cn } from "@/lib/cn";
 import { ActionList } from "./action-card";
 import { useCoachChat, useCoachMessages, type StoredCoachMessage } from "./use-coach";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 const SUGGESTIONS = [
   "What should I focus on today?",
@@ -91,7 +92,7 @@ export function CoachConversation({
                 <AssistantText text={draft} />
               ) : (
                 <p className="flex items-center gap-2 text-callout text-label-secondary">
-                  <Sparkles className="size-4 animate-pulse text-accent motion-reduce:animate-none" aria-hidden />
+                  <CoachIcon className="size-4 animate-pulse motion-reduce:animate-none" />
                   Thinking…
                 </p>
               )
@@ -135,8 +136,8 @@ function Welcome({
   const suggestions = subject ? SUBJECT_SUGGESTIONS[subject.kind] : SUGGESTIONS;
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center gap-4 pt-10 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-accent-fill text-accent">
-        <Sparkles className="size-6" aria-hidden />
+      <span className="grid size-12 place-items-center rounded-full bg-linear-to-br from-blue-500/15 via-violet-500/15 to-amber-500/15">
+        <CoachIcon className="size-6" />
       </span>
       <div>
         <p className="text-headline">{subject ? title || "Your coach" : "Your coach"}</p>

@@ -1,10 +1,10 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { Sparkles } from "lucide-react";
 import { useSync } from "@/components/app/sync-provider";
 import { useMinuteNow } from "@/features/use-today";
 import type { Change } from "@/features/coach/record";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 const DAY = 86_400_000;
 
@@ -12,9 +12,7 @@ const DAY = 86_400_000;
 export function AiBadge({ createdAt, show = true }: { createdAt: number; show?: boolean }) {
   const now = useMinuteNow();
   if (!show || now - createdAt > DAY) return null;
-  return (
-    <Sparkles className="inline size-3.5 shrink-0 align-[-2px] text-accent" aria-label="Made by the coach" role="img" />
-  );
+  return <CoachIcon className="inline size-3.5 shrink-0 align-[-2px]" aria-label="Made by the coach" role="img" />;
 }
 
 /** For things without a createdBy field (goals…): did a coach action in the last day create it? */

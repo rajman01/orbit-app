@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarSync, Flag, Play, Plus, Repeat, Sparkles, Timer, Trash2, Trophy, X } from "lucide-react";
+import { CalendarSync, Flag, Play, Plus, Repeat, Timer, Trash2, Trophy, X } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
 import { useSync } from "@/components/app/sync-provider";
@@ -45,6 +45,7 @@ import {
   PriorityPicker,
   StatusPicker,
 } from "./pickers";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () => void }) {
   const task = useTask(taskId);
@@ -119,7 +120,7 @@ function TaskDetailInner({ task, onClose }: { task: Task; onClose: () => void })
             <IconButton
               label="Break down with the coach"
               title="Break down with the coach"
-              icon={<Sparkles className="size-4" />}
+              icon={<CoachIcon className="size-4" />}
               onClick={() => {
                 onClose();
                 askCoach(

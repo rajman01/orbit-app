@@ -1,6 +1,6 @@
 "use client";
 
-import { Flag, Gauge, Sparkles, Target, X } from "lucide-react";
+import { Flag, Gauge, Target, X } from "lucide-react";
 import { useState } from "react";
 import { useCurrentUser } from "@/components/app/auth-gate";
 import { useSync } from "@/components/app/sync-provider";
@@ -12,6 +12,7 @@ import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { dayLabel } from "@/lib/dates";
 import type { AiAction } from "./action-card";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 type Plan = import("zod").infer<(typeof COACH_TOOLS)["propose_plan"]["input"]>;
 type PlanTask = NonNullable<Plan["tasks"]>[number];
@@ -58,7 +59,7 @@ export function PlanCard({ action }: { action: AiAction }) {
       className="flex flex-col gap-3 rounded-xl border border-separator bg-[color-mix(in_srgb,var(--info)_6%,var(--surface))] p-3"
     >
       <header className="flex items-center gap-2 text-footnote font-semibold text-label-secondary">
-        <Sparkles className="size-3.5 text-accent" aria-hidden /> Proposed plan · edit anything, then apply
+        <CoachIcon className="size-3.5" /> Proposed plan · edit anything, then apply
       </header>
 
       <div className="flex items-start gap-2">

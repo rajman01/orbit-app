@@ -18,18 +18,18 @@ import {
   LayoutList,
   Settings,
   Shapes,
-  Sparkles,
   Sun,
   Target,
   Users,
 } from "lucide-react";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 /** The sidebar, in four groups: the day, planning, career, and looking back. */
 export const NAV_MAIN = [
   { href: "/inbox", label: "Inbox", icon: Inbox, group: 0 },
   { href: "/today", label: "Today", icon: Sun, group: 0 },
   { href: "/calendar", label: "Calendar", icon: CalendarClock, group: 0 },
-  { href: "/coach", label: "Coach", icon: Sparkles, group: 0 },
+  { href: "/coach", label: "Coach", icon: CoachIcon, group: 0 },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays, group: 0 },
   { href: "/tasks", label: "Tasks", icon: LayoutList, group: 0 },
   { href: "/goals", label: "Goals", icon: Target, group: 1 },
@@ -50,7 +50,7 @@ export const NAV_MAIN = [
 
 export const NAV_MORE = [
   { href: "/calendar", label: "Calendar", icon: CalendarClock },
-  { href: "/coach", label: "Coach", icon: Sparkles },
+  { href: "/coach", label: "Coach", icon: CoachIcon },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/habits", label: "Habits", icon: Repeat },
   { href: "/people", label: "People", icon: Users },

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Sparkles, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -17,6 +17,7 @@ import { WEEKDAYS } from "@/features/settings/model";
 import { cn } from "@/lib/cn";
 import { deviceTimezone } from "@/lib/dates";
 import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 const STEPS = ["Areas", "Rhythm", "First goal"] as const;
 
@@ -300,7 +301,7 @@ export function Welcome() {
                   variant="plain"
                   size="large"
                   disabled={busy || !goal.trim()}
-                  icon={<Sparkles className="size-4" />}
+                  icon={<CoachIcon className="size-4" />}
                   onClick={() => void finish(false, true)}
                 >
                   Plan it with the coach

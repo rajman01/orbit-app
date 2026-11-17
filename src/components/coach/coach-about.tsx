@@ -1,10 +1,10 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { MessagesSquare, Sparkles } from "lucide-react";
 import { useSync } from "@/components/app/sync-provider";
 import { Button, IconButton } from "@/components/ui/button";
 import { SUBJECT_LABEL, subjectThreadId, type CoachSubject } from "@/features/coach/subject";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 const ABOUT_EVENT = "orbit:coach-about";
 
@@ -62,10 +62,10 @@ export function CoachAboutButton({
     coachAbout(subject, title);
   };
   if (compact) {
-    return <IconButton label={label} icon={<MessagesSquare className="size-4" />} onClick={open} />;
+    return <IconButton label={label} icon={<CoachIcon className="size-4" />} onClick={open} />;
   }
   return (
-    <Button variant="secondary" icon={<Sparkles className="size-4 text-accent" />} onClick={open} aria-label={label}>
+    <Button variant="secondary" icon={<CoachIcon className="size-4" />} onClick={open} aria-label={label}>
       Coach
     </Button>
   );

@@ -18,7 +18,6 @@ import {
   Settings,
   Shapes,
   Sun,
-  Sparkles,
   Target,
   Trophy,
   UserPlus,
@@ -50,6 +49,7 @@ import { isOpen, taskCode, type TaskFields } from "@/features/tasks/model";
 import { cn } from "@/lib/cn";
 import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
 import { useIsDesktop } from "@/lib/use-media-query";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 type QuickAddDefaults = Partial<
   Pick<TaskFields, "areaId" | "goalId" | "milestoneId" | "status" | "dueDate" | "personId" | "skillId">
@@ -312,7 +312,7 @@ function QuickAddPanel({
             }}
             className="inline-flex h-6 items-center gap-1 rounded-sm bg-accent-fill px-2 text-caption font-semibold text-accent-text"
           >
-            <Sparkles className="size-3" aria-hidden /> Several things? Let the coach sort it
+            <CoachIcon className="size-3" /> Several things? Let the coach sort it
           </button>
         ) : null}
         {!parsed.tokens.length && text.trim().length <= 60 ? (

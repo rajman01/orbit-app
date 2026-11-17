@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, FileText, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
+import { Building2, FileText, Plus, Save, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
@@ -24,6 +24,7 @@ import {
 } from "@/features/jobs/model";
 import { JOB_MARKETS } from "@/lib/sync/entities";
 import { cn } from "@/lib/cn";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 type Role = CareerProfileFields["experience"][number];
 
@@ -689,7 +690,7 @@ function PasteCv({ onClose, onDraft }: { onClose: () => void; onDraft: (d: Caree
             Cancel
           </Button>
           <Button
-            icon={<Sparkles className="size-4" />}
+            icon={<CoachIcon mono className="size-4" />}
             loading={busy}
             disabled={text.trim().length < 40}
             onClick={async () => {

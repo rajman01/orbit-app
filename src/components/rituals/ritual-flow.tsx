@@ -3,7 +3,7 @@
 import type { QuarterRef } from "@/features/quarters/model";
 import { QuarterlyPlanFlow } from "./quarterly-plan";
 import { QuarterlyReviewFlow } from "./quarterly-review";
-import { ArrowLeft, Sparkles, X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { AnimatePresence, motion, type PanInfo } from "motion/react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSync } from "@/components/app/sync-provider";
@@ -20,6 +20,7 @@ import { Dialog as D } from "radix-ui";
 import { CycleReviewFlow } from "./cycle-review";
 import { DailyPlanFlow } from "./daily-plan";
 import { DailyShutdownFlow } from "./daily-shutdown";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 /** AI-6: running a ritual as a conversation instead of the step-by-step flow. */
 const COACH_PROMPTS = {
@@ -227,7 +228,7 @@ export function RitualShell({
           }}
           className="flex h-9 items-center gap-1.5 rounded-full px-3 text-footnote font-semibold text-accent-text hover:bg-accent-fill"
         >
-          <Sparkles className="size-4" aria-hidden /> With coach
+          <CoachIcon className="size-4" /> With coach
         </button>
         <button
           type="button"

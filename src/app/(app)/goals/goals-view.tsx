@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Sparkles, Target } from "lucide-react";
+import { Plus, Target } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
@@ -17,6 +17,7 @@ import { goalProgress, needsNextStep, suggestHealth, type Goal } from "@/feature
 import { compareTasks, isOpen } from "@/features/tasks/model";
 import { useToday } from "@/features/use-today";
 import { dayOf } from "@/lib/dates";
+import { CoachIcon } from "@/components/coach/coach-icon";
 
 type Tab = "active" | "completed" | "dropped";
 
@@ -67,7 +68,7 @@ export function GoalsView() {
           <span className="flex items-center gap-2">
             <Button
               variant="secondary"
-              icon={<Sparkles className="size-4" />}
+              icon={<CoachIcon className="size-4" />}
               onClick={() =>
                 askCoach(
                   "I'd like to turn an ambition into a plan. Ask me what I want to achieve and by when, then propose a plan.",
