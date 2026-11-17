@@ -45,6 +45,11 @@ export async function POST(request: Request) {
     ok: true,
     id: res.id,
     title: res.title,
-    message: res.status === "inbox" ? `Added to your Inbox: ${res.title}` : `Added: ${res.title}`,
+    message:
+      res.status === "money"
+        ? `Logged: ${res.title}`
+        : res.status === "inbox"
+          ? `Added to your Inbox: ${res.title}`
+          : `Added: ${res.title}`,
   });
 }

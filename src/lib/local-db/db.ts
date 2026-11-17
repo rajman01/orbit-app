@@ -97,5 +97,16 @@ export function openLocalDb(userId: string): OrbitDB {
     tasks:
       "id, status, order, deletedAt, serverVersion, goalId, areaId, parentTaskId, milestoneId, dueDate, scheduledDate, personId, skillId, learningItemId",
   });
+  // Phase 5A: money.
+  db.version(19).stores({
+    accounts: "id, order",
+    categories: "id, kind, order",
+    transactions: "id, date, accountId, categoryId, potId, debtId, recurrenceParentId",
+    budgets: "id, month, categoryId",
+    savingsPots: "id, goalId, order",
+    debts: "id, goalId, personId, order",
+    holdings: "id, order",
+    holdingValues: "id, holdingId, month",
+  });
   return db;
 }

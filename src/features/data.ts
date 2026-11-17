@@ -374,3 +374,41 @@ export function useJobPostings(): JobPostingDoc[] | undefined {
     [db],
   );
 }
+
+// ------------------------------------------------------------ money (Phase 5)
+
+export type AccountDoc = SyncedDoc<"accounts">;
+export type CategoryDoc = SyncedDoc<"categories">;
+export type TransactionDoc = SyncedDoc<"transactions">;
+
+export function useAccounts(opts: { includeArchived?: boolean } = {}): AccountDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () =>
+      live(await db.accounts.toArray())
+        .filter((a) => opts.includeArchived || a.archivedAt == null)
+        .sort((a, b) => a.order - b.order),
+    [db, opts.includeArchived],
+  );
+}
+
+export function useCategories(opts: { includeArchived?: boolean } = {}): CategoryDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () =>
+      live(await db.categories.toArray())
+        .filter((c) => opts.includeArchived || c.archivedAt == null)
+        .sort((a, b) => a.order - b.order),
+    [db, opts.includeArchived],
+  );
+}
+
+/** Every transaction, newest first (the ledger is small: a few thousand rows at most). */
+export function useTransactions(): TransactionDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () =>
+      live(await db.transactions.toArray()).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt),
+    [db],
+  );
+}

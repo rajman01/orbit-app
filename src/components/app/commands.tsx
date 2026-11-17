@@ -29,6 +29,7 @@ import {
   BookOpen,
   Briefcase,
   GraduationCap,
+  Wallet,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
@@ -42,9 +43,11 @@ import { Kbd } from "@/components/ui/pill";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
-import { useAllTasks, useAreas, useGoals, usePeople, useSavedViews, useSettings } from "@/features/data";
+import { useAllTasks, useAreas, useCategories, useGoals, usePeople, useSavedViews, useSettings } from "@/features/data";
 import { PersonAvatar } from "@/components/people/avatar";
 import { parseQuickAdd, type QuickAddToken } from "@/features/quick-add/parse";
+import { formatMoney } from "@/features/money/model";
+import { parseMoney } from "@/features/money/parse";
 import { isOpen, taskCode, type TaskFields } from "@/features/tasks/model";
 import { cn } from "@/lib/cn";
 import { useOrbitMotion } from "@/lib/motion/useOrbitMotion";
@@ -214,7 +217,7 @@ function QuickAddPanel({
 }) {
   const actions = useActions();
   const toast = useToast();
-  const { timezone } = useSettings();
+  const { timezone, currency = "USD" } = useSettings();
   const areasRaw = useAreas();
   const goalsRaw = useGoals();
   const areas = useMemo(() => areasRaw ?? [], [areasRaw]);
@@ -227,8 +230,30 @@ function QuickAddPanel({
   const [count, setCount] = useState(0);
   const router = useRouter();
   const parsed = useMemo(() => parseQuickAdd(text, { areas, goals, timezone }), [text, areas, goals, timezone]);
+  const categoriesRaw = useCategories();
+  const money = useMemo(
+    () => parseMoney(text, { currency, categories: categoriesRaw ?? [], timezone }),
+    [text, currency, categoriesRaw, timezone],
+  );
 
   const save = async (keepOpen: boolean) => {
+    if (money) {
+      // "spent 12.50 lunch": money, not a task (5A).
+      await actions.createTransaction({
+        kind: money.kind,
+        amount: money.amount,
+        categoryId: money.categoryId,
+        note: money.note,
+        ...(money.date ? { date: money.date } : {}),
+      });
+      setText("");
+      setCount((c) => c + 1);
+      if (!keepOpen) {
+        onClose();
+        toast({ message: money.kind === "income" ? "Income logged" : "Spending logged" });
+      }
+      return;
+    }
     if (!parsed.title) return;
     const goal = goals.find((g) => g.id === (parsed.goalId ?? defaults.goalId));
     const areaId = parsed.areaId ?? defaults.areaId ?? goal?.areaId ?? null;
@@ -280,30 +305,40 @@ function QuickAddPanel({
         className="h-12 w-full bg-transparent text-title3 font-normal outline-none placeholder:text-label-tertiary"
       />
       <div className="flex min-h-6 flex-wrap items-center gap-1.5">
-        {parsed.tokens.map((t) => (
-          <span
-            key={t.kind}
-            className={cn("inline-flex h-6 items-center gap-1 rounded-sm px-2 text-caption", TOKEN_TONE[t.kind])}
-          >
-            {t.kind === "area" ? (
-              <AreaIcon
-                icon={areas.find((a) => a.name === t.label)?.icon}
-                color={areas.find((a) => a.name === t.label)?.color}
-                className="size-3"
-              />
-            ) : null}
-            {t.kind === "goal" ? <Target className="size-3" /> : null}
-            {t.label}
-            <button
-              type="button"
-              aria-label={`Remove ${t.label}`}
-              onClick={() => setText((v) => v.replace(t.text, "").replace(/\s+/g, " ").trim())}
-            >
-              <X className="size-3" />
-            </button>
+        {money ? (
+          <span className="inline-flex h-6 items-center gap-1 rounded-sm bg-[color-mix(in_srgb,var(--success)_14%,transparent)] px-2 text-caption text-success-text">
+            <Wallet className="size-3" aria-hidden />
+            {money.kind === "income" ? "Received" : "Spent"} {formatMoney(money.amount, currency)}
+            {money.categoryLabel ? ` · ${money.categoryLabel}` : ""}
+            {money.date ? ` · ${money.date}` : ""}
           </span>
-        ))}
-        {text.trim().length > 60 ? (
+        ) : null}
+        {money
+          ? null
+          : parsed.tokens.map((t) => (
+              <span
+                key={t.kind}
+                className={cn("inline-flex h-6 items-center gap-1 rounded-sm px-2 text-caption", TOKEN_TONE[t.kind])}
+              >
+                {t.kind === "area" ? (
+                  <AreaIcon
+                    icon={areas.find((a) => a.name === t.label)?.icon}
+                    color={areas.find((a) => a.name === t.label)?.color}
+                    className="size-3"
+                  />
+                ) : null}
+                {t.kind === "goal" ? <Target className="size-3" /> : null}
+                {t.label}
+                <button
+                  type="button"
+                  aria-label={`Remove ${t.label}`}
+                  onClick={() => setText((v) => v.replace(t.text, "").replace(/\s+/g, " ").trim())}
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            ))}
+        {text.trim().length > 60 && !money ? (
           <button
             type="button"
             onClick={() => {
@@ -315,7 +350,7 @@ function QuickAddPanel({
             <CoachIcon className="size-3" /> Several things? Let the coach sort it
           </button>
         ) : null}
-        {!parsed.tokens.length && text.trim().length <= 60 ? (
+        {!money && !parsed.tokens.length && text.trim().length <= 60 ? (
           <span className="text-footnote text-label-tertiary">
             Try <Kbd>tomorrow</Kbd> <Kbd>!1</Kbd> <Kbd>#area</Kbd> <Kbd>+goal</Kbd>
           </span>
@@ -325,7 +360,7 @@ function QuickAddPanel({
         <span>{count ? `${count} added · ` : ""}Enter adds another · ⌘Enter adds and closes</span>
         <button
           type="submit"
-          disabled={!parsed.title}
+          disabled={!parsed.title && !money}
           className="h-8 rounded-full bg-accent px-4 font-semibold text-on-accent disabled:opacity-40"
         >
           Add

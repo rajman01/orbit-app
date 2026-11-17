@@ -4,6 +4,9 @@ import { ulid } from "ulid";
 import { defaultSettings, settingsId } from "@/features/settings/model";
 import { parseQuickAdd } from "@/features/quick-add/parse";
 import { newTaskFields } from "@/features/tasks/model";
+import { formatMoney, newTransactionFields } from "@/features/money/model";
+import { parseMoney } from "@/features/money/parse";
+import { today } from "@/lib/dates";
 import { applyMutations } from "@/lib/sync/server";
 
 /**
@@ -15,7 +18,7 @@ export async function capture(db: Db, userId: string, input: { text: string; not
   const text = input.text.replace(/\s+/g, " ").trim().slice(0, 500);
   if (!text) return { ok: false as const, error: "Nothing to capture" };
   const live = { userId, deletedAt: null };
-  const [settings, areas, goals] = await Promise.all([
+  const [settings, areas, goals, categories] = await Promise.all([
     db.collection("settings").findOne({ _id: settingsId(userId) as never, deletedAt: null }),
     db
       .collection("areas")
@@ -25,8 +28,44 @@ export async function capture(db: Db, userId: string, input: { text: string; not
       .collection("goals")
       .find({ ...live, status: { $in: ["active", "planned"] } })
       .toArray(),
+    db
+      .collection("categories")
+      .find({ ...live, archivedAt: null })
+      .toArray(),
   ]);
   const timezone = (settings?.timezone as string | undefined) ?? defaultSettings().timezone;
+  const currency = (settings?.currency as string | undefined) ?? "USD";
+
+  // "spent 12.50 lunch" is money, not a task (5A).
+  const money = parseMoney(text, {
+    currency,
+    categories: categories.map((c) => ({
+      id: String(c._id),
+      name: String(c.name),
+      kind: c.kind as "expense" | "income",
+    })),
+    timezone,
+    now: new Date(now),
+  });
+  if (money) {
+    const id = ulid();
+    const fields = newTransactionFields({
+      kind: money.kind,
+      amount: money.amount,
+      categoryId: money.categoryId,
+      note: money.note,
+      date: money.date ?? today(timezone, now),
+      createdBy: "capture",
+    });
+    const res = await applyMutations(db, userId, [
+      { mutationId: ulid(), entity: "transactions", entityId: id, op: "upsert", fields, clientTime: now },
+    ]);
+    if (res.rejected.length) return { ok: false as const, error: res.rejected[0].reason };
+    const title = `${money.kind === "income" ? "Received" : "Spent"} ${formatMoney(money.amount, currency)}${
+      money.categoryLabel ? ` · ${money.categoryLabel}` : money.note ? ` · ${money.note}` : ""
+    }`;
+    return { ok: true as const, id, title, status: "money" as const, dueDate: null };
+  }
   const parsed = parseQuickAdd(text, {
     areas: areas.map((a) => ({ id: String(a._id), name: String(a.name) })),
     goals: goals.map((g) => ({ id: String(g._id), title: String(g.title) })),

@@ -57,6 +57,16 @@ import {
   type RoutineFields,
 } from "./routines/model";
 import { newlyUnblocked, wouldLoop } from "./tasks/links";
+import {
+  CATEGORY_PRESETS,
+  newAccountFields,
+  newCategoryFields,
+  newTransactionFields,
+  presetCategoryId,
+  type AccountFields,
+  type CategoryFields,
+  type TransactionFields,
+} from "./money/model";
 import { subjectThreadId, type CoachSubject } from "./coach/subject";
 import {
   learningPatch,
@@ -1426,6 +1436,51 @@ export function createActions(engine: SyncEngine, userId: string) {
       }
       await engine.remove("tasks", task.id);
     },
+
+    // ------------------------------------------------------------ money (Phase 5)
+
+    /** The default categories, created once per account with fixed ids (so devices never make two sets). */
+    async ensureDefaultCategories() {
+      const existing = await db.categories.count();
+      if (existing) return;
+      for (const [i, p] of CATEGORY_PRESETS.entries()) {
+        await engine.create(
+          "categories",
+          { name: p.name, icon: p.icon, color: p.color, kind: p.kind, archivedAt: null, order: i },
+          presetCategoryId(userId, p.slug),
+        );
+      }
+    },
+    createCategory: (fields: Partial<CategoryFields> & { name: string }) =>
+      engine.create("categories", newCategoryFields(fields)),
+    updateCategory: (id: string, patch: Partial<CategoryFields>) => engine.update("categories", id, patch),
+    archiveCategory: (id: string, archived: boolean) =>
+      engine.update("categories", id, { archivedAt: archived ? now() : null }),
+
+    async createAccount(fields: Partial<AccountFields> & { name: string }) {
+      const s = await settings();
+      return engine.create("accounts", newAccountFields({ openingDate: today(s.timezone), ...fields }));
+    },
+    updateAccount: (id: string, patch: Partial<AccountFields>) => engine.update("accounts", id, patch),
+    archiveAccount: (id: string, archived: boolean) =>
+      engine.update("accounts", id, { archivedAt: archived ? now() : null }),
+    /** Deleting an account keeps its transactions, which just lose their account. */
+    async deleteAccount(id: string) {
+      for (const t of await db.transactions.where("accountId").equals(id).toArray()) {
+        if (!t.deletedAt) await engine.update("transactions", t.id, { accountId: null });
+      }
+      for (const t of await db.transactions.toArray()) {
+        if (!t.deletedAt && t.toAccountId === id) await engine.update("transactions", t.id, { toAccountId: null });
+      }
+      await engine.remove("accounts", id);
+    },
+
+    async createTransaction(fields: Partial<TransactionFields> & { amount: number }) {
+      const s = await settings();
+      return engine.create("transactions", newTransactionFields({ date: today(s.timezone), ...fields }));
+    },
+    updateTransaction: (id: string, patch: Partial<TransactionFields>) => engine.update("transactions", id, patch),
+    deleteTransaction: (id: string) => engine.remove("transactions", id),
   };
   return actions;
 }

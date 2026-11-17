@@ -21,6 +21,7 @@ import {
   Sun,
   Target,
   Users,
+  Wallet,
 } from "lucide-react";
 import { CoachIcon } from "@/components/coach/coach-icon";
 
@@ -38,6 +39,7 @@ export const NAV_MAIN = [
   { href: "/vision", label: "Vision", icon: Telescope, group: 1 },
   { href: "/habits", label: "Habits", icon: Repeat, group: 1 },
   { href: "/people", label: "People", icon: Users, group: 1 },
+  { href: "/money", label: "Money", icon: Wallet, group: 1 },
   { href: "/skills", label: "Skills", icon: GraduationCap, group: 2 },
   { href: "/learning", label: "Learning", icon: BookOpen, group: 2 },
   { href: "/jobs", label: "Job search", icon: Briefcase, group: 2 },
@@ -54,6 +56,7 @@ export const NAV_MORE = [
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/habits", label: "Habits", icon: Repeat },
   { href: "/people", label: "People", icon: Users },
+  { href: "/money", label: "Money", icon: Wallet },
   { href: "/jobs", label: "Job search", icon: Briefcase },
   { href: "/skills", label: "Skills", icon: GraduationCap },
   { href: "/learning", label: "Learning", icon: BookOpen },

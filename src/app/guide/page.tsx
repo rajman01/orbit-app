@@ -31,6 +31,7 @@ const SECTIONS: TocItem[] = [
   { id: "coach", title: "The coach" },
   { id: "calendar", title: "Calendar" },
   { id: "people", title: "People" },
+  { id: "money", title: "Money" },
   { id: "career", title: "Career: skills, learning, jobs" },
   { id: "reflect", title: "Journal and wins" },
   { id: "progress", title: "Insights, reports and levels" },
@@ -594,6 +595,34 @@ export default function GuidePage() {
                 <li>Reminders a week and a day before birthdays and other dates.</li>
                 <li>
                   Keep <b>gift ideas</b> and <b>things to remember</b> about each person.
+                </li>
+              </ul>
+            </Section>
+
+            <Section id="money" title="Money">
+              <p>
+                One place for what comes in and goes out, in the currency you pick in Settings. Everything is logged by
+                you: there is no bank connection, so it works offline and nothing about your accounts leaves your
+                devices except through Orbit&rsquo;s own sync.
+              </p>
+              <ul>
+                <li>
+                  <b>Log it fast.</b> Press <b>Log</b> on the Money page: an amount, a category, a note, the day. Or
+                  type it anywhere Quick Add works: &ldquo;spent 12.50 lunch&rdquo;, &ldquo;paid 3000 rent
+                  #housing&rdquo;, &ldquo;+250000 salary&rdquo;, &ldquo;got 40 from Ada yesterday&rdquo;. The same words
+                  work in the iOS Shortcut.
+                </li>
+                <li>
+                  <b>Overview:</b> this month&rsquo;s money in, out and what&rsquo;s left, where it went by category,
+                  and the latest entries. Step back a month with the arrows.
+                </li>
+                <li>
+                  <b>Accounts</b> are optional: add your bank, cash and cards with today&rsquo;s balance, and each one
+                  tracks what went through it. Transfers move money between them.
+                </li>
+                <li>
+                  <b>Coming next:</b> budgets with pace, recurring bills and income, savings pots tied to goals, debts
+                  with a payoff plan, and investments with daily prices.
                 </li>
               </ul>
             </Section>

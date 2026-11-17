@@ -1,0 +1,96 @@
+import { expect, request, test } from "@playwright/test";
+import { run, waitForSynced } from "./helpers";
+
+test.use({ storageState: "test-results/.auth.json" });
+
+/** Phase 5A: the ledger. The shared test account keeps its money between runs, so rows carry a run id. */
+
+test("money is logged from the Money page and Quick Add, shown by month, edited and deleted", async ({ page }) => {
+  const r = run();
+  await page.goto("/money");
+  await waitForSynced(page);
+
+  // From the page: amount, category, note.
+  await page.getByRole("button", { name: "Log", exact: true }).click();
+  const form = page.getByRole("dialog", { name: "Log money" });
+  await form.getByRole("textbox", { name: "Amount" }).fill("12.50");
+  await form.getByRole("radio", { name: "Food & drink" }).click();
+  await form.getByRole("textbox", { name: "Note" }).fill(`Lunch ${r}`);
+  await form.getByRole("button", { name: "Log it" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Spending logged" })).toBeVisible();
+  const lunch = page.getByRole("button", { name: `Open Lunch ${r}` });
+  await expect(lunch).toBeVisible();
+  await expect(lunch).toContainText("-$12.50");
+  await expect(lunch).toContainText("Food & drink");
+  await expect(page.getByRole("list", { name: "Spending by category" })).toContainText("Food & drink");
+
+  // From Quick Add: "got 40 from Ada" is money, not a task.
+  await page.getByRole("button", { name: "New task" }).first().click();
+  const quick = page.getByRole("dialog", { name: "New task" });
+  const input = quick.getByRole("textbox", { name: "New task" });
+  await input.fill(`got 40 from Ada ${r}`);
+  await expect(quick).toContainText("Received $40.00");
+  await input.press("Enter");
+  await input.press("Escape");
+  const ada = page.getByRole("button", { name: `Open Ada ${r}` });
+  await expect(ada).toBeVisible();
+  await expect(ada).toContainText("+$40.00");
+
+  // The Transactions tab lists the month; the previous month doesn't have them.
+  await page.getByRole("radio", { name: "Transactions" }).click();
+  await expect(page.getByRole("button", { name: `Open Ada ${r}` })).toBeVisible();
+  await page.getByRole("button", { name: "Previous month" }).click();
+  await expect(page.getByRole("button", { name: `Open Ada ${r}` })).toHaveCount(0);
+  await page.getByRole("button", { name: "Next month" }).click();
+
+  // Edited, then deleted.
+  await page.getByRole("button", { name: `Open Lunch ${r}` }).click();
+  const edit = page.getByRole("dialog", { name: "Edit transaction" });
+  await edit.getByRole("textbox", { name: "Note" }).fill(`Lunch with Ada ${r}`);
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("button", { name: `Open Lunch with Ada ${r}` })).toBeVisible();
+  await page.getByRole("button", { name: `Open Lunch with Ada ${r}` }).click();
+  await edit.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByRole("button", { name: `Open Lunch with Ada ${r}` })).toHaveCount(0);
+  await waitForSynced(page);
+});
+
+test("accounts hold a balance, and the Shortcut logs money from outside", async ({ page, baseURL }, info) => {
+  test.skip(info.project.name === "phone", "the same page; the API needs one run");
+  const r = run();
+  await page.goto("/money?tab=accounts");
+  await waitForSynced(page);
+  await page.getByRole("button", { name: "New account" }).click();
+  const form = page.getByRole("dialog", { name: "New account" });
+  await form.getByRole("textbox", { name: "Name" }).fill(`Cash ${r}`);
+  await form.getByRole("radio", { name: "cash" }).click();
+  await form.getByRole("textbox", { name: /Balance today/ }).fill("100");
+  await form.getByRole("button", { name: "Add account" }).click();
+  const row = page.getByRole("listitem").filter({ hasText: `Cash ${r}` });
+  await expect(row).toContainText("$100.00");
+
+  // Spending from that account lowers it.
+  await page.getByRole("button", { name: "Log", exact: true }).click();
+  const log = page.getByRole("dialog", { name: "Log money" });
+  await log.getByRole("textbox", { name: "Amount" }).fill("30");
+  await log.getByRole("button", { name: "Account" }).click();
+  await page.getByRole("menuitem", { name: `Cash ${r}` }).click();
+  await log.getByRole("button", { name: "Log it" }).click();
+  await expect(row).toContainText("$70.00");
+  await waitForSynced(page);
+
+  // As the iOS Shortcut would, with a token and no cookies.
+  await page.goto("/capture");
+  await page.getByRole("textbox", { name: "Token name" }).fill(`Money ${r}`);
+  await page.getByRole("button", { name: "New token" }).click();
+  const token = (await page.getByLabel("New token").textContent())!.trim();
+  const api = await request.newContext({ baseURL });
+  const res = await api.post("/api/capture", {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { text: `spent 7.5 taxi ${r}` },
+  });
+  expect(res.status()).toBe(200);
+  expect(await res.json()).toMatchObject({ ok: true, message: `Logged: Spent $7.50 · taxi ${r}` });
+  await page.goto("/money?tab=transactions");
+  await expect(page.getByRole("button", { name: `Open taxi ${r}` })).toBeVisible({ timeout: 20_000 });
+});

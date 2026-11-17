@@ -95,6 +95,16 @@ export type TailoredCv = z.infer<typeof tailoredCvSchema>;
 /** Phase 3H: what a focused coach conversation can be about. */
 export const COACH_SUBJECT_KINDS = ["goal", "task", "job", "course"] as const;
 
+/** Phase 5 (Money). */
+export const ACCOUNT_TYPES = ["cash", "bank", "card", "savings", "investment", "other"] as const;
+export const CATEGORY_KINDS = ["expense", "income"] as const;
+export const TRANSACTION_KINDS = ["expense", "income", "transfer"] as const;
+export const DEBT_KINDS = ["loan", "card", "bnpl", "person", "other"] as const;
+export const HOLDING_TYPES = ["stock", "etf", "crypto", "cash", "property", "other"] as const;
+/** An amount of money in the currency's minor unit (kobo, pence, cents): an integer, never a float. */
+export const minor = z.number().int().min(0).max(1e15);
+export const currencyCode = z.string().regex(/^[A-Z]{3}$/);
+
 export const applicationPackSchema = z.object({
   cv: tailoredCvSchema,
   coverLetter: z.string().max(6000),
@@ -147,6 +157,8 @@ export const entitySchemas = {
         jobs: z.boolean().optional(),
         /** Phase 3C: routines at their reminder time. Optional for older documents. */
         routines: z.boolean().optional(),
+        /** Phase 5B: "log today's spending" at Shutdown and debt payments due. Optional for older documents. */
+        money: z.boolean().optional(),
       })
       .optional(),
     /** Phase 2A: how much the coach may do on its own (PRD §10.5). */
@@ -160,6 +172,10 @@ export const entitySchemas = {
     email: z.object({ weeklyReport: z.boolean(), reminders: z.boolean() }).optional(),
     /** Phase 3E (PWA-6): what the app icon's number counts. */
     badge: z.enum(["unread", "due", "off"]).optional(),
+    /** Phase 5A: the one currency money is kept in (D47). Optional for older documents. */
+    currency: currencyCode.optional(),
+    /** Phase 5B: the day a money month starts on (1 = calendar months). */
+    money: z.object({ monthStartDay: z.number().int().min(1).max(28) }).optional(),
     onboardingCompletedAt: ms.nullable(),
   }),
   areas: z.object({
@@ -859,6 +875,112 @@ export const entitySchemas = {
     source: z.enum(["user", "coach"]),
     archivedAt: ms.nullable(),
   }),
+  // ------------------------------------------------------------ Phase 5: Money
+  /** Where money sits: cash, a bank account, a card. Balance = opening balance + its transactions. */
+  accounts: z.object({
+    name: z.string().trim().min(1).max(60),
+    type: z.enum(ACCOUNT_TYPES),
+    openingBalance: z.number().int().min(-1e15).max(1e15),
+    openingDate: day,
+    archivedAt: ms.nullable(),
+    order: z.number(),
+  }),
+  /** Spending and income categories; a default set is seeded with deterministic ids. */
+  categories: z.object({
+    name: z.string().trim().min(1).max(40),
+    icon: z.string().max(40),
+    color: z.enum(AREA_COLORS),
+    kind: z.enum(CATEGORY_KINDS),
+    archivedAt: ms.nullable(),
+    order: z.number(),
+  }),
+  /**
+   * The single ledger (D50): expenses, income and transfers. A transfer into a pot or a payment on
+   * a debt is a transfer with potId or debtId set. Amounts are positive; the kind says the direction.
+   */
+  transactions: z.object({
+    kind: z.enum(TRANSACTION_KINDS),
+    amount: minor.min(1),
+    accountId: ref,
+    /** Transfers: where the money went (an account, or none when it went to a pot or a debt). */
+    toAccountId: ref,
+    potId: ref,
+    debtId: ref,
+    categoryId: ref,
+    date: day,
+    note: z.string().max(500),
+    goalId: ref,
+    recurrence: recurrenceSchema.nullable(),
+    recurrenceParentId: ref,
+    createdBy: z.enum(["user", "ai", "capture", "import"]),
+    /** CSV import: a hash of the source row, so importing the same file twice adds nothing. */
+    importHash: z.string().max(64).nullable(),
+  }),
+  /** A monthly limit for a category (categoryId null = everything). Id is deterministic per month and category. */
+  budgets: z.object({
+    /** YYYY-MM, or "*" for every month. */
+    month: z.string().regex(/^(\d{4}-\d{2}|\*)$/),
+    categoryId: ref,
+    amount: minor,
+  }),
+  /** Saving towards something; balance = the transfers into it minus those out (D48). */
+  savingsPots: z.object({
+    name: z.string().trim().min(1).max(60),
+    target: minor,
+    targetDate: day.nullable(),
+    goalId: ref,
+    keyResultId: ref,
+    accountId: ref,
+    note: z.string().max(2000),
+    archivedAt: ms.nullable(),
+    order: z.number(),
+  }),
+  /** Money owed (D51): by you ("owe") or to you ("owed"). Balance = principal + interest − payments. */
+  debts: z.object({
+    name: z.string().trim().min(1).max(60),
+    kind: z.enum(DEBT_KINDS),
+    direction: z.enum(["owe", "owed"]),
+    principal: minor,
+    startDate: day,
+    /** Annual interest rate in percent (simple, accrued monthly). */
+    interestRate: z.number().min(0).max(1000).nullable(),
+    minimumPayment: minor.nullable(),
+    /** Day of the month a payment is due, 1–28. */
+    dueDay: z.number().int().min(1).max(28).nullable(),
+    personId: ref,
+    goalId: ref,
+    keyResultId: ref,
+    accountId: ref,
+    note: z.string().max(2000),
+    closedAt: ms.nullable(),
+    archivedAt: ms.nullable(),
+    order: z.number(),
+  }),
+  /** Something you hold (D49): valued at quantity × price when a price is known, else by hand. */
+  holdings: z.object({
+    name: z.string().trim().min(1).max(60),
+    type: z.enum(HOLDING_TYPES),
+    /** Ticker (AAPL, VWRL.L) or coin id (bitcoin); null for things priced by hand. */
+    symbol: z.string().trim().max(40).nullable(),
+    quantity: z.number().min(0).max(1e12),
+    /** What it cost in all, in minor units of the main currency. */
+    costBasis: minor,
+    manualValue: minor.nullable(),
+    /** The last fetched price per unit, in priceCurrency's major unit, written by the server. */
+    price: z.number().min(0).nullable(),
+    priceCurrency: currencyCode.nullable(),
+    priceAt: ms.nullable(),
+    accountId: ref,
+    note: z.string().max(2000),
+    archivedAt: ms.nullable(),
+    order: z.number(),
+  }),
+  /** One value per holding per month, for the net worth chart. Id is deterministic. */
+  holdingValues: z.object({
+    holdingId: id,
+    month: month,
+    value: minor,
+  }),
 } as const;
 
 export type EntityName = keyof typeof entitySchemas;
@@ -935,4 +1057,18 @@ export const REFERENCES: Partial<Record<EntityName, Record<string, EntityName>>>
   jobPostings: { leadId: "jobLeads" },
   interactions: { personId: "people" },
   personItems: { personId: "people" },
+  transactions: {
+    accountId: "accounts",
+    toAccountId: "accounts",
+    potId: "savingsPots",
+    debtId: "debts",
+    categoryId: "categories",
+    goalId: "goals",
+    recurrenceParentId: "transactions",
+  },
+  budgets: { categoryId: "categories" },
+  savingsPots: { goalId: "goals", keyResultId: "keyResults", accountId: "accounts" },
+  debts: { personId: "people", goalId: "goals", keyResultId: "keyResults", accountId: "accounts" },
+  holdings: { accountId: "accounts" },
+  holdingValues: { holdingId: "holdings" },
 };

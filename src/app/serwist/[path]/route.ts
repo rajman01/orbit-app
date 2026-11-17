@@ -24,6 +24,7 @@ const shells = [
   "/coach",
   "/people",
   "/person",
+  "/money",
   "/quarter",
   "/vision",
   "/year",

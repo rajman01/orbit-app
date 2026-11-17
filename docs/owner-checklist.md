@@ -32,6 +32,7 @@ Every planned build step in Phases 1–3 is done (as of 2026-11-16). What's left
 - [ ] **People (2C):** someone overdue shows on Today; log a call with a follow-up and the task appears — [2C](./phases/phase-2c.md).
 - [ ] **Focused coach conversations (3H):** press Coach on a real goal, task, job lead and course; check the answers use that item's details, that what it creates lands on the item, and that the conversation is still there on your phone — [3H](./phases/phase-3.md).
 - [ ] **Goal roadmap (3I):** give a real goal a target date and dated milestones (or ask the coach to plan it); check the roadmap on your phone and computer, and drag a stop to a new date — [3I](./phases/phase-3.md).
+- [ ] **Money (5A):** pick your currency in Settings, then log a week of real spending (Log button, Quick Add, the Shortcut) and see whether the categories fit — [5A](./phases/phase-5.md).
 - [ ] **Phase 2 goal:** the coach builds a plan that shows in Orbit and your calendar, and relationship reminders arrive on your phone — [Phase 2](./phases/phase-2.md).
 
 ## Using it for real (the trial)

@@ -87,7 +87,7 @@ test("the guide: linked from the landing page, every section reachable, no sidew
   await expect(page).toHaveURL(/\/guide$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("How to use Orbit, all of it.");
   const sections = page.locator("main section[id]");
-  await expect(sections).toHaveCount(23);
+  await expect(sections).toHaveCount(24);
   // The contents list links to every section.
   const phone = test.info().project.name === "phone";
   if (phone) await page.locator("summary", { hasText: "Contents" }).click();
