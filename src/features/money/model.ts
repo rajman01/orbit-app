@@ -261,3 +261,26 @@ export function transactionLabel(
   if (t.categoryId) return lookup.category?.(t.categoryId) ?? (t.kind === "income" ? "Income" : "Spending");
   return t.kind === "income" ? "Income" : "Spending";
 }
+
+/** Money in and out for each of the last `n` months ending at `month`, oldest first (5B). */
+export function inOutByMonth(transactions: Transaction[], month: string, n = 6) {
+  const months = Array.from({ length: n }, (_, i) => addMonthsTo(month, i - (n - 1)));
+  return months.map((m) => ({ month: m, ...monthSummary(transactions, m) }));
+}
+
+/** Money in and out between two days inclusive, and the category spent on most (5B, the weekly report). */
+export function rangeSummary(transactions: Transaction[], from: Day, to: Day) {
+  let income = 0;
+  let expense = 0;
+  const byCat = new Map<string | null, number>();
+  for (const t of live(transactions)) {
+    if (t.date < from || t.date > to) continue;
+    if (t.kind === "income") income += t.amount;
+    else if (t.kind === "expense") {
+      expense += t.amount;
+      byCat.set(t.categoryId, (byCat.get(t.categoryId) ?? 0) + t.amount);
+    }
+  }
+  const top = [...byCat.entries()].sort((a, b) => b[1] - a[1])[0];
+  return { income, expense, topCategoryId: top?.[0] ?? null, topAmount: top?.[1] ?? 0 };
+}

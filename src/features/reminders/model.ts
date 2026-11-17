@@ -67,6 +67,8 @@ export function dueNotifications(opts: {
   jobsFound?: { title: string; company: string; fit: number }[];
   /** Phase 3B: job leads with a next step. */
   jobLeads?: Pick<SyncedDoc<"jobLeads">, "id" | "company" | "role" | "stage" | "nextStep" | "nextDate">[];
+  /** Phase 5B: money logged today and in the last month; null when Money isn't used. */
+  money?: { today: number; recent: number } | null;
   sent: Set<string>;
 }): Notification[] {
   const defaults = defaultSettings();
@@ -96,6 +98,22 @@ export function dueNotifications(opts: {
             : "Pick up to 3 Must-dos and give each a first step.",
         url: "/today",
         tag: "orbit-plan",
+      });
+    }
+    // 5B: at Shutdown time, a nudge to log the day's spending, for someone who uses Money.
+    if (
+      (notify.money ?? true) &&
+      opts.money &&
+      opts.money.recent > 0 &&
+      opts.money.today === 0 &&
+      within(time, times.shutdown, 2)
+    ) {
+      push({
+        key: `money:${today}`,
+        title: "Log today's spending",
+        body: "Nothing logged today. Anything spent? A few taps keeps the month honest.",
+        url: "/money?log=1",
+        tag: "orbit-money",
       });
     }
     if (notify.shutdown && within(time, times.shutdown, 2) && !done("daily_shutdown")) {

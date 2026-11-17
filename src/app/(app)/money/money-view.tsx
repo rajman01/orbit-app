@@ -11,6 +11,9 @@ import { HBars } from "@/components/insights/charts";
 import { Money, useCurrency } from "@/components/money/amount";
 import { TransactionForm } from "@/components/money/transaction-form";
 import { TransactionList } from "@/components/money/transaction-list";
+import { Budgets } from "@/components/money/budgets";
+import { InOutChart } from "@/components/money/in-out-chart";
+import { dueOccurrences, upcomingOccurrences, type DueOccurrence } from "@/features/money/recurring";
 import { SectionLabel } from "@/components/tasks/task-list";
 import { Button, IconButton } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
@@ -24,6 +27,7 @@ import {
   accountBalance,
   addMonthsTo,
   formatMoney,
+  inOutByMonth,
   monthLabel,
   monthOf,
   monthSummary,
@@ -31,11 +35,12 @@ import {
   spendByCategory,
   toMajor,
 } from "@/features/money/model";
+import { dayLabel } from "@/lib/dates";
 import { useToday } from "@/features/use-today";
 import { ACCOUNT_TYPES } from "@/lib/sync/entities";
 import { cn } from "@/lib/cn";
 
-type Tab = "overview" | "transactions" | "accounts";
+type Tab = "overview" | "transactions" | "budgets" | "accounts";
 
 /** Phase 5A: the Money page — this month at a glance, the ledger, and the accounts money sits in. */
 export function MoneyView() {
@@ -66,6 +71,7 @@ export function MoneyView() {
   };
 
   const summary = useMemo(() => monthSummary(transactions ?? [], month), [transactions, month]);
+  const due = useMemo(() => dueOccurrences(transactions ?? [], todayDay), [transactions, todayDay]);
 
   return (
     <>
@@ -88,6 +94,7 @@ export function MoneyView() {
             options={[
               { value: "overview", label: "Overview" },
               { value: "transactions", label: "Transactions" },
+              { value: "budgets", label: "Budgets" },
               { value: "accounts", label: "Accounts" },
             ]}
           />
@@ -117,6 +124,7 @@ export function MoneyView() {
           />
         ) : null}
 
+        {tab === "overview" && due.length ? <DueList due={due} /> : null}
         {tab === "overview" && transactions?.length ? (
           <Overview
             transactions={transactions}
@@ -130,6 +138,7 @@ export function MoneyView() {
         {tab === "transactions" && transactions?.length ? (
           <MonthTransactions transactions={transactions} month={month} todayDay={todayDay} onOpen={setEditing} />
         ) : null}
+        {tab === "budgets" ? <Budgets transactions={transactions ?? []} month={month} todayDay={todayDay} /> : null}
         {tab === "accounts" ? <Accounts transactions={transactions ?? []} /> : null}
       </PageBody>
 
@@ -184,6 +193,9 @@ function Overview({
           />
         </>
       ) : null}
+      <Upcoming transactions={transactions} todayDay={todayDay} />
+      <SectionLabel>Last six months</SectionLabel>
+      <InOutChart rows={inOutByMonth(transactions, month)} label="Money in and out by month" />
       {inMonth.length ? (
         <>
           <div className="mt-6 mb-1 flex items-center justify-between">
@@ -199,6 +211,56 @@ function Overview({
       ) : (
         <p className="mt-6 text-callout text-label-secondary">Nothing logged in {monthLabel(month)}.</p>
       )}
+    </>
+  );
+}
+
+/** 5B: recurring entries that have come round; nothing is logged until confirmed. */
+function DueList({ due }: { due: DueOccurrence[] }) {
+  const actions = useActions();
+  const todayDay = useToday();
+  const categories = useCategories({ includeArchived: true }) ?? [];
+  const label = (t: TransactionDoc) => t.note || categories.find((c) => c.id === t.categoryId)?.name || "Entry";
+  return (
+    <section aria-label="Due" className="mb-5 rounded-xl border border-separator bg-surface p-3">
+      <h2 className="mb-2 text-footnote font-semibold text-label-secondary">Due · confirm what happened</h2>
+      <ul className="flex flex-col gap-1">
+        {due.map((d) => (
+          <li key={d.id} className="flex items-center gap-3 rounded-md px-1 py-1">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-body">{label(d.template)}</span>
+              <span className="block text-footnote text-label-tertiary">
+                {dayLabel(d.date, todayDay)} · <Money minor={d.template.amount} compact />
+              </span>
+            </span>
+            <Button variant="secondary" onClick={() => void actions.confirmOccurrence(d, true)}>
+              Skip
+            </Button>
+            <Button onClick={() => void actions.confirmOccurrence(d)}>Confirm</Button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Upcoming({ transactions, todayDay }: { transactions: TransactionDoc[]; todayDay: string }) {
+  const categories = useCategories({ includeArchived: true }) ?? [];
+  const next = upcomingOccurrences(transactions, todayDay);
+  if (!next.length) return null;
+  const label = (t: TransactionDoc) => t.note || categories.find((c) => c.id === t.categoryId)?.name || "Entry";
+  return (
+    <>
+      <SectionLabel>Coming up</SectionLabel>
+      <ul className="flex flex-col" aria-label="Coming up">
+        {next.map((d) => (
+          <li key={d.id} className="flex h-9 items-center gap-3 px-2 text-callout">
+            <span className="min-w-0 flex-1 truncate">{label(d.template)}</span>
+            <span className="text-label-secondary">{dayLabel(d.date, todayDay)}</span>
+            <Money minor={d.template.kind === "income" ? d.template.amount : -d.template.amount} signed compact />
+          </li>
+        ))}
+      </ul>
     </>
   );
 }

@@ -621,8 +621,23 @@ export default function GuidePage() {
                   tracks what went through it. Transfers move money between them.
                 </li>
                 <li>
-                  <b>Coming next:</b> budgets with pace, recurring bills and income, savings pots tied to goals, debts
-                  with a payoff plan, and investments with daily prices.
+                  <b>Budgets:</b> a monthly limit per category, or for everything. The bar shows how much is used
+                  against how far through the month you are: under pace, on pace, ahead of pace, or over budget. A
+                  budget applies every month unless you set it for one month only.
+                </li>
+                <li>
+                  <b>Repeats:</b> rent, salary, subscriptions. Log one with &ldquo;Repeats: every month&rdquo; and each
+                  time it comes round it appears under <b>Due</b> on the Overview for you to confirm or skip; nothing is
+                  logged on its own. &ldquo;Coming up&rdquo; shows the next two weeks.
+                </li>
+                <li>
+                  <b>Elsewhere:</b> the week&rsquo;s spending is on the Report page and in the weekly email; Insights
+                  has where the money went and six months of in and out; and at Shutdown time Orbit can nudge you to log
+                  the day (Settings → Notifications).
+                </li>
+                <li>
+                  <b>Coming next:</b> savings pots tied to goals, debts with a payoff plan, and investments with daily
+                  prices.
                 </li>
               </ul>
             </Section>

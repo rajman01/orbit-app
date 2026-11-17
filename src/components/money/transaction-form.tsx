@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { Repeat, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { DatePicker } from "@/components/tasks/pickers";
@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
 import { useAccounts, useCategories, type TransactionDoc } from "@/features/data";
 import type { TransactionKind } from "@/features/money/model";
+import { REPEAT_OPTIONS, repeatValue } from "@/features/money/recurring";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { AmountInput } from "./amount";
@@ -68,6 +69,8 @@ function Form({
   const [toAccountId, setToAccountId] = useState<string | null>(transaction?.toAccountId ?? null);
   const [date, setDate] = useState<string>(transaction?.date ?? todayDay);
   const [note, setNote] = useState(transaction?.note ?? "");
+  const [repeat, setRepeat] = useState(repeatValue(transaction?.recurrence ?? null));
+  const isInstance = Boolean(transaction?.recurrenceParentId);
   const [busy, setBusy] = useState(false);
 
   const shown = categories.filter((c) => c.kind === (kind === "income" ? "income" : "expense"));
@@ -84,6 +87,7 @@ function Form({
       toAccountId: kind === "transfer" ? toAccountId : null,
       date,
       note: note.trim(),
+      ...(isInstance ? {} : { recurrence: REPEAT_OPTIONS.find((o) => o.value === repeat)?.rule ?? null }),
     };
     if (transaction) await actions.updateTransaction(transaction.id, fields);
     else {
@@ -182,7 +186,30 @@ function Form({
           ? accountPicker(accountId, setAccountId, kind === "transfer" ? "From account" : "Account")
           : null}
         {kind === "transfer" ? accountPicker(toAccountId, setToAccountId, "To account") : null}
+        {isInstance ? null : (
+          <Picker
+            label="Repeats"
+            value={repeat}
+            options={REPEAT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            onChange={setRepeat}
+            trigger={
+              <ChipButton aria-label="Repeats">
+                <Repeat className="size-4 text-label-secondary" strokeWidth={1.75} />
+                {repeat === "none" ? (
+                  <span className="text-label-tertiary">Repeats</span>
+                ) : (
+                  REPEAT_OPTIONS.find((o) => o.value === repeat)?.label
+                )}
+              </ChipButton>
+            }
+          />
+        )}
       </div>
+      {repeat !== "none" && !transaction ? (
+        <p className="text-footnote text-label-secondary">
+          Logged today, then shown as due each time; nothing is logged until you confirm it.
+        </p>
+      ) : null}
       <div className="flex items-center justify-between gap-2 pt-1">
         {transaction ? (
           <Button

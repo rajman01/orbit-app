@@ -125,6 +125,8 @@ export async function dueFor(db: Db, userId: string, now: number) {
     jobLeads,
     routines,
     routineRuns,
+    moneyToday,
+    moneyRecent,
     sent,
   ] = await Promise.all([
     db
@@ -173,6 +175,8 @@ export async function dueFor(db: Db, userId: string, now: number) {
       .find(live({ userId, date: today }))
       .project({ routineId: 1, date: 1, doneStepIds: 1, skippedStepIds: 1, completedAt: 1 })
       .toArray(),
+    db.collection("transactions").countDocuments(live({ userId, date: today })),
+    db.collection("transactions").countDocuments(live({ userId, date: { $gte: addDays(today, -30) } })),
     sentLog(db).find({ userId }).project({ _id: 1 }).toArray(),
   ]);
   const due: Notification[] = dueNotifications({
@@ -189,6 +193,7 @@ export async function dueFor(db: Db, userId: string, now: number) {
     jobLeads: jobLeads.map((l) => ({ ...l, id: String(l._id) })) as never,
     routines: routines.map((r) => ({ ...r, id: String(r._id) })) as never,
     routineRuns: routineRuns as never,
+    money: { today: moneyToday, recent: moneyRecent },
     // 3D.4: no morning push while the search is paused.
     jobsFound: (await jobSearchPaused(db, userId, today))
       ? []

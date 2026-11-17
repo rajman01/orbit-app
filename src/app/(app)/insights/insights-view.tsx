@@ -8,6 +8,7 @@ import { AreaIcon } from "@/components/areas/area-icon";
 import { HEALTH_LABEL, HealthDot, useAreaHealths } from "@/components/areas/area-health";
 import { BarChart, HBars, Meter, Radar } from "@/components/insights/charts";
 import { WheelRatingDialog } from "@/components/insights/wheel-rating";
+import { MoneyInsights } from "@/components/money/money-insights";
 import { SectionLabel } from "@/components/tasks/task-list";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
@@ -419,6 +420,7 @@ export function InsightsView() {
           </Card>
         ) : null}
 
+        <MoneyInsights />
         <SectionLabel>Mood and energy</SectionLabel>
         <Card
           title="On days you felt…"

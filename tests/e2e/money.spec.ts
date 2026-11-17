@@ -94,3 +94,52 @@ test("accounts hold a balance, and the Shortcut logs money from outside", async 
   await page.goto("/money?tab=transactions");
   await expect(page.getByRole("button", { name: `Open taxi ${r}` })).toBeVisible({ timeout: 20_000 });
 });
+
+test("a budget shows its pace, and a recurring entry comes back as due to confirm", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "the same components; one run");
+  const r = run();
+  await page.clock.install({ time: new Date("2026-11-17T12:00:00") });
+  await page.goto("/money?tab=budgets");
+  await waitForSynced(page);
+
+  // A budget for Transport: nothing spent yet, so it's under pace.
+  await page.getByRole("button", { name: "Transport" }).click();
+  const form = page.getByRole("dialog", { name: "Budget for Transport" });
+  await form.getByRole("textbox", { name: "Budget" }).fill("1000");
+  await form.getByRole("button", { name: "Save" }).click();
+  const row = page.getByRole("list", { name: "Budgets" }).getByRole("button", { name: /^Transport:/ });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("Under pace");
+
+  // A recurring fuel entry, dated the 1st, makes the budget move and comes round again.
+  await page.getByRole("button", { name: "Log", exact: true }).click();
+  const log = page.getByRole("dialog", { name: "Log money" });
+  await log.getByRole("textbox", { name: "Amount" }).fill("400");
+  await log.getByRole("radio", { name: "Transport" }).click();
+  await log.getByRole("textbox", { name: "Note" }).fill(`Fuel ${r}`);
+  await log.getByRole("button", { name: "Day" }).click();
+  await page.locator('input[type="date"]').fill("2026-10-01");
+  await log.getByRole("button", { name: "Repeats" }).click();
+  await page.getByRole("menuitem", { name: "Every month" }).click();
+  await log.getByRole("button", { name: "Log it" }).click();
+  await expect(log).toHaveCount(0);
+
+  // Due on the 1st of November: skip or confirm. Confirmed, it counts against the budget.
+  await page.goto("/money");
+  const due = page.getByRole("region", { name: "Due" });
+  await expect(due).toContainText(`Fuel ${r}`);
+  await due.getByRole("button", { name: "Confirm" }).click();
+  await expect(due).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Coming up" })).toContainText(`Fuel ${r}`);
+  await page.getByRole("radio", { name: "Budgets" }).click();
+  await expect(row).toContainText("₦400 of ₦1,000");
+
+  // Remove the budget so the next run starts clean.
+  await row.click();
+  await page
+    .getByRole("dialog", { name: "Budget for Transport" })
+    .getByRole("button", { name: "Remove budget" })
+    .click();
+  await expect(row).toHaveCount(0);
+  await waitForSynced(page);
+});

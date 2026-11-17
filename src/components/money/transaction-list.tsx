@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, Repeat } from "lucide-react";
 import { AreaIcon } from "@/components/areas/area-icon";
 import { useAccounts, useCategories, type TransactionDoc } from "@/features/data";
 import { transactionLabel } from "@/features/money/model";
@@ -56,7 +56,12 @@ export function TransactionList({
                       )}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-body">{label}</span>
+                      <span className="flex items-center gap-1.5 truncate text-body">
+                        {label}
+                        {t.recurrence || t.recurrenceParentId ? (
+                          <Repeat className="size-3 shrink-0 text-label-tertiary" aria-label="Repeats" />
+                        ) : null}
+                      </span>
                       {(cat && t.note) || account ? (
                         <span className="block truncate text-footnote text-label-tertiary">
                           {[cat && t.note ? cat.name : null, account].filter(Boolean).join(" · ")}

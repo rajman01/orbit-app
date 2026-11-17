@@ -412,3 +412,10 @@ export function useTransactions(): TransactionDoc[] | undefined {
     [db],
   );
 }
+
+export type BudgetDoc = SyncedDoc<"budgets">;
+
+export function useBudgets(): BudgetDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.budgets.toArray()), [db]);
+}

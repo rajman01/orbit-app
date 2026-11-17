@@ -8,6 +8,8 @@ import { currentCycle, cyclePoints } from "@/features/cycles/model";
 import {
   useAllTaskEvents,
   useAllTasks,
+  useCategories,
+  useTransactions,
   useCycles,
   useFocusSessions,
   useHabitLogs,
@@ -22,6 +24,8 @@ import { buildToday, skipReasonLabel } from "@/features/today/model";
 import { useMinuteNow, useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
 import { addDays, dayOf } from "@/lib/dates";
+import { formatMoney, rangeSummary } from "@/features/money/model";
+import { DEFAULT_CURRENCY } from "@/features/money/model";
 
 const fmt = (d: string) =>
   new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" });
@@ -42,10 +46,15 @@ export function ReportView() {
   const cycles = useCycles() ?? [];
   const [offset, setOffset] = useState(0);
   const tz = settings.timezone;
+  const transactions = useTransactions() ?? [];
+  const categories = useCategories({ includeArchived: true }) ?? [];
 
   const weekStart = addDays(weekStartOf(today, settings.weekStartDay), -7 * offset);
   const weekEnd = addDays(weekStart, 6);
   const last = weekEnd < today ? weekEnd : today;
+  const money = rangeSummary(transactions, weekStart, last);
+  const currency = settings.currency ?? DEFAULT_CURRENCY;
+  const topCategory = money.topCategoryId ? categories.find((c) => c.id === money.topCategoryId)?.name : null;
   const inWeek = (ms: number) => {
     const d = dayOf(ms, tz);
     return d >= weekStart && d <= last;
@@ -187,6 +196,16 @@ export function ReportView() {
           />
           <Stat label="Habits" value={habitRate == null ? "—" : `${Math.round(habitRate * 100)}%`} sub="of check-ins" />
           <Stat label="Stale now" value={`${stale.length}`} tone={stale.length ? "warning" : undefined} />
+          {transactions.length ? (
+            <Stat
+              label="Spent"
+              value={formatMoney(money.expense, currency, { compact: true })}
+              sub={topCategory ? `mostly ${topCategory}` : undefined}
+            />
+          ) : null}
+          {transactions.length ? (
+            <Stat label="Received" value={formatMoney(money.income, currency, { compact: true })} />
+          ) : null}
           {cyclePts && cycle ? (
             <Stat label={`Cycle ${cycle.number}`} value={`${cyclePts.done} / ${cyclePts.total} pts`} />
           ) : null}

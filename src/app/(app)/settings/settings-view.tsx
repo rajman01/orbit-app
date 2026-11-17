@@ -279,17 +279,19 @@ export function SettingsView() {
 
         <Group title="Notifications">
           <PushRow />
-          {(["plan", "shutdown", "review", "habits", "focus", "people", "jobs", "routines"] as const).map((k) => (
-            <Row key={k} label={NOTIFY_LABELS[k]}>
-              <input
-                type="checkbox"
-                aria-label={`${NOTIFY_LABELS[k]} reminders`}
-                checked={notify[k] ?? true}
-                onChange={(e) => save({ notify: { ...notify, [k]: e.target.checked } })}
-                className="size-5 accent-[var(--accent)]"
-              />
-            </Row>
-          ))}
+          {(["plan", "shutdown", "review", "habits", "focus", "people", "jobs", "routines", "money"] as const).map(
+            (k) => (
+              <Row key={k} label={NOTIFY_LABELS[k]}>
+                <input
+                  type="checkbox"
+                  aria-label={`${NOTIFY_LABELS[k]} reminders`}
+                  checked={notify[k] ?? true}
+                  onChange={(e) => save({ notify: { ...notify, [k]: e.target.checked } })}
+                  className="size-5 accent-[var(--accent)]"
+                />
+              </Row>
+            ),
+          )}
           <Row label="Weekly report by email">
             <input
               type="checkbox"
@@ -457,6 +459,7 @@ const NOTIFY_LABELS = {
   people: "Birthdays and dates",
   jobs: "Job search next steps",
   routines: "Routines",
+  money: "Log today's spending",
 } as const;
 
 /** NOT-1: turn push on for this device, with iPhone guidance (it needs Orbit on the Home Screen). */

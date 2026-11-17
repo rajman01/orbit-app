@@ -67,6 +67,8 @@ import {
   type CategoryFields,
   type TransactionFields,
 } from "./money/model";
+import { budgetId } from "./money/budgets";
+import { instanceFields, type DueOccurrence } from "./money/recurring";
 import { subjectThreadId, type CoachSubject } from "./coach/subject";
 import {
   learningPatch,
@@ -1481,6 +1483,26 @@ export function createActions(engine: SyncEngine, userId: string) {
     },
     updateTransaction: (id: string, patch: Partial<TransactionFields>) => engine.update("transactions", id, patch),
     deleteTransaction: (id: string) => engine.remove("transactions", id),
+
+    /** 5B: a recurring entry that's due: log it on its day (confirm) or make and delete it (skip). */
+    async confirmOccurrence(due: DueOccurrence, skip = false) {
+      const existing = await db.transactions.get(due.id);
+      if (existing) return;
+      await engine.create("transactions", instanceFields(due.template, due.date), due.id);
+      if (skip) await engine.remove("transactions", due.id);
+    },
+
+    /** 5B: set (or clear, with 0) the budget for a category in a month ("*" for every month). */
+    async setBudget(month: string, categoryId: string | null, amount: number) {
+      const id = budgetId(userId, month, categoryId);
+      const existing = await db.budgets.get(id);
+      if (!amount) {
+        if (existing && !existing.deletedAt) await engine.remove("budgets", id);
+        return;
+      }
+      if (existing && !existing.deletedAt) await engine.update("budgets", id, { amount });
+      else await engine.create("budgets", { month, categoryId, amount }, id);
+    },
   };
   return actions;
 }

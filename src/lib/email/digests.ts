@@ -4,6 +4,7 @@ import { startOfWeek, timeOfDay } from "@/features/cycles/model";
 import { defaultSettings } from "@/features/settings/model";
 import { skipReasonLabel } from "@/features/today/model";
 import { addDays, dayOf } from "@/lib/dates";
+import { DEFAULT_CURRENCY, formatMoney, rangeSummary, type Transaction } from "@/features/money/model";
 import { recordNotification } from "@/lib/notifications/server";
 import { claimSent, dueFor } from "@/lib/push/server";
 import { emailConfigured, layout, sendEmail } from "./send";
@@ -42,6 +43,8 @@ export interface WeekSummary {
   skips: number;
   topSkip: string | null;
   applied: number;
+  /** 5B: the week's money, when any was logged. */
+  money: { spent: string; received: string; top: string | null } | null;
 }
 
 /** What happened in a week (from..to, inclusive), from the server's copy of the data. */
@@ -53,7 +56,7 @@ export async function weekSummary(db: Db, userId: string, from: string, to: stri
     const d = dayOf(ms, tz);
     return d >= from && d <= to;
   };
-  const [tasks, sessions, xp, rituals, wins, events, leads] = await Promise.all([
+  const [tasks, sessions, xp, rituals, wins, events, leads, transactions, categories, settings] = await Promise.all([
     db
       .collection("tasks")
       .find(live({ userId, status: "done", completedAt: { $gte: start, $lt: end }, parentTaskId: null }))
@@ -82,7 +85,28 @@ export async function weekSummary(db: Db, userId: string, from: string, to: stri
       .collection("jobLeads")
       .find(live({ userId, appliedAt: { $gte: start, $lt: end } }))
       .toArray(),
+    db
+      .collection("transactions")
+      .find(live({ userId, date: { $gte: from, $lte: to } }))
+      .toArray(),
+    db.collection("categories").find(live({ userId })).project({ name: 1 }).toArray(),
+    db.collection("settings").findOne(live({ userId })),
   ]);
+  const currency = (settings?.currency as string | undefined) ?? DEFAULT_CURRENCY;
+  const money = (() => {
+    if (!transactions.length) return null;
+    const r = rangeSummary(
+      transactions.map((t) => ({ ...t, id: String(t._id) })) as unknown as Transaction[],
+      from,
+      to,
+    );
+    const topName = r.topCategoryId ? categories.find((c) => String(c._id) === r.topCategoryId)?.name : null;
+    return {
+      spent: formatMoney(r.expense, currency, { compact: true }),
+      received: formatMoney(r.income, currency, { compact: true }),
+      top: topName ? String(topName) : null,
+    };
+  })();
   const done = tasks
     .filter((t) => inWeek(t.completedAt as number))
     .sort((a, b) => (b.effort ?? 0) - (a.effort ?? 0))
@@ -110,6 +134,7 @@ export async function weekSummary(db: Db, userId: string, from: string, to: stri
     skips: skips.length,
     topSkip: top ? (skipReasonLabel(top[0]) ?? top[0]) : null,
     applied: leads.filter((l) => inWeek(l.appliedAt as number)).length,
+    money,
   };
 }
 
@@ -129,6 +154,9 @@ export function weeklyReportEmail(s: WeekSummary, to: string) {
       `Daily plan on ${s.plans} of ${s.days} days, shutdown on ${s.shutdowns}`,
       `${s.xp} XP earned`,
       ...(s.applied ? [`${s.applied} job application${s.applied === 1 ? "" : "s"} sent`] : []),
+      ...(s.money
+        ? [`Spent ${s.money.spent}, received ${s.money.received}${s.money.top ? `, mostly on ${s.money.top}` : ""}`]
+        : []),
     ],
   });
   if (s.done.length)
