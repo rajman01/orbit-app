@@ -49,8 +49,8 @@ export const NAV_MAIN = [
 ] as const;
 
 export const NAV_MORE = [
+  { href: "/goals", label: "Goals", icon: Target },
   { href: "/calendar", label: "Calendar", icon: CalendarClock },
-  { href: "/coach", label: "Coach", icon: CoachIcon },
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/habits", label: "Habits", icon: Repeat },
   { href: "/people", label: "People", icon: Users },

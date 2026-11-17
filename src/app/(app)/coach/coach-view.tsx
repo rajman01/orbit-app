@@ -90,7 +90,8 @@ function ThreadList({
   if (threads && threads.length === 0) {
     return (
       <p className="px-4 py-6 text-callout text-label-secondary">
-        No conversations yet. Start one, or press ⌘J anywhere in Orbit.
+        No conversations yet. Start one with New chat
+        <span className="max-lg:hidden">, or press ⌘J anywhere in Orbit</span>.
       </p>
     );
   }

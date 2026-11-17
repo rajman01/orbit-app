@@ -1,6 +1,6 @@
 "use client";
 
-import { Ellipsis, Inbox, ListFilter, Plus, Search, Settings, Sun, Target } from "lucide-react";
+import { Ellipsis, Inbox, ListFilter, Plus, Search, Settings, Sun } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { animate, motion, useMotionValue } from "motion/react";
 import Link from "next/link";
@@ -290,7 +290,7 @@ function TabBar() {
   const { openQuickAdd } = useCommands();
   const inbox = useInboxCount();
   const [more, setMore] = useState(false);
-  const tab = (href: string, label: string, Icon: typeof Sun, badge?: number) => {
+  const tab = (href: string, label: string, Icon: typeof Sun | typeof CoachIcon, badge?: number) => {
     const active = pathname.startsWith(href);
     return (
       <Link
@@ -333,7 +333,7 @@ function TabBar() {
             <Plus className="size-6" strokeWidth={2.25} />
           </span>
         </button>
-        {tab("/goals", "Goals", Target)}
+        {tab("/coach", "Coach", CoachIcon)}
         <button
           type="button"
           onClick={() => setMore(true)}

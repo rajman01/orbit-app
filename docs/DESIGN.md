@@ -261,7 +261,7 @@ In dark mode, depth comes mostly from lighter surfaces (`--surface` → `--surfa
 │ Content (16px gutters)   │
 │                          │
 ├──────────────────────────┤
-│ Today  Cycle  (+)  Goals  More │ ← translucent tab bar, content scrolls beneath
+│ Today  Inbox  (+)  Coach  More │ ← translucent tab bar, content scrolls beneath
 └──────────────────────────┘
 ```
 
