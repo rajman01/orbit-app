@@ -33,6 +33,7 @@ import { Pill } from "@/components/ui/pill";
 import { GoalPlanet } from "@/components/goals/goal-planet";
 import { GoalPeople } from "@/components/people/goal-people";
 import { GoalValues } from "@/components/goals/goal-values";
+import { GoalRoadmap } from "@/components/goals/goal-roadmap";
 import { GoalUpdates } from "@/components/goals/goal-updates";
 import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
@@ -257,6 +258,16 @@ function GoalDetail({ goal }: { goal: Goal }) {
         />
 
         <GoalValues goal={goal} />
+
+        <SectionLabel>Roadmap</SectionLabel>
+        <GoalRoadmap
+          goal={goal}
+          milestones={milestones}
+          tasks={tasks}
+          todayDay={todayDay}
+          createdDay={dayOf(goal.createdAt, timezone)}
+          color={area?.color ? color : "var(--accent)"}
+        />
 
         <SectionLabel count={krs.length}>Key results</SectionLabel>
         <div className="flex flex-col gap-1">

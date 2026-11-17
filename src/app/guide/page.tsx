@@ -250,6 +250,12 @@ export default function GuidePage() {
                   <b>Milestones</b> are dated checkpoints (&ldquo;CV rewritten&rdquo;). Attach tasks to them.
                 </li>
                 <li>
+                  <b>Roadmap:</b> once a goal has a target date or dated milestones, its page draws the plan as a path
+                  to the finish, with a stop for each milestone (done, up next, behind or later) and where you are
+                  today. Tap a stop for its tasks; on a computer, drag it to change its date. All your goals together
+                  are on the Year page&rsquo;s timeline (&ldquo;All goals on a timeline&rdquo; on the Goals page).
+                </li>
+                <li>
                   <b>Health</b> (on track, at risk, off track) is suggested from progress against time; you can set it
                   yourself.
                 </li>

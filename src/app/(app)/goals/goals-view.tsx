@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, Target } from "lucide-react";
+import { GanttChart, Plus, Target } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { PageBody, PageHeader } from "@/components/app/app-shell";
@@ -84,7 +85,7 @@ export function GoalsView() {
         }
       />
       <PageBody>
-        <div className="mb-5">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
           <Segmented
             label="Show"
             value={tab}
@@ -95,6 +96,12 @@ export function GoalsView() {
               { value: "dropped", label: "Dropped" },
             ]}
           />
+          <Link
+            href="/year"
+            className="flex h-8 items-center gap-1.5 rounded-full px-3 text-footnote font-semibold text-accent-text hover:bg-fill"
+          >
+            <GanttChart className="size-4" aria-hidden /> All goals on a timeline
+          </Link>
         </div>
         {goals && !shown.length ? (
           <EmptyState

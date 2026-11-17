@@ -201,6 +201,7 @@ Priority key: **P0** = required for MVP (Phase 1), **P1** = Phase 2, **P2** = Ph
 | GOAL-6 | **Rule: an active goal must have ≥1 open task.** If not, it appears in the "Needs a next step" list and in the Daily Plan ritual. | P0 |
 | GOAL-7 | Goal updates feed: status changes, KR check-ins, completions, AI actions, user notes (like a Linear project update). | P1 |
 | GOAL-8 | Goals timeline view: Gantt-style roadmap of goals and milestones across the year, grouped by area. | P1 |
+| GOAL-10 | **Goal roadmap**: a goal's own plan drawn as a path from its start to its target date, a stop at each dated milestone showing done, up next, behind or later, and where today falls; tap a stop for its tasks, drag it to change its date. Built in Phase 3I (2026-11-17). | P1 |
 | GOAL-9 | Dropping a goal requires a short reason; dropped goals are archived and viewable. | P0 |
 
 ### 7.4 Tasks
@@ -1001,7 +1002,7 @@ The detailed plan for each phase — scope, data model changes, decisions, steps
 | [1C — Cycles and rituals](./phases/phase-1c.md) | CYC-1–5, RIT-1–5, §8.1 (rituals), §8.5, SET-4 | One full cycle planned, run and reviewed | ✅ Deployed (2026-11-12) |
 | [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | ✅ Deployed (2026-11-12) — trial running |
 | [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, QTR-1–6, RIT-7, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | 2A deployed (2026-11-14), 2B planned |
-| [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–6, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, AI-10, AI-11, email capture | Insights reflect four cycles of real data | In progress (3A–3G built 2026-11-16, 3H 2026-11-17) |
+| [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–6, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, AI-10, AI-11, GOAL-10, email capture | Insights reflect four cycles of real data | In progress (3A–3G built 2026-11-16, 3H and 3I 2026-11-17) |
 | [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |
 
 PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
@@ -1087,3 +1088,4 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 | D42 | Email to Inbox waits for the custom domain (Resend, inbound included); 3E sends the weekly report and important reminders through Postmark's free plan (100 emails a month, outbound only) | Owner choice (2026-11-16): Postmark's free plan has no inbound (Pro is about $16.50 a month); capture is already covered by the iOS Shortcut and sharing |
 | D43 | Voice input (AI-10) as Phase 3G, with the browser's own speech recognition only: a mic button that fills the text box as you speak (coach chat, brain dump), hidden where unsupported (Firefox). No audio reaches Orbit. A record-and-transcribe fallback on Orbit's server (a paid speech-to-text service) only if it proves unreliable in the installed iPhone app | Owner choice (2026-11-16): free, quick, no new processor for Orbit |
 | D44 | Focused conversations (AI-11) reuse ordinary coach conversations with a link to the item and a fixed id per item, and the item's details go in the per-turn context rather than the standing prompt (which stays cached). Long conversations are condensed by summarising the oldest part once with the light model, not by cutting it off | Owner request (2026-11-17); keeps one coach, one history and the prompt cache; an item's conversation can run for weeks |
+| D45 | The goal roadmap (GOAL-10) is drawn from what a goal already has (start and target dates, milestone dates, tasks per milestone); no new data. Stops are placed by date; a stop is "behind" when overdue, or past halfway through its stretch with less than its share of tasks done (25 points of slack) | Owner request (2026-11-17); nothing new to fill in, and a fresh stretch isn't flagged |
