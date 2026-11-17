@@ -268,7 +268,7 @@ test("the coach adds a person and the card opens them", async ({ page }) => {
   await page.goto("/coach?new=1");
   const box = page.getByRole("textbox", { name: "Message the coach" });
   await box.fill(`add them [tool:add_person {"name":"${name}","cadenceDays":30}]`);
-  await box.press("Enter");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
   const card = page.locator("[data-ai-action]").filter({ hasText: `Add “${name}” to People` });
   await expect(card).toHaveAttribute("data-ai-action", "applied", { timeout: 15_000 });
   await card.getByRole("link", { name: "View" }).click();

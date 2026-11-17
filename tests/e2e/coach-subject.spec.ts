@@ -35,7 +35,7 @@ test("a goal's own conversation: opened from the goal, focused on it, picked up 
   await expect(panel.getByText(`You said: Am I on track?`)).toBeVisible();
   const box = panel.getByRole("textbox", { name: "Message the coach" });
   await box.fill(`still here ${r}`);
-  await box.press("Enter");
+  await panel.getByRole("button", { name: "Send", exact: true }).click();
   await expect(panel.getByText(`You said: still here ${r} [about the goal “${goal}”]`)).toBeVisible({
     timeout: 15_000,
   });

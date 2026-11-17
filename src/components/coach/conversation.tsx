@@ -15,7 +15,7 @@ import {
   Briefcase,
 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSync } from "@/components/app/sync-provider";
 import { DictateButton, useDictation } from "@/components/ui/dictation";
 import { CHECKIN_MARK } from "@/features/coach/protocol";
@@ -291,6 +291,7 @@ function Composer({
       void onSend(t);
     }
   }, [busy, onSend]);
+  const touch = useTouchKeyboard();
   const submit = () => {
     if (!text.trim() || queued.current) return;
     dictation.stop();
@@ -313,8 +314,10 @@ function Composer({
           rows={1}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          enterKeyHint={touch ? "enter" : "send"}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            // On a phone, Return starts a new line (the arrow sends); with a keyboard, Enter sends.
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !touch) {
               e.preventDefault();
               submit();
             }
@@ -346,5 +349,19 @@ function Composer({
         )}
       </div>
     </form>
+  );
+}
+
+/** True on a touch phone or tablet, where the on-screen keyboard's Return should start a new line. */
+const TOUCH_QUERY = "(pointer: coarse) and (hover: none)";
+function useTouchKeyboard() {
+  return useSyncExternalStore(
+    (change) => {
+      const query = window.matchMedia(TOUCH_QUERY);
+      query.addEventListener("change", change);
+      return () => query.removeEventListener("change", change);
+    },
+    () => window.matchMedia(TOUCH_QUERY).matches,
+    () => false,
   );
 }

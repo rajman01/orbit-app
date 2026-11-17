@@ -58,7 +58,16 @@ test("the coach page lists conversations and works on a phone", async ({ page })
   await page.goto("/coach?new=1");
   const box = page.getByRole("textbox", { name: "Message the coach" });
   await box.fill(`page chat ${r}`);
-  await box.press("Enter");
+  if (test.info().project.name === "phone") {
+    // On a phone, Return starts a new line; the arrow sends.
+    await box.press("Enter");
+    await box.pressSequentially("second line");
+    await expect(box).toHaveValue(`page chat ${r}\nsecond line`);
+    await box.fill(`page chat ${r}`);
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+  } else {
+    await box.press("Enter");
+  }
   await expect(page.getByText(`You said: page chat ${r}`)).toBeVisible();
   await expect(page).toHaveURL(/\/coach\?t=/);
 
@@ -74,7 +83,7 @@ test("offline, the coach says it needs a connection", async ({ page, context }) 
   await context.setOffline(true);
   const box = page.getByRole("textbox", { name: "Message the coach" });
   await box.fill("are you there?");
-  await box.press("Enter");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "You're offline" })).toBeVisible();
   await context.setOffline(false);
 });
@@ -83,7 +92,7 @@ test("offline, the coach says it needs a connection", async ({ page, context }) 
 async function ask(page: import("@playwright/test").Page, text: string) {
   const box = page.getByRole("textbox", { name: "Message the coach" });
   await box.fill(text);
-  await box.press("Enter");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText(/^(Done:|You said:)/).last()).toBeVisible({ timeout: 15_000 });
 }
 

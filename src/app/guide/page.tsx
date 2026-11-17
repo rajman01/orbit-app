@@ -490,7 +490,8 @@ export default function GuidePage() {
               <p>
                 The coach knows your goals, tasks, habits, people and history, and can act in Orbit for you. Open it
                 from the Coach page, or press <Kbd>⌘</Kbd>
-                <Kbd>J</Kbd> on a computer for a side panel. Type, or tap the mic and talk.
+                <Kbd>J</Kbd> on a computer for a side panel. Type, or tap the mic and talk. On a phone, Return starts a
+                new line and the arrow sends; on a computer, Enter sends and Shift-Enter starts a new line.
               </p>
               <h3>Things to ask</h3>
               <ul className="quotes">
