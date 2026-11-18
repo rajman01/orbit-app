@@ -26,6 +26,8 @@ export const SUBJECT_LABEL: Record<CoachSubjectKind, string> = {
   task: "Task",
   job: "Job",
   course: "Course",
+  pot: "Savings pot",
+  debt: "Debt",
 };
 
 /** Where the item lives (tasks open in the task panel instead). */
@@ -37,6 +39,10 @@ export function subjectHref({ kind, id }: CoachSubject): string | null {
       return `/jobs/lead?id=${id}`;
     case "course":
       return `/learning/item?id=${id}`;
+    case "pot":
+      return "/money?tab=pots";
+    case "debt":
+      return "/money?tab=debts";
     case "task":
       return null;
   }
@@ -52,6 +58,12 @@ export const SUBJECT_SUGGESTIONS: Record<CoachSubjectKind, string[]> = {
     "Write a short follow-up message I can send.",
   ],
   course: ["Make me a study plan.", "I'm behind. Help me catch up.", "Quiz me on what I've covered."],
+  pot: ["Will I make the target date?", "Where could the money come from?", "I put some in today. Log it."],
+  debt: [
+    "How do I clear this fastest?",
+    "What does paying a bit more each month save?",
+    "I paid some today. Record it.",
+  ],
 };
 
 /** What the welcome says this conversation is for. */
@@ -61,4 +73,6 @@ export const SUBJECT_INTRO: Record<CoachSubjectKind, string> = {
   job: "A conversation just about this application. The coach sees the role, your fit and your pack, and helps you land it.",
   course:
     "A conversation just about this course. The coach sees your sections, plan and pace, and helps you finish it.",
+  pot: "A conversation just about this savings pot. The coach sees the balance, the target and your pace, and helps you get there.",
+  debt: "A conversation just about this debt. The coach sees what's left, the rate and the plan, and helps you clear it.",
 };

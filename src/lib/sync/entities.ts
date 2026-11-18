@@ -93,7 +93,7 @@ export const tailoredCvSchema = z.object({
 export type TailoredCv = z.infer<typeof tailoredCvSchema>;
 
 /** Phase 3H: what a focused coach conversation can be about. */
-export const COACH_SUBJECT_KINDS = ["goal", "task", "job", "course"] as const;
+export const COACH_SUBJECT_KINDS = ["goal", "task", "job", "course", "pot", "debt"] as const;
 
 /** Phase 5 (Money). */
 export const ACCOUNT_TYPES = ["cash", "bank", "card", "savings", "investment", "other"] as const;

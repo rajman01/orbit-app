@@ -42,7 +42,7 @@ export async function* fakeCoachTurn(messages: CoachMessage[]): AsyncGenerator<C
   }
   const context = [...messages].reverse().find((m) => m.role === "system");
   const contextText = (context?.content ?? []).map((b) => String(b.text ?? "")).join(" ");
-  const about = /This conversation is about one (\w+): “([^”]*)”/.exec(contextText);
+  const about = /This conversation is about one ([\w ]+?): “([^”]*)”/.exec(contextText);
   const summarised = messages.some((m) =>
     m.content.some((b) => b.type === "text" && String(b.text).startsWith("[Summary of the earlier conversation]")),
   );

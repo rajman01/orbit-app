@@ -63,7 +63,7 @@ export const COACH_TOOLS = {
     input: z.object({
       query: z.string().trim().min(1).max(100).describe("Words to look for in titles"),
       kinds: z
-        .array(z.enum(["task", "goal", "habit"]))
+        .array(z.enum(["task", "goal", "habit", "transaction", "pot", "debt"]))
         .optional()
         .describe("Limit to these kinds; all kinds when left out"),
       includeDone: z.boolean().optional().describe("Also return done and cancelled tasks"),
@@ -558,6 +558,86 @@ export const COACH_TOOLS = {
     description: "Post a short update on a goal's feed (progress, a decision, what changed), in the user's words.",
     input: z.object({ goalId: id, text: z.string().trim().min(1).max(5000) }),
   },
+  // ---- Phase 5F: money (D52: explain and show; never say what to buy or sell).
+  get_money: {
+    description:
+      "Their money this month (or a given month): in, out, left, budgets with pace, savings pots, debts, net worth and the latest entries. Amounts are in their currency's main unit.",
+    input: z.object({
+      month: z
+        .string()
+        .regex(/^\d{4}-\d{2}$/)
+        .optional()
+        .describe("YYYY-MM; this month when left out"),
+    }),
+  },
+  log_transaction: {
+    description:
+      "Log money spent or received. Amount in the main unit (12.5 = twelve and a half). Category by name when they say one.",
+    input: z.object({
+      kind: z.enum(["expense", "income"]),
+      amount: z.number().positive().max(1e12),
+      category: z.string().trim().max(40).optional().describe("A category name, e.g. Food & drink"),
+      note: z.string().trim().max(500).optional(),
+      date: day.optional().describe("Defaults to today"),
+      account: z.string().trim().max(60).optional().describe("An account name, when they say one"),
+    }),
+  },
+  set_budget: {
+    description:
+      "Set a monthly budget for a category (or overall, with no category). Amount in the main unit; 0 removes it.",
+    input: z.object({
+      category: z.string().trim().max(40).optional().describe("Leave out for the overall budget"),
+      amount: z.number().min(0).max(1e12),
+      month: z
+        .string()
+        .regex(/^\d{4}-\d{2}$/)
+        .optional()
+        .describe("For one month only; every month when left out"),
+    }),
+  },
+  contribute_to_pot: {
+    description: "Put money into a savings pot (or take it out). Amount in the main unit.",
+    input: z.object({
+      potId: id,
+      amount: z.number().positive().max(1e12),
+      out: z.boolean().optional(),
+      account: z.string().trim().max(60).optional(),
+    }),
+  },
+  add_debt: {
+    description: "Record a debt: something they owe, or money owed to them. Amounts in the main unit.",
+    input: z.object({
+      name: z.string().trim().min(1).max(60),
+      direction: z.enum(["owe", "owed"]),
+      principal: z.number().positive().max(1e12),
+      kind: z.enum(["loan", "card", "bnpl", "person", "other"]).optional(),
+      interestRate: z.number().min(0).max(1000).optional().describe("Annual %"),
+      minimumPayment: z.number().min(0).max(1e12).optional(),
+      dueDay: z.number().int().min(1).max(28).optional(),
+    }),
+  },
+  pay_debt: {
+    description: "Record a payment on a debt they owe, or money back on one owed to them. Amount in the main unit.",
+    input: z.object({
+      debtId: id,
+      amount: z.number().positive().max(1e12),
+      date: day.optional(),
+      account: z.string().trim().max(60).optional(),
+    }),
+  },
+  get_payoff_plan: {
+    description:
+      "How their debts clear at a monthly amount: the order, when each clears, the interest, and what more a month saves.",
+    input: z.object({
+      monthly: z.number().positive().max(1e12).optional().describe("Main unit; a suggestion when left out"),
+      strategy: z.enum(["avalanche", "snowball"]).optional(),
+    }),
+  },
+  get_investments: {
+    description:
+      "What they hold, what each is worth and has gained, how it's spread, and their net worth. For explaining, never for advising what to buy or sell.",
+    input: z.object({}),
+  },
 } as const;
 
 export type CoachToolName = keyof typeof COACH_TOOLS;
@@ -597,6 +677,11 @@ export const WRITE_TOOLS = new Set<CoachToolName>([
   "add_person_note",
   "log_win",
   "add_goal_update",
+  "log_transaction",
+  "set_budget",
+  "contribute_to_pot",
+  "add_debt",
+  "pay_debt",
 ]);
 
 /** More changes than this in one reply need the user's OK first (PRD §10.5). */

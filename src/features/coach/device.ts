@@ -59,6 +59,18 @@ import type { OrbitDB } from "@/lib/local-db/db";
 import { coursePace } from "@/features/career/course";
 import type { CoachMessage } from "./protocol";
 import { SUBJECT_LABEL, type CoachSubject } from "./subject";
+import { budgetStatuses, PACE_LABEL } from "@/features/money/budgets";
+import { debtState, payoffPlan, suggestedMonthly, DEBT_KIND_LABEL } from "@/features/money/debts";
+import { allocation, HOLDING_TYPE_LABEL, holdingSummary, netWorth } from "@/features/money/holdings";
+import {
+  DEFAULT_CURRENCY,
+  minorPerMajor,
+  monthOf,
+  monthSummary,
+  spendByCategory,
+  transactionLabel,
+} from "@/features/money/model";
+import { potProjection } from "@/features/money/pots";
 import { COACH_TOOLS, isCoachTool, WRITE_TOOLS } from "./tools";
 import { runWriteTool, type WriteDeps, type WriteToolName } from "./write-tools";
 
@@ -72,6 +84,7 @@ interface Deps extends WriteDeps {
 }
 
 const live = <T extends { deletedAt: number | null }>(rows: T[]) => rows.filter((r) => r.deletedAt == null);
+const major = (minor: number, currency: string) => Math.round((minor / minorPerMajor(currency)) * 100) / 100;
 
 async function loadSettings(db: OrbitDB, userId: string): Promise<Settings> {
   return { ...defaultSettings(), ...((await db.settings.get(settingsId(userId))) ?? {}) };
@@ -114,6 +127,7 @@ export async function coachContext(
     `Now: ${longDayLabel(day)} ${day}, ${timeOfDay(now, s.timezone)} (${s.timezone}).`,
     `Settings: cycles of ${s.cycleLengthDays} days, daily capacity ${s.dailyCapacityPts} pts, strictness ${s.strictness}.`,
     `Coach autonomy: ${AUTONOMY_TEXT[s.aiAutonomy ?? "act_tell"]}`,
+    ...(await moneyLine(db, s, now)),
     ...(theme ? [`Their theme for ${day.slice(0, 4)}: "${theme}".`] : []),
     ...(values.length
       ? [`Their values: ${values.map((v) => (v.description ? `${v.name} (${v.description})` : v.name)).join("; ")}.`]
@@ -136,6 +150,10 @@ const SUBJECT_LINKS: Record<CoachSubject["kind"], (id: string) => string> = {
     `Keep this lead's stage, next step and date current with save_job_lead (id ${id}); prep work can be tasks with a scheduled day. The tailored CV and letter come from "Prepare application" on the lead's page.`,
   course: (id) =>
     `Plan or re-plan it with plan_course (learningItemId ${id}); study sessions are its section tasks. Raise the linked skill's level only when they describe real growth.`,
+  pot: (id) =>
+    `Money they put in goes through contribute_to_pot (potId ${id}); the wider picture is in get_money. Saving more usually means spending less somewhere: look at their budgets and categories before suggesting where.`,
+  debt: (id) =>
+    `Payments go through pay_debt (debtId ${id}); the clearing order and timing come from get_payoff_plan. Explain interest and the plan plainly; never advise borrowing to invest or similar.`,
 };
 
 /**
@@ -226,6 +244,64 @@ async function subjectFacts(
               }
             : "None yet (Prepare application on the lead's page makes one).",
           theirHeadline: profile && !profile.deletedAt ? profile.headline || undefined : undefined,
+        },
+      };
+    }
+    case "pot": {
+      const p = await db.savingsPots.get(subject.id);
+      if (!p || p.deletedAt != null) return "has since been deleted.";
+      const s = await loadSettings(db, userId);
+      const currency = s.currency ?? DEFAULT_CURRENCY;
+      const day = todayOf(s.timezone, now);
+      const pr = potProjection(p, live(await db.transactions.toArray()), day);
+      return {
+        title: p.name,
+        details: {
+          today: day,
+          currency,
+          balance: major(pr.balance, currency),
+          target: major(p.target, currency),
+          left: major(pr.left, currency),
+          targetDate: p.targetDate ?? undefined,
+          monthlyRateLastThreeMonths: major(pr.monthlyRate, currency),
+          reachMonthAtThisRate: pr.reachMonth ?? undefined,
+          neededPerMonthForDate: pr.neededPerMonth != null ? major(pr.neededPerMonth, currency) : undefined,
+          reached: pr.done,
+          linkedGoalId: p.goalId ?? undefined,
+        },
+      };
+    }
+    case "debt": {
+      const d = await db.debts.get(subject.id);
+      if (!d || d.deletedAt != null) return "has since been deleted.";
+      const s = await loadSettings(db, userId);
+      const currency = s.currency ?? DEFAULT_CURRENCY;
+      const day = todayOf(s.timezone, now);
+      const transactions = live(await db.transactions.toArray());
+      const st = debtState(d, transactions, day);
+      const all = live(await db.debts.toArray());
+      const states = new Map(all.map((x) => [x.id, debtState(x, transactions, day)]));
+      const plan = payoffPlan(all, states, suggestedMonthly(all, states), "avalanche", monthOf(day));
+      const line = plan.lines.find((l) => l.debt.id === d.id);
+      return {
+        title: d.name,
+        details: {
+          today: day,
+          currency,
+          direction: d.direction === "owe" ? "they owe it" : "owed to them",
+          kind: DEBT_KIND_LABEL[d.kind],
+          balance: major(st.balance, currency),
+          principal: major(d.principal, currency),
+          paid: major(st.paid, currency),
+          interestSoFar: major(st.interest, currency),
+          interestRate: d.interestRate ?? undefined,
+          minimumPayment: d.minimumPayment != null ? major(d.minimumPayment, currency) : undefined,
+          nextDue: st.nextDue ?? undefined,
+          cleared: Boolean(d.closedAt) || st.balance <= 0,
+          inThePlan: line
+            ? { order: line.order, clearsBy: line.clearMonth ?? undefined, atMonthly: major(plan.monthly, currency) }
+            : undefined,
+          linkedGoalId: d.goalId ?? undefined,
         },
       };
     }
@@ -404,7 +480,7 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
       const l = s.toLowerCase();
       return words.every((w) => l.includes(w));
     };
-    const want = (k: "task" | "goal" | "habit") => !kinds || kinds.includes(k);
+    const want = (k: "task" | "goal" | "habit" | "transaction" | "pot" | "debt") => !kinds || kinds.includes(k);
     const out: Record<string, unknown>[] = [];
     if (want("task")) {
       for (const t of await allTasks(db)) {
@@ -419,6 +495,28 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
     if (want("habit")) {
       for (const h of live(await db.habits.toArray())) {
         if (h.archivedAt == null && hit(h.name)) out.push({ kind: "habit", id: h.id, name: h.name });
+      }
+    }
+    // 5F: money.
+    if (want("pot")) {
+      for (const p of live(await db.savingsPots.toArray())) {
+        if (p.archivedAt == null && hit(p.name)) out.push({ kind: "pot", id: p.id, name: p.name });
+      }
+    }
+    if (want("debt")) {
+      for (const d of live(await db.debts.toArray())) {
+        if (d.archivedAt == null && hit(d.name))
+          out.push({ kind: "debt", id: d.id, name: d.name, direction: d.direction });
+      }
+    }
+    if (want("transaction")) {
+      const cats = new Map(live(await db.categories.toArray()).map((c) => [c.id, c.name]));
+      for (const t of live(await db.transactions.toArray())
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 500)) {
+        const label = transactionLabel(t, { category: (id) => cats.get(id) });
+        if (hit(label))
+          out.push({ kind: "transaction", id: t.id, date: t.date, label, kindOfMoney: t.kind, amount: t.amount });
       }
     }
     return { matches: out.slice(0, 20), total: out.length };
@@ -659,6 +757,172 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
     };
   },
 
+  // ---- 5F: money. Amounts go to the model in the main unit (D47 keeps minor units in the ledger).
+  async get_money({ month }, { db, userId, now }) {
+    const s = await loadSettings(db, userId);
+    const currency = s.currency ?? DEFAULT_CURRENCY;
+    const day = todayOf(s.timezone, now);
+    const m = month ?? monthOf(day);
+    const [transactions, categories, budgets, pots, debts, accounts, holdings] = await Promise.all([
+      db.transactions.toArray().then(live),
+      db.categories.toArray().then(live),
+      db.budgets.toArray().then(live),
+      db.savingsPots.toArray().then((r) => live(r).filter((p) => p.archivedAt == null)),
+      db.debts.toArray().then((r) => live(r).filter((d) => d.archivedAt == null)),
+      db.accounts.toArray().then(live),
+      db.holdings.toArray().then(live),
+    ]);
+    const cat = (id: string | null) =>
+      id ? (categories.find((c) => c.id === id)?.name ?? "Uncategorised") : "Uncategorised";
+    const sum = monthSummary(transactions, m);
+    const inMonth = transactions.filter((t) => monthOf(t.date) === m);
+    return {
+      currency,
+      month: m,
+      today: day,
+      income: major(sum.income, currency),
+      spent: major(sum.expense, currency),
+      left: major(sum.net, currency),
+      spentByCategory: spendByCategory(transactions, m).map((r) => ({
+        category: cat(r.categoryId),
+        amount: major(r.amount, currency),
+      })),
+      budgets: budgetStatuses(budgets, transactions, m, day).map((b) => ({
+        category: b.categoryId ? cat(b.categoryId) : "overall",
+        limit: major(b.budget.amount, currency),
+        spent: major(b.spent, currency),
+        pace: PACE_LABEL[b.pace],
+      })),
+      pots: pots.map((p) => {
+        const pr = potProjection(p, transactions, day);
+        return {
+          id: p.id,
+          name: p.name,
+          balance: major(pr.balance, currency),
+          target: major(p.target, currency),
+          targetDate: p.targetDate ?? undefined,
+          monthlyRate: major(pr.monthlyRate, currency),
+          reachMonth: pr.reachMonth ?? undefined,
+          neededPerMonth: pr.neededPerMonth != null ? major(pr.neededPerMonth, currency) : undefined,
+          linkedGoalId: p.goalId ?? undefined,
+        };
+      }),
+      debts: debts.map((d) => {
+        const st = debtState(d, transactions, day);
+        return {
+          id: d.id,
+          name: d.name,
+          direction: d.direction,
+          kind: DEBT_KIND_LABEL[d.kind],
+          balance: major(st.balance, currency),
+          principal: major(d.principal, currency),
+          paid: major(st.paid, currency),
+          interestRate: d.interestRate ?? undefined,
+          minimumPayment: d.minimumPayment != null ? major(d.minimumPayment, currency) : undefined,
+          nextDue: st.nextDue ?? undefined,
+          cleared: Boolean(d.closedAt) || st.balance <= 0,
+        };
+      }),
+      netWorth: major(netWorth({ accounts, pots, debts, holdings, transactions }, currency, day).total, currency),
+      categories: categories.filter((c) => c.archivedAt == null).map((c) => `${c.name} (${c.kind})`),
+      recent: inMonth.slice(0, 10).map((t) => ({
+        id: t.id,
+        date: t.date,
+        kind: t.kind,
+        amount: major(t.amount, currency),
+        label: transactionLabel(t, { category: (id) => cat(id) }),
+      })),
+      note: "Amounts in the main unit of the currency. Transfers between accounts, into pots and onto debts aren't spending.",
+    };
+  },
+  async get_payoff_plan({ monthly, strategy }, { db, userId, now }) {
+    const s = await loadSettings(db, userId);
+    const currency = s.currency ?? DEFAULT_CURRENCY;
+    const day = todayOf(s.timezone, now);
+    const [transactions, debts] = await Promise.all([
+      db.transactions.toArray().then(live),
+      db.debts.toArray().then(live),
+    ]);
+    const states = new Map(debts.map((d) => [d.id, debtState(d, transactions, day)]));
+    const amount = monthly != null ? Math.round(monthly * minorPerMajor(currency)) : suggestedMonthly(debts, states);
+    const plan = payoffPlan(debts, states, amount, strategy ?? "avalanche", monthOf(day));
+    const more = payoffPlan(
+      debts,
+      states,
+      amount + Math.max(1000, Math.round(amount * 0.1)),
+      strategy ?? "avalanche",
+      monthOf(day),
+    );
+    return {
+      currency,
+      strategy: plan.strategy,
+      monthly: major(amount, currency),
+      clearsBy: plan.doneMonth ?? "never at this amount (interest outruns the payments)",
+      months: Number.isFinite(plan.months) ? plan.months : undefined,
+      totalInterest: major(plan.totalInterest, currency),
+      order: plan.lines.map((l) => ({
+        debt: l.debt.name,
+        balance: major(l.startBalance, currency),
+        rate: l.debt.interestRate ?? 0,
+        clearsBy: l.clearMonth ?? undefined,
+        interest: major(l.interest, currency),
+      })),
+      payingMore: more.doneMonth
+        ? {
+            monthly: major(more.monthly, currency),
+            clearsBy: more.doneMonth,
+            interestSaved: major(plan.totalInterest - more.totalInterest, currency),
+          }
+        : undefined,
+    };
+  },
+  async get_investments(_input, { db, userId, now }) {
+    const s = await loadSettings(db, userId);
+    const currency = s.currency ?? DEFAULT_CURRENCY;
+    const day = todayOf(s.timezone, now);
+    const [transactions, accounts, pots, debts, holdings] = await Promise.all([
+      db.transactions.toArray().then(live),
+      db.accounts.toArray().then(live),
+      db.savingsPots.toArray().then(live),
+      db.debts.toArray().then(live),
+      db.holdings.toArray().then((r) => live(r).filter((h) => h.archivedAt == null)),
+    ]);
+    const nw = netWorth({ accounts, pots, debts, holdings, transactions }, currency, day);
+    return {
+      currency,
+      holdings: holdings.map((h) => {
+        const sm = holdingSummary(h, currency);
+        return {
+          id: h.id,
+          name: h.name,
+          type: HOLDING_TYPE_LABEL[h.type],
+          symbol: h.symbol ?? undefined,
+          units: h.quantity,
+          cost: major(sm.cost, currency),
+          value: major(sm.value, currency),
+          gain: major(sm.gain, currency),
+          gainPct: sm.gainPct != null ? Math.round(sm.gainPct * 1000) / 10 : undefined,
+          priced: sm.priced
+            ? `as of ${h.priceAt ? new Date(h.priceAt).toISOString().slice(0, 10) : "?"}`
+            : "valued by hand",
+        };
+      }),
+      spread: allocation(holdings, currency).map((a) => ({
+        type: HOLDING_TYPE_LABEL[a.type],
+        value: major(a.value, currency),
+        share: Math.round(a.share * 100),
+      })),
+      netWorth: {
+        total: major(nw.total, currency),
+        accounts: major(nw.accounts, currency),
+        pots: major(nw.pots, currency),
+        holdings: major(nw.holdings, currency),
+        owedToThem: major(nw.owed, currency),
+        debts: major(nw.debts, currency),
+      },
+      note: "Explain and compare with general rules of thumb; never say what to buy or sell (D52).",
+    };
+  },
   async get_career(_input, { db, userId, now }) {
     const s = await loadSettings(db, userId);
     const day = todayOf(s.timezone, now);
@@ -971,4 +1235,22 @@ export function requestMessages(stored: CoachMessage[]): CoachMessage[] {
     const next = stored[i + 1];
     return i > 0 && stored[i - 1].role === "user" && (next === undefined || next.role === "assistant");
   });
+}
+
+/** 5F: one line about money in the per-turn context, only for someone who uses Money. */
+async function moneyLine(db: OrbitDB, s: Settings, now: number): Promise<string[]> {
+  const transactions = live(await db.transactions.toArray());
+  if (!transactions.length) return [];
+  const currency = s.currency ?? DEFAULT_CURRENCY;
+  const day = todayOf(s.timezone, now);
+  const m = monthOf(day);
+  const sum = monthSummary(transactions, m);
+  const budgets = budgetStatuses(live(await db.budgets.toArray()), transactions, m, day);
+  const cats = new Map(live(await db.categories.toArray()).map((c) => [c.id, c.name]));
+  const off = budgets
+    .filter((b) => b.pace === "over" || b.pace === "blown")
+    .map((b) => `${b.categoryId ? (cats.get(b.categoryId) ?? "?") : "overall"} ${PACE_LABEL[b.pace].toLowerCase()}`);
+  return [
+    `Money (${currency}, ${m}): in ${major(sum.income, currency)}, out ${major(sum.expense, currency)}, left ${major(sum.net, currency)}${off.length ? `; budgets: ${off.join(", ")}` : ""}. Details via get_money.`,
+  ];
 }

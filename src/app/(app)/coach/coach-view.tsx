@@ -1,7 +1,17 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { Briefcase, ChevronLeft, CircleCheck, GraduationCap, MessageSquare, SquarePen, Target } from "lucide-react";
+import {
+  Briefcase,
+  ChevronLeft,
+  CircleCheck,
+  GraduationCap,
+  HandCoins,
+  MessageSquare,
+  PiggyBank,
+  SquarePen,
+  Target,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import { SyncIndicator } from "@/components/app/sync-indicator";
@@ -133,6 +143,8 @@ const SUBJECT_ICONS: Record<CoachSubjectKind, typeof Target> = {
   task: CircleCheck,
   job: Briefcase,
   course: GraduationCap,
+  pot: PiggyBank,
+  debt: HandCoins,
 };
 
 function SubjectIcon({ kind }: { kind: CoachSubjectKind }) {

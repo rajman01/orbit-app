@@ -9,6 +9,7 @@ import type { OrbitDB } from "@/lib/local-db/db";
 import type { SyncEngine } from "@/lib/sync/engine";
 import { recordingEngine, undoChanges, type Change } from "./record";
 import { BULK_LIMIT, COACH_TOOLS } from "./tools";
+import { DEFAULT_CURRENCY, formatMoney, minorPerMajor } from "@/features/money/model";
 
 /**
  * The coach's write tools (PRD §10.2) and the rules around them (§10.5): every change is recorded
@@ -43,6 +44,11 @@ export type WriteToolName =
   | "add_person_note"
   | "log_win"
   | "add_goal_update"
+  | "log_transaction"
+  | "set_budget"
+  | "contribute_to_pot"
+  | "add_debt"
+  | "pay_debt"
   | "save_skill"
   | "save_learning_item"
   | "plan_course"
@@ -66,6 +72,25 @@ export interface WriteDeps {
 
 async function loadSettings(db: OrbitDB, userId: string): Promise<Settings> {
   return { ...defaultSettings(), ...((await db.settings.get(settingsId(userId))) ?? {}) };
+}
+
+/** 5F: the model speaks in the main unit; the ledger keeps minor units. */
+const toMinor = (major: number, s: Settings) => Math.round(major * minorPerMajor(s.currency ?? DEFAULT_CURRENCY));
+const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, "");
+async function categoryNamed(db: OrbitDB, name: string, kind: "expense" | "income") {
+  const rows = (await db.categories.toArray()).filter(
+    (c) => c.deletedAt == null && c.archivedAt == null && c.kind === kind,
+  );
+  return (
+    rows.find((c) => norm(c.name) === norm(name)) ??
+    rows.find((c) => norm(c.name).startsWith(norm(name))) ??
+    rows.find((c) => norm(c.name).includes(norm(name))) ??
+    null
+  );
+}
+async function accountNamed(db: OrbitDB, name: string) {
+  const rows = (await db.accounts.toArray()).filter((a) => a.deletedAt == null && a.archivedAt == null);
+  return rows.find((a) => norm(a.name) === norm(name)) ?? rows.find((a) => norm(a.name).includes(norm(name))) ?? null;
 }
 
 const q = (s: string | undefined | null) => `“${(s ?? "").length > 60 ? `${s!.slice(0, 57)}…` : (s ?? "")}”`;
@@ -191,6 +216,42 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       return `Log a win: ${q(i.title)}`;
     case "add_goal_update":
       return `Update on ${q(await titleOf(db, "goals", i.goalId))}`;
+    case "log_transaction": {
+      const p = input as Input<"log_transaction">;
+      const s = await loadSettings(db, userId);
+      const money = formatMoney(toMinor(p.amount, s), s.currency ?? DEFAULT_CURRENCY);
+      return `${p.kind === "income" ? "Log income" : "Log spending"}: ${money}${p.note ? ` · ${p.note}` : p.category ? ` · ${p.category}` : ""}`;
+    }
+    case "set_budget": {
+      const p = input as Input<"set_budget">;
+      const s = await loadSettings(db, userId);
+      const money = formatMoney(toMinor(p.amount, s), s.currency ?? DEFAULT_CURRENCY, { compact: true });
+      return p.amount
+        ? `Set the ${p.category ?? "overall"} budget to ${money} a month${p.month ? ` for ${p.month}` : ""}`
+        : `Remove the ${p.category ?? "overall"} budget`;
+    }
+    case "contribute_to_pot": {
+      const p = input as Input<"contribute_to_pot">;
+      const s = await loadSettings(db, userId);
+      const money = formatMoney(toMinor(p.amount, s), s.currency ?? DEFAULT_CURRENCY, { compact: true });
+      const pot = await db.savingsPots.get(p.potId);
+      return p.out ? `Take ${money} out of ${q(pot?.name)}` : `Put ${money} in ${q(pot?.name)}`;
+    }
+    case "add_debt": {
+      const p = input as Input<"add_debt">;
+      const s = await loadSettings(db, userId);
+      const money = formatMoney(toMinor(p.principal, s), s.currency ?? DEFAULT_CURRENCY, { compact: true });
+      return p.direction === "owe"
+        ? `Add a debt: ${q(p.name)} (${money})`
+        : `Record money owed to you: ${q(p.name)} (${money})`;
+    }
+    case "pay_debt": {
+      const p = input as Input<"pay_debt">;
+      const s = await loadSettings(db, userId);
+      const money = formatMoney(toMinor(p.amount, s), s.currency ?? DEFAULT_CURRENCY, { compact: true });
+      const debt = await db.debts.get(p.debtId);
+      return `Record a ${money} payment on ${q(debt?.name)}`;
+    }
     case "pause_job_search": {
       const p = input as Input<"pause_job_search">;
       if (p.resume) return "Resume the job search";
@@ -553,6 +614,68 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       await goal(p.goalId);
       await actions.addGoalUpdate(p.goalId, p.text);
       return { posted: true };
+    }
+    case "log_transaction": {
+      const p = input as Input<"log_transaction">;
+      const s = await loadSettings(db, userId);
+      // A first-time account has no categories until Money is opened: seed them before looking one up.
+      await actions.ensureDefaultCategories();
+      const category = p.category ? await categoryNamed(db, p.category, p.kind) : null;
+      if (p.category && !category)
+        throw new Error(`No category called “${p.category}”. Leave it out, or use one of theirs.`);
+      const account = p.account ? await accountNamed(db, p.account) : null;
+      if (p.account && !account) throw new Error(`No account called “${p.account}”.`);
+      const id = await actions.createTransaction({
+        kind: p.kind,
+        amount: toMinor(p.amount, s),
+        categoryId: category?.id ?? null,
+        accountId: account?.id ?? null,
+        note: p.note ?? "",
+        ...(p.date ? { date: p.date } : {}),
+        createdBy: "ai",
+      });
+      return { transactionId: id, category: category?.name ?? null };
+    }
+    case "set_budget": {
+      const p = input as Input<"set_budget">;
+      const s = await loadSettings(db, userId);
+      await actions.ensureDefaultCategories();
+      const category = p.category ? await categoryNamed(db, p.category, "expense") : null;
+      if (p.category && !category) throw new Error(`No spending category called “${p.category}”.`);
+      await actions.setBudget(p.month ?? "*", category?.id ?? null, toMinor(p.amount, s));
+      return { set: true, category: category?.name ?? "overall" };
+    }
+    case "contribute_to_pot": {
+      const p = input as Input<"contribute_to_pot">;
+      const s = await loadSettings(db, userId);
+      const pot = await db.savingsPots.get(p.potId);
+      if (!pot || pot.deletedAt != null) throw new Error("No such pot.");
+      const account = p.account ? await accountNamed(db, p.account) : null;
+      await actions.contributeToPot(pot, toMinor(p.amount, s), { out: p.out, accountId: account?.id });
+      return { pot: pot.name };
+    }
+    case "add_debt": {
+      const p = input as Input<"add_debt">;
+      const s = await loadSettings(db, userId);
+      const id = await actions.createDebt({
+        name: p.name,
+        direction: p.direction,
+        kind: p.kind ?? "loan",
+        principal: toMinor(p.principal, s),
+        interestRate: p.interestRate ?? null,
+        minimumPayment: p.minimumPayment != null ? toMinor(p.minimumPayment, s) : null,
+        dueDay: p.dueDay ?? null,
+      });
+      return { debtId: id };
+    }
+    case "pay_debt": {
+      const p = input as Input<"pay_debt">;
+      const s = await loadSettings(db, userId);
+      const debt = await db.debts.get(p.debtId);
+      if (!debt || debt.deletedAt != null) throw new Error("No such debt.");
+      const account = p.account ? await accountNamed(db, p.account) : null;
+      await actions.payDebt(debt, toMinor(p.amount, s), { accountId: account?.id, date: p.date });
+      return { debt: debt.name };
     }
     case "pause_job_search": {
       const p = input as Input<"pause_job_search">;

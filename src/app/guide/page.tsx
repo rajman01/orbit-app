@@ -663,6 +663,14 @@ export default function GuidePage() {
                   holdings, plus what&rsquo;s owed to you, minus what you owe, with a line for the last twelve months.
                   Orbit explains and shows; it never tells you what to buy or sell.
                 </li>
+                <li>
+                  <b>The coach:</b> ask &ldquo;where did my money go this month?&rdquo;, &ldquo;spent 4,500 on
+                  fuel&rdquo;, &ldquo;set my food budget to 60,000&rdquo;, &ldquo;put 20,000 in the Canada fund&rdquo;
+                  or &ldquo;how do I clear my debts fastest?&rdquo;. It reads your budgets, pots, debts and holdings,
+                  logs what you tell it (undoable, like everything it does), and explains the payoff plan. Press{" "}
+                  <b>Coach</b> on a pot or a debt for a conversation about that one thing. It explains and compares with
+                  rules of thumb; it never says what to buy or sell.
+                </li>
               </ul>
             </Section>
 

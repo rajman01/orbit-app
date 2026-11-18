@@ -352,3 +352,44 @@ test("investments: a priced crypto holding, a hand-valued property, the spread a
   }
   await waitForSynced(page);
 });
+
+test("the coach logs money and talks about a pot", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "the same panel; one run");
+  const r = run();
+  await page.goto("/coach?new=1");
+  await waitForSynced(page);
+  const box = page.getByRole("textbox", { name: "Message the coach" });
+  await box.fill(
+    `log it [tool:log_transaction {"kind":"expense","amount":12.5,"category":"food","note":"Lunch ${r}"}]`,
+  );
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  const card = page.locator("[data-ai-action]").filter({ hasText: `Log spending: ₦12.50 · Lunch ${r}` });
+  await expect(card).toHaveAttribute("data-ai-action", "applied", { timeout: 15_000 });
+  await card.getByRole("link", { name: "View" }).click();
+  await expect(page).toHaveURL(/\/money/);
+  await expect(page.getByRole("button", { name: `Open Lunch ${r}` })).toBeVisible();
+
+  // Coach on a pot: a conversation about that one pot.
+  await page.goto("/money?tab=pots");
+  await page.getByRole("button", { name: "New pot" }).click();
+  const form = page.getByRole("dialog", { name: "New savings pot" });
+  await form.getByRole("textbox", { name: "What for" }).fill(`Laptop ${r}`);
+  await form.getByRole("textbox", { name: "Target" }).fill("500000");
+  await form.getByRole("button", { name: "Add pot" }).click();
+  const pot = page.getByRole("region", { name: `Pot: Laptop ${r}` });
+  await pot.getByRole("button", { name: "Talk to the coach about this savings pot" }).click();
+  const panel = page.getByRole("dialog", { name: "Coach" });
+  await expect(panel.getByText("Savings pot", { exact: true })).toBeVisible();
+  await expect(panel).toContainText("A conversation just about this savings pot.");
+  await panel.getByRole("button", { name: "Will I make the target date?" }).click();
+  await expect(
+    panel.getByText(`You said: Will I make the target date? [about the savings pot “Laptop ${r}”]`),
+  ).toBeVisible({
+    timeout: 15_000,
+  });
+  await panel.getByRole("button", { name: "Close coach" }).click();
+  await pot.getByRole("button", { name: `More for Laptop ${r}` }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(pot).toHaveCount(0);
+  await waitForSynced(page);
+});

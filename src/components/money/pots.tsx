@@ -12,6 +12,7 @@ import { Menu, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { Modal } from "@/components/ui/modal";
 import { Picker, ChipButton } from "@/components/ui/picker";
 import { useToast } from "@/components/ui/toast";
+import { CoachAboutButton } from "@/components/coach/coach-about";
 import { useActions } from "@/features/actions";
 import {
   useAccounts,
@@ -171,6 +172,7 @@ export function PotCard({
         <Button size="default" onClick={onContribute}>
           Put money in
         </Button>
+        {compact ? null : <CoachAboutButton subject={{ kind: "pot", id: pot.id }} title={pot.name} compact />}
         {goal && !compact ? (
           <Link
             href={`/goal?id=${goal.id}`}

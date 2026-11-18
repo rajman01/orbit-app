@@ -31,7 +31,7 @@ export function useAiActions(toolUseIds: string[]): AiAction[] | undefined {
 
 /** Where "View" goes for an action: the task or goal it made or changed. */
 export function actionTarget(a: AiAction): {
-  kind: "task" | "goal" | "habits" | "cycle" | "person" | "skill" | "course" | "learning" | "jobs";
+  kind: "task" | "goal" | "habits" | "cycle" | "person" | "skill" | "course" | "learning" | "jobs" | "money";
   id?: string;
 } | null {
   const changes = a.changes as Change[];
@@ -81,6 +81,12 @@ export function actionTarget(a: AiAction): {
     case "make_lead_from_role":
     case "pause_job_search":
       return { kind: "jobs" };
+    case "log_transaction":
+    case "set_budget":
+    case "contribute_to_pot":
+    case "add_debt":
+    case "pay_debt":
+      return { kind: "money" };
     default:
       return null;
   }
@@ -174,7 +180,8 @@ function ActionRow({ action }: { action: AiAction }) {
           ) : target?.kind === "habits" ||
             target?.kind === "cycle" ||
             target?.kind === "learning" ||
-            target?.kind === "jobs" ? (
+            target?.kind === "jobs" ||
+            target?.kind === "money" ? (
             <Link href={`/${target.kind}`} className={cn(small, "text-accent-text hover:bg-accent-fill")}>
               View
             </Link>
