@@ -86,6 +86,8 @@ export function actionTarget(a: AiAction): {
     case "contribute_to_pot":
     case "add_debt":
     case "pay_debt":
+    case "set_income":
+    case "plan_month":
       return { kind: "money" };
     default:
       return null;

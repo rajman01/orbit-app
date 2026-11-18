@@ -393,3 +393,49 @@ test("the coach logs money and talks about a pot", async ({ page }, info) => {
   await expect(pot).toHaveCount(0);
   await waitForSynced(page);
 });
+
+test("the Plan tab: expected income against bills, budgets, savings and debt minimums", async ({ page }, info) => {
+  test.skip(info.project.name === "phone", "the same components; one run");
+  const r = run();
+  await page.goto("/money?tab=plan");
+  await waitForSynced(page);
+  await page.getByRole("button", { name: "Add income" }).click();
+  const form = page.getByRole("dialog", { name: "Expected income" });
+  await form.getByRole("textbox", { name: "From" }).fill(`Salary ${r}`);
+  await form.getByRole("textbox", { name: "Per month" }).fill("800000");
+  await form.getByRole("textbox", { name: /Day it lands/ }).fill("25");
+  await form.getByRole("button", { name: "Add income" }).click();
+  const income = page
+    .getByRole("list", { name: "Income" })
+    .getByRole("listitem")
+    .filter({ hasText: `Salary ${r}` });
+  await expect(income).toContainText("on the 25th");
+  await expect(income).toContainText("₦800,000");
+  const plan = page.getByRole("region", { name: "Month plan" });
+  await expect(plan).toContainText("Income ₦800,000");
+
+  // A pot with a chosen monthly amount shows under Savings and comes off what's left.
+  await page.goto("/money?tab=pots");
+  await page.getByRole("button", { name: "New pot" }).click();
+  const pot = page.getByRole("dialog", { name: "New savings pot" });
+  await pot.getByRole("textbox", { name: "What for" }).fill(`Rainy day ${r}`);
+  await pot.getByRole("textbox", { name: "Target" }).fill("300000");
+  await pot.getByRole("textbox", { name: /Put in each month/ }).fill("50000");
+  await pot.getByRole("button", { name: "Add pot" }).click();
+  await expect(page.getByRole("region", { name: `Pot: Rainy day ${r}` })).toBeVisible();
+  await waitForSynced(page);
+  await page.goto("/money?tab=plan");
+  const savings = page.getByRole("list", { name: "Savings" });
+  await expect(savings).toContainText(`Rainy day ${r}`);
+  await expect(savings.getByRole("listitem").filter({ hasText: `Rainy day ${r}` })).toContainText("chosen");
+
+  // Tidy: the income and the pot go.
+  await income.getByRole("button", { name: `Remove Salary ${r}` }).click();
+  await expect(income).toHaveCount(0);
+  await page.goto("/money?tab=pots");
+  const card = page.getByRole("region", { name: `Pot: Rainy day ${r}` });
+  await card.getByRole("button", { name: `More for Rainy day ${r}` }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(card).toHaveCount(0);
+  await waitForSynced(page);
+});

@@ -633,6 +633,30 @@ export const COACH_TOOLS = {
       strategy: z.enum(["avalanche", "snowball"]).optional(),
     }),
   },
+  set_income: {
+    description:
+      "Record expected monthly income (salary, side income): amount per month in the main unit, and the day it lands. Same name updates it; amount 0 removes it.",
+    input: z.object({
+      name: z.string().trim().min(1).max(60),
+      amount: z.number().min(0).max(1e12),
+      day: z.number().int().min(1).max(28).optional(),
+    }),
+  },
+  plan_month: {
+    description:
+      "Propose a monthly plan that fits their income: category budgets and a monthly amount for each savings pot. Always shown to them to accept. Use get_money first for their income, bills, pots and debts; leave room for the fixed costs and debt minimums, which aren't set here.",
+    input: z.object({
+      budgets: z
+        .array(z.object({ category: z.string().trim().min(1).max(40), amount: z.number().min(0).max(1e12) }))
+        .max(20)
+        .optional(),
+      pots: z
+        .array(z.object({ potId: id, monthly: z.number().min(0).max(1e12) }))
+        .max(10)
+        .optional(),
+      summary: z.string().trim().max(300).optional().describe("One line on the thinking, shown with the proposal"),
+    }),
+  },
   get_investments: {
     description:
       "What they hold, what each is worth and has gained, how it's spread, and their net worth. For explaining, never for advising what to buy or sell.",
@@ -682,6 +706,8 @@ export const WRITE_TOOLS = new Set<CoachToolName>([
   "contribute_to_pot",
   "add_debt",
   "pay_debt",
+  "set_income",
+  "plan_month",
 ]);
 
 /** More changes than this in one reply need the user's OK first (PRD §10.5). */

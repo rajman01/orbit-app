@@ -228,9 +228,10 @@ function PotFields({ pot, onDone }: { pot: PotDoc | null; onDone: () => void }) 
   const [target, setTarget] = useState<number | null>(pot?.target ?? null);
   const [targetDate, setTargetDate] = useState<string | null>(pot?.targetDate ?? null);
   const [goalId, setGoalId] = useState<string | null>(pot?.goalId ?? null);
+  const [monthly, setMonthly] = useState<number | null>(pot?.monthly ?? null);
   const save = async () => {
     if (!name.trim()) return;
-    const fields = { name: name.trim(), target: target ?? 0, targetDate };
+    const fields = { name: name.trim(), target: target ?? 0, targetDate, monthly };
     if (pot) {
       await actions.updatePot(pot.id, fields);
       if (goalId && goalId !== pot.goalId) {
@@ -266,6 +267,7 @@ function PotFields({ pot, onDone }: { pot: PotDoc | null; onDone: () => void }) 
         />
       </Field>
       <AmountInput value={target} onChange={(m) => setTarget(m)} label="Target" />
+      <AmountInput value={monthly} onChange={(m) => setMonthly(m)} label="Put in each month (optional)" />
       <div className="flex flex-wrap items-center gap-2">
         <DatePicker
           label="Target date"

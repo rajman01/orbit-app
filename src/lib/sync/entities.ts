@@ -174,8 +174,25 @@ export const entitySchemas = {
     badge: z.enum(["unread", "due", "off"]).optional(),
     /** Phase 5A: the one currency money is kept in (D47). Optional for older documents. */
     currency: currencyCode.optional(),
-    /** Phase 5B: the day a money month starts on (1 = calendar months). */
-    money: z.object({ monthStartDay: z.number().int().min(1).max(28) }).optional(),
+    /** Phase 5B: the day a money month starts on (1 = calendar months). 5H: expected income sources. */
+    money: z
+      .object({
+        monthStartDay: z.number().int().min(1).max(28),
+        incomes: z
+          .array(
+            z.object({
+              id: z.string().min(1).max(40),
+              name: z.string().trim().min(1).max(60),
+              /** Per month, in minor units. */
+              amount: minor,
+              /** The day of the month it lands, 1–28, or null. */
+              day: z.number().int().min(1).max(28).nullable(),
+            }),
+          )
+          .max(10)
+          .optional(),
+      })
+      .optional(),
     onboardingCompletedAt: ms.nullable(),
   }),
   areas: z.object({
@@ -931,6 +948,8 @@ export const entitySchemas = {
     goalId: ref,
     keyResultId: ref,
     accountId: ref,
+    /** 5H: the amount they've chosen to put in each month (the plan uses the date's need otherwise). */
+    monthly: minor.nullable().optional(),
     note: z.string().max(2000),
     archivedAt: ms.nullable(),
     order: z.number(),

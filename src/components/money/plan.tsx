@@ -1,0 +1,250 @@
+"use client";
+
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { CoachIcon } from "@/components/coach/coach-icon";
+import { askCoach } from "@/components/coach/coach-panel";
+import { SectionLabel } from "@/components/tasks/task-list";
+import { Button, IconButton } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { useActions } from "@/features/actions";
+import { useBudgets, useCategories, useDebts, useSavingsPots, useSettings, type TransactionDoc } from "@/features/data";
+import { monthLabel } from "@/features/money/model";
+import { monthPlan, type IncomeSource, type PlanLine } from "@/features/money/plan";
+import { useToday } from "@/features/use-today";
+import { cn } from "@/lib/cn";
+import { AmountInput, Money } from "./amount";
+
+/** 5H: the Plan tab — expected income against bills, budgets, savings and debt minimums. */
+export function Plan({ transactions, month }: { transactions: TransactionDoc[]; month: string }) {
+  const actions = useActions();
+  const settings = useSettings();
+  const todayDay = useToday();
+  const budgets = useBudgets() ?? [];
+  const pots = useSavingsPots() ?? [];
+  const debts = useDebts() ?? [];
+  const categories = useCategories({ includeArchived: true }) ?? [];
+  const [editing, setEditing] = useState<IncomeSource | "new" | null>(null);
+  const plan = monthPlan({ settings, transactions, budgets, pots, debts, categories }, todayDay, month);
+  const negative = plan.left < 0;
+
+  return (
+    <>
+      <section aria-label="Month plan" className="mb-4 rounded-xl bg-surface p-4 shadow-1 dark:bg-surface-raised">
+        <p className="text-footnote text-label-secondary">
+          {monthLabel(month)} · what&rsquo;s left after everything is set aside
+        </p>
+        <p className={cn("text-title1 tabular", negative && "text-danger-text")}>
+          <Money minor={plan.left} compact signed />
+        </p>
+        {plan.income ? (
+          <p className="mt-1 text-footnote text-label-secondary">
+            Income <Money minor={plan.income} compact /> − bills <Money minor={plan.fixedTotal} compact /> − budgets{" "}
+            <Money minor={plan.budgetsTotal} compact /> − savings <Money minor={plan.savingsTotal} compact />
+            {plan.debtsTotal ? (
+              <>
+                {" "}
+                − debt minimums <Money minor={plan.debtsTotal} compact />
+              </>
+            ) : null}
+          </p>
+        ) : (
+          <p className="mt-1 text-footnote text-label-secondary">
+            Add your expected income below and the plan adds up.
+          </p>
+        )}
+        {negative ? (
+          <p className="mt-2 text-footnote text-danger-text">
+            More is set aside than comes in. Lower a budget or a pot&rsquo;s monthly amount, or ask the coach to fit it.
+          </p>
+        ) : null}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            icon={<CoachIcon className="size-4" />}
+            onClick={() =>
+              askCoach(
+                "Plan my month around my income: look at my income, bills, budgets, pots and debts, and propose budgets and monthly pot amounts that fit, leaving a little slack.",
+              )
+            }
+          >
+            Plan it with the coach
+          </Button>
+        </div>
+        <p className="mt-2 text-footnote text-label-tertiary">
+          So far this month: in <Money minor={plan.actual.income} compact />, out{" "}
+          <Money minor={plan.actual.expense} compact />.
+        </p>
+      </section>
+
+      <div className="mb-1 flex items-center justify-between">
+        <SectionLabel count={plan.incomes.length}>Income</SectionLabel>
+        <Button variant="secondary" icon={<Plus className="size-4" />} onClick={() => setEditing("new")}>
+          Add income
+        </Button>
+      </div>
+      {plan.incomes.length ? (
+        <ul className="flex flex-col" aria-label="Income">
+          {plan.incomes.map((i) => {
+            const src = settings.money?.incomes?.find((x) => x.id === i.id);
+            return (
+              <li key={i.id} className="flex h-row items-center gap-3 rounded-md px-2 hover:bg-fill">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-body">{i.name}</span>
+                  {i.note ? <span className="block text-footnote text-label-tertiary">{i.note}</span> : null}
+                </span>
+                <Money minor={i.amount} compact />
+                <IconButton
+                  label={`Edit ${i.name}`}
+                  icon={<Pencil className="size-4" />}
+                  onClick={() => src && setEditing(src)}
+                />
+                <IconButton
+                  label={`Remove ${i.name}`}
+                  icon={<Trash2 className="size-4" />}
+                  onClick={() => void actions.removeIncome(i.id)}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-callout text-label-secondary">
+          What you expect each month: salary, side income, anything regular. The plan and the coach work from it.
+        </p>
+      )}
+
+      <Lines
+        title="Bills"
+        lines={plan.fixed}
+        total={plan.fixedTotal}
+        href="/money?tab=transactions"
+        hint="Recurring entries, as a monthly figure"
+      />
+      <Lines
+        title="Budgets"
+        lines={plan.budgets}
+        total={plan.budgetsTotal}
+        href="/money?tab=budgets"
+        hint="Category limits"
+      />
+      <Lines
+        title="Savings"
+        lines={plan.savings}
+        total={plan.savingsTotal}
+        href="/money?tab=pots"
+        hint="What each pot takes a month"
+      />
+      <Lines
+        title="Debt minimums"
+        lines={plan.debts}
+        total={plan.debtsTotal}
+        href="/money?tab=debts"
+        hint="The least each debt needs"
+      />
+
+      <IncomeForm
+        open={editing != null}
+        onOpenChange={(o) => !o && setEditing(null)}
+        income={editing === "new" ? null : editing}
+      />
+    </>
+  );
+}
+
+function Lines({
+  title,
+  lines,
+  total,
+  href,
+  hint,
+}: {
+  title: string;
+  lines: PlanLine[];
+  total: number;
+  href: string;
+  hint: string;
+}) {
+  if (!lines.length) return null;
+  return (
+    <>
+      <div className="mt-4 mb-1 flex items-center justify-between">
+        <SectionLabel count={lines.length}>{title}</SectionLabel>
+        <Link href={href} className="text-footnote font-medium text-accent-text">
+          Change
+        </Link>
+      </div>
+      <p className="mb-1 px-1 text-footnote text-label-tertiary">{hint}</p>
+      <ul className="flex flex-col" aria-label={title}>
+        {lines.map((l) => (
+          <li key={l.id} className="flex h-9 items-center gap-3 px-2 text-callout">
+            <span className="min-w-0 flex-1 truncate">{l.name}</span>
+            {l.note ? <span className="text-footnote text-label-tertiary">{l.note}</span> : null}
+            <Money minor={l.amount} compact />
+          </li>
+        ))}
+        <li className="flex h-9 items-center justify-between px-2 text-callout font-semibold">
+          <span>Total</span>
+          <Money minor={total} compact />
+        </li>
+      </ul>
+    </>
+  );
+}
+
+function IncomeForm({
+  open,
+  onOpenChange,
+  income,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  income: IncomeSource | null;
+}) {
+  return (
+    <Modal open={open} onOpenChange={onOpenChange} title={income ? "Edit income" : "Expected income"}>
+      <IncomeFields key={income?.id ?? "new"} income={income} onDone={() => onOpenChange(false)} />
+    </Modal>
+  );
+}
+
+function IncomeFields({ income, onDone }: { income: IncomeSource | null; onDone: () => void }) {
+  const actions = useActions();
+  const [name, setName] = useState(income?.name ?? "");
+  const [amount, setAmount] = useState<number | null>(income?.amount ?? null);
+  const [day, setDay] = useState(income?.day != null ? String(income.day) : "");
+  const save = async () => {
+    if (!name.trim() || !amount) return;
+    await actions.setIncome({
+      id: income?.id,
+      name: name.trim(),
+      amount,
+      day: day.trim() ? Math.min(28, Math.max(1, Number(day) || 1)) : null,
+    });
+    onDone();
+  };
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+      className="flex flex-col gap-4 pb-2"
+    >
+      <Field label="From">
+        <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Salary, Freelance" />
+      </Field>
+      <AmountInput value={amount} onChange={(m) => setAmount(m)} label="Per month" />
+      <Field label="Day it lands (1–28, optional)">
+        <Input inputMode="numeric" value={day} onChange={(e) => setDay(e.target.value)} placeholder="e.g. 25" />
+      </Field>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={!name.trim() || !amount}>
+          {income ? "Save" : "Add income"}
+        </Button>
+      </div>
+    </form>
+  );
+}

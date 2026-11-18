@@ -49,6 +49,8 @@ export type WriteToolName =
   | "contribute_to_pot"
   | "add_debt"
   | "pay_debt"
+  | "set_income"
+  | "plan_month"
   | "save_skill"
   | "save_learning_item"
   | "plan_course"
@@ -251,6 +253,17 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       const money = formatMoney(toMinor(p.amount, s), s.currency ?? DEFAULT_CURRENCY, { compact: true });
       const debt = await db.debts.get(p.debtId);
       return `Record a ${money} payment on ${q(debt?.name)}`;
+    }
+    case "set_income": {
+      const p = input as Input<"set_income">;
+      const s = await loadSettings(db, userId);
+      if (!p.amount) return `Remove the income ${q(p.name)}`;
+      return `Expect ${formatMoney(toMinor(p.amount, s), s.currency ?? DEFAULT_CURRENCY, { compact: true })} a month from ${q(p.name)}${p.day ? ` on the ${p.day}` : ""}`;
+    }
+    case "plan_month": {
+      const p = input as Input<"plan_month">;
+      const n = (p.budgets?.length ?? 0) + (p.pots?.length ?? 0);
+      return `A monthly plan: ${n} budget${n === 1 ? "" : "s"} and pot amount${n === 1 ? "" : "s"}${p.summary ? ` — ${p.summary}` : ""}`;
     }
     case "pause_job_search": {
       const p = input as Input<"pause_job_search">;
@@ -668,6 +681,36 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
       });
       return { debtId: id };
     }
+    case "set_income": {
+      const p = input as Input<"set_income">;
+      const s = await loadSettings(db, userId);
+      if (!p.amount) {
+        const match = (s.money?.incomes ?? []).find((i) => i.name.trim().toLowerCase() === p.name.trim().toLowerCase());
+        if (match) await actions.removeIncome(match.id);
+        return { removed: Boolean(match) };
+      }
+      const id = await actions.setIncome({ name: p.name, amount: toMinor(p.amount, s), day: p.day ?? null });
+      return { incomeId: id };
+    }
+    case "plan_month": {
+      const p = input as Input<"plan_month">;
+      const s = await loadSettings(db, userId);
+      await actions.ensureDefaultCategories();
+      const set: string[] = [];
+      for (const b of p.budgets ?? []) {
+        const category = await categoryNamed(db, b.category, "expense");
+        if (!category) throw new Error(`No spending category called “${b.category}”.`);
+        await actions.setBudget("*", category.id, toMinor(b.amount, s));
+        set.push(category.name);
+      }
+      for (const x of p.pots ?? []) {
+        const pot = await db.savingsPots.get(x.potId);
+        if (!pot || pot.deletedAt != null) throw new Error("No such pot.");
+        await actions.updatePot(pot.id, { monthly: toMinor(x.monthly, s) });
+        set.push(pot.name);
+      }
+      return { set };
+    }
     case "pay_debt": {
       const p = input as Input<"pay_debt">;
       const s = await loadSettings(db, userId);
@@ -838,7 +881,7 @@ export async function runWriteTool(name: WriteToolName, input: Record<string, un
   const dropping = name === "update_goal" && input.status === "dropped";
   const bulk = turn.writes + size(name, input) > BULK_LIMIT;
   // A plan is always previewed first: it's many changes, and the user should shape it.
-  const plan = name === "propose_plan";
+  const plan = name === "propose_plan" || name === "plan_month";
   const base = {
     threadId: deps.threadId ?? null,
     toolUseId: deps.toolUseId ?? null,

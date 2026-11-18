@@ -72,6 +72,8 @@ export function dueNotifications(opts: {
   money?: { today: number; recent: number } | null;
   /** Phase 5D: debts you owe with a payment due today. */
   debtsDue?: { id: string; name: string; amount: number | null; currency: string }[];
+  /** Phase 5H: income expected today. */
+  incomeDue?: { id: string; name: string; amount: number; currency: string }[];
   sent: Set<string>;
 }): Notification[] {
   const defaults = defaultSettings();
@@ -102,6 +104,18 @@ export function dueNotifications(opts: {
         url: "/today",
         tag: "orbit-plan",
       });
+    }
+    // 5H: payday, at Daily Plan time: log it, and the plan's pots and bills follow.
+    if ((notify.money ?? true) && within(time, times.plan, 3)) {
+      for (const i of opts.incomeDue ?? []) {
+        push({
+          key: `income:${i.id}:${today}`,
+          title: `${i.name} lands today`,
+          body: `${formatMoney(i.amount, i.currency, { compact: true })} expected. Log it in Money, then move what the plan sets aside.`,
+          url: "/money?tab=plan",
+          tag: `orbit-income-${i.id}`,
+        });
+      }
     }
     // 5D: a debt payment due today, at Daily Plan time.
     if ((notify.money ?? true) && within(time, times.plan, 3)) {
@@ -303,6 +317,7 @@ export function notificationMeta(key: string): { kind: NotificationKind; ref: st
       return { kind: "routine", ref: ref ?? null };
     case "debt":
     case "money":
+    case "income":
       return { kind: "other", ref: ref ?? null };
     case "jobsfound":
       return { kind: "jobs_found", ref: null };

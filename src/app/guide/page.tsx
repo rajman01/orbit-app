@@ -664,6 +664,13 @@ export default function GuidePage() {
                   Orbit explains and shows; it never tells you what to buy or sell.
                 </li>
                 <li>
+                  <b>Plan:</b> add what you expect each month (salary, side income, the day it lands) and the Plan tab
+                  shows income minus bills (your recurring entries), budgets, what each pot takes a month and debt
+                  minimums, and what&rsquo;s left; red when more is set aside than comes in. &ldquo;Plan it with the
+                  coach&rdquo; asks for budgets and pot amounts that fit your income, shown as a proposal you accept. On
+                  payday Orbit reminds you to log it.
+                </li>
+                <li>
                   <b>The coach:</b> ask &ldquo;where did my money go this month?&rdquo;, &ldquo;spent 4,500 on
                   fuel&rdquo;, &ldquo;set my food budget to 60,000&rdquo;, &ldquo;put 20,000 in the Canada fund&rdquo;
                   or &ldquo;how do I clear my debts fastest?&rdquo;. It reads your budgets, pots, debts and holdings,

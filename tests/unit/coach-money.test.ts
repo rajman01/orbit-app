@@ -102,3 +102,45 @@ describe("the coach and money (5F)", () => {
     expect(hits.matches.map((m) => m.kind)).toEqual(["pot"]);
   });
 });
+
+describe("income and the month plan (5H)", () => {
+  it("records expected income and proposes a plan that fits it, applied only on accept", async () => {
+    const { db, actions, deps } = setup();
+    await actions.saveSettings({ currency: "NGN", timezone: "UTC" });
+    await actions.ensureDefaultCategories();
+    await runCoachTool("set_income", { name: "Salary", amount: 800000, day: 25 }, deps);
+    await runCoachTool("set_income", { name: "salary", amount: 850000, day: 25 }, deps); // same name updates
+    const s = await db.settings.toArray();
+    expect(s[0].money?.incomes).toEqual([{ id: expect.any(String), name: "salary", amount: 85_000_000, day: 25 }]);
+    const money: { plan: { expectedIncome: number; left: number } } = json(await runCoachTool("get_money", {}, deps));
+    expect(money.plan.expectedIncome).toBe(850000);
+    expect(money.plan.left).toBe(850000);
+
+    const potId = await actions.createPot({ name: "Canada fund", target: 100_000_000 });
+    const out = await runCoachTool(
+      "plan_month",
+      {
+        budgets: [{ category: "food", amount: 60000 }],
+        pots: [{ potId, monthly: 150000 }],
+        summary: "Leaves 640,000.",
+      },
+      deps,
+    );
+    // Always a proposal: nothing set until they accept.
+    expect(out.content).toContain("Nothing is created until they apply it");
+    expect(await db.budgets.count()).toBe(0);
+    const proposal = (await db.aiActions.toArray()).find((a) => a.tool === "plan_month")!;
+    expect(proposal.status).toBe("proposed");
+    const { acceptProposal } = await import("@/features/coach/write-tools");
+    await acceptProposal(proposal.id, deps);
+    expect((await db.budgets.toArray()).map((b) => b.amount)).toEqual([6_000_000]);
+    expect((await db.savingsPots.get(potId))?.monthly).toBe(15_000_000);
+    const after: { plan: { left: number; savings: { pot: string; monthly: number; basis: string }[] } } = json(
+      await runCoachTool("get_money", {}, deps),
+    );
+    expect(after.plan.savings).toEqual([{ pot: "Canada fund", monthly: 150000, basis: "chosen" }]);
+    expect(after.plan.left).toBe(850000 - 60000 - 150000);
+    await runCoachTool("set_income", { name: "Salary", amount: 0 }, deps);
+    expect((await db.settings.toArray())[0].money?.incomes).toEqual([]);
+  });
+});

@@ -15,6 +15,7 @@ import { Budgets } from "@/components/money/budgets";
 import { Pots } from "@/components/money/pots";
 import { Debts } from "@/components/money/debts";
 import { Investments } from "@/components/money/investments";
+import { Plan } from "@/components/money/plan";
 import { ImportDialog } from "@/components/money/import-dialog";
 import { InOutChart } from "@/components/money/in-out-chart";
 import { dueOccurrences, upcomingOccurrences, type DueOccurrence } from "@/features/money/recurring";
@@ -44,7 +45,7 @@ import { useToday } from "@/features/use-today";
 import { ACCOUNT_TYPES } from "@/lib/sync/entities";
 import { cn } from "@/lib/cn";
 
-type Tab = "overview" | "transactions" | "budgets" | "pots" | "debts" | "invest" | "accounts";
+type Tab = "overview" | "plan" | "transactions" | "budgets" | "pots" | "debts" | "invest" | "accounts";
 
 /** Phase 5A: the Money page — this month at a glance, the ledger, and the accounts money sits in. */
 export function MoneyView() {
@@ -113,7 +114,7 @@ export function MoneyView() {
               Import CSV
             </Button>
           ) : null}
-          {tab === "overview" || tab === "transactions" || tab === "budgets" ? (
+          {tab === "overview" || tab === "plan" || tab === "transactions" || tab === "budgets" ? (
             <div className="flex items-center gap-1">
               <IconButton
                 label="Previous month"
@@ -154,6 +155,7 @@ export function MoneyView() {
           <MonthTransactions transactions={transactions} month={month} todayDay={todayDay} onOpen={setEditing} />
         ) : null}
         {tab === "budgets" ? <Budgets transactions={transactions ?? []} month={month} todayDay={todayDay} /> : null}
+        {tab === "plan" ? <Plan transactions={transactions ?? []} month={month} /> : null}
         {tab === "pots" ? <Pots transactions={transactions ?? []} /> : null}
         {tab === "debts" ? <Debts transactions={transactions ?? []} /> : null}
         {tab === "invest" ? <Investments transactions={transactions ?? []} /> : null}

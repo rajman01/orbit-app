@@ -71,6 +71,7 @@ import {
   transactionLabel,
 } from "@/features/money/model";
 import { potProjection } from "@/features/money/pots";
+import { monthPlan } from "@/features/money/plan";
 import { COACH_TOOLS, isCoachTool, WRITE_TOOLS } from "./tools";
 import { runWriteTool, type WriteDeps, type WriteToolName } from "./write-tools";
 
@@ -824,6 +825,21 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
         };
       }),
       netWorth: major(netWorth({ accounts, pots, debts, holdings, transactions }, currency, day).total, currency),
+      plan: (() => {
+        const pl = monthPlan({ settings: s, transactions, budgets, pots, debts, categories }, day, m);
+        return {
+          expectedIncome: major(pl.income, currency),
+          incomes: pl.incomes.map((i) => ({ name: i.name, amount: major(i.amount, currency), note: i.note })),
+          fixedCosts: major(pl.fixedTotal, currency),
+          budgets: major(pl.budgetsTotal, currency),
+          savings: pl.savings.map((x) => ({ pot: x.name, monthly: major(x.amount, currency), basis: x.note })),
+          debtMinimums: major(pl.debtsTotal, currency),
+          left: major(pl.left, currency),
+          note: pl.income
+            ? undefined
+            : "No expected income set; set_income records it, then plan_month can fit budgets and pots to it.",
+        };
+      })(),
       categories: categories.filter((c) => c.archivedAt == null).map((c) => `${c.name} (${c.kind})`),
       recent: inMonth.slice(0, 10).map((t) => ({
         id: t.id,

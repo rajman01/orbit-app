@@ -71,6 +71,7 @@ import { budgetId } from "./money/budgets";
 import { instanceFields, type DueOccurrence } from "./money/recurring";
 import { newPotFields, potBalance, type Pot, type PotFields } from "./money/pots";
 import { importFields, type ImportRow } from "./money/import";
+import { incomeId, type IncomeSource } from "./money/plan";
 import { debtState, newDebtFields, type Debt, type DebtFields } from "./money/debts";
 import { holdingValueId, newHoldingFields, type HoldingFields } from "./money/holdings";
 import { formatMoney, minorPerMajor } from "./money/model";
@@ -1495,6 +1496,33 @@ export function createActions(engine: SyncEngine, userId: string) {
       if (existing) return;
       await engine.create("transactions", instanceFields(due.template, due.date), due.id);
       if (skip) await engine.remove("transactions", due.id);
+    },
+
+    // ---- 5H: expected income (kept in settings)
+    async setIncome(fields: Omit<IncomeSource, "id"> & { id?: string }) {
+      const s = await settings();
+      const list = [...(s.money?.incomes ?? [])];
+      const norm = (x: string) => x.trim().toLowerCase();
+      const at = list.findIndex((i) => (fields.id ? i.id === fields.id : norm(i.name) === norm(fields.name)));
+      const row = {
+        id: fields.id ?? list[at]?.id ?? incomeId(),
+        name: fields.name.trim(),
+        amount: fields.amount,
+        day: fields.day,
+      };
+      if (at >= 0) list[at] = row;
+      else list.push(row);
+      await actions.saveSettings({ money: { monthStartDay: s.money?.monthStartDay ?? 1, incomes: list.slice(0, 10) } });
+      return row.id;
+    },
+    async removeIncome(id: string) {
+      const s = await settings();
+      await actions.saveSettings({
+        money: {
+          monthStartDay: s.money?.monthStartDay ?? 1,
+          incomes: (s.money?.incomes ?? []).filter((i) => i.id !== id),
+        },
+      });
     },
 
     // ---- 5C: savings pots (D48)

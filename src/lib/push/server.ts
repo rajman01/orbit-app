@@ -200,6 +200,17 @@ export async function dueFor(db: Db, userId: string, now: number) {
     routines: routines.map((r) => ({ ...r, id: String(r._id) })) as never,
     routineRuns: routineRuns as never,
     money: { today: moneyToday, recent: moneyRecent },
+    incomeDue: (
+      (settings.money as { incomes?: { id: string; name: string; amount: number; day: number | null }[] } | undefined)
+        ?.incomes ?? []
+    )
+      .filter((i) => i.day === Number(today.slice(8, 10)))
+      .map((i) => ({
+        id: i.id,
+        name: i.name,
+        amount: i.amount,
+        currency: (settings.currency as string | undefined) ?? "NGN",
+      })),
     debtsDue: debtsDue.map((d) => ({
       id: String(d._id),
       name: String(d.name),

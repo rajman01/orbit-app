@@ -43,7 +43,7 @@ Every planned build step in Phases 1–3 and 5 is done (as of 2026-11-18). What'
 - [ ] **1D — Phase 1 goal:** two full cycles with reminders on your phone, habits, focus sessions and XP, including offline — [1D](./phases/phase-1d.md).
 - [ ] **Job assistant:** fill in your career profile, then send five real applications from the prepared packs; check the PDFs upload cleanly to employers' application forms — [3D](./phases/phase-3.md).
 - [ ] **A real course:** plan a course or book to a finish date and follow it for a couple of weeks — [3F](./phases/phase-3.md).
-- [ ] **Money (Phase 5):** check the currency in Settings, then a month of real use: log spending as it happens (Log, Quick Add, the Shortcut), set two or three budgets, a savings pot tied to a real goal, your real debts with their rates and due days, and what you hold; ask the coach "where did my money go this month?" — [Phase 5](./phases/phase-5.md).
+- [ ] **Money (Phase 5):** check the currency in Settings, then a month of real use: add your expected income on the Plan tab, log spending as it happens (Log, Quick Add, the Shortcut), set two or three budgets, a savings pot tied to a real goal, your real debts with their rates and due days, and what you hold; ask the coach "where did my money go this month?" — [Phase 5](./phases/phase-5.md).
 - [ ] **Phase 3 goal:** Insights reflect four cycles of real data (follows from the trial above) — [Phase 3](./phases/phase-3.md).
 
 ## Waiting on a domain
