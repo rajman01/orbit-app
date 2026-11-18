@@ -138,6 +138,7 @@ test("the reminder job only runs with its secret", async ({ request }) => {
     calendars: expect.any(Number), // and calendar sync (Phase 2B)
     jobSearches: expect.any(Number), // and the job assistant's daily search (Phase 3D)
     emails: expect.any(Number), // and email (Phase 3E)
+    pricedHoldings: expect.any(Number), // and daily prices for holdings (Phase 5E)
   });
 });
 

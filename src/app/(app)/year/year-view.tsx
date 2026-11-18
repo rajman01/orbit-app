@@ -129,7 +129,7 @@ function YearBody({ year }: { year: number }) {
     byArea.set(key, [...(byArea.get(key) ?? []), s]);
   }
   const groups = [...byArea.entries()]
-    .map(([areaId, list]) => ({ area: areas.find((a) => a.id === areaId), list }))
+    .map(([areaId, list]) => ({ areaId, area: areas.find((a) => a.id === areaId), list }))
     .sort((a, b) => (a.area?.order ?? 999) - (b.area?.order ?? 999));
 
   return (
@@ -210,7 +210,7 @@ function Timeline({
   todayDay,
 }: {
   year: number;
-  groups: { area: Area | undefined; list: { goal: Goal; start: string; end: string | null }[] }[];
+  groups: { areaId: string; area: Area | undefined; list: { goal: Goal; start: string; end: string | null }[] }[];
   milestones: { id: string; goalId: string; title: string; dueDate: string | null; doneAt: number | null }[];
   progressOf: (g: Goal) => number;
   todayDay: string;
@@ -237,8 +237,10 @@ function Timeline({
             ))}
           </div>
         </div>
-        {groups.map(({ area, list }) => (
-          <div key={area?.id ?? "none"} className="border-b border-separator last:border-b-0">
+        {groups.map(({ areaId, area, list }) => (
+          // Keyed by the id string: before the areas load, keying by `area?.id` gave every group the
+          // same key and React could leave a stale duplicate group behind.
+          <div key={areaId || "none"} className="border-b border-separator last:border-b-0">
             <div className="flex items-center gap-1.5 px-3 pt-2 pb-1 text-micro text-label-secondary uppercase">
               {area ? <AreaIcon icon={area.icon} color={area.color} className="size-3.5" /> : null}
               {area?.name ?? "No area"}

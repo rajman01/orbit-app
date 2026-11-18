@@ -34,6 +34,8 @@ export default defineConfig({
       EMAIL_FAKE: "1",
       // Calendars talk to an in-memory fake Google (lib/calendar/google.ts).
       CALENDAR_FAKE: "1",
+      // Holdings are priced from a fixed table (lib/money/prices-server.ts).
+      PRICES_FAKE: "1",
       // A fixed test key, so a real key in .env.local never meets the test database's secrets.
       CALENDAR_ENCRYPTION_KEY: `${"A".repeat(43)}=`,
     },

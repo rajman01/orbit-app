@@ -6,6 +6,7 @@ import { dispatchCheckins } from "@/lib/coach/checkins";
 import { dispatchReminders, webPushSender } from "@/lib/push/server";
 import { dispatchJobSearch } from "@/lib/jobs/server";
 import { dispatchEmails } from "@/lib/email/digests";
+import { dispatchPrices } from "@/lib/money/prices-server";
 
 /** Writing a check-in is a short model call; allow for a few. */
 export const maxDuration = 60;
@@ -49,7 +50,12 @@ async function handle(request: Request) {
     console.error("emails failed", err);
     return { emails: 0 };
   });
-  return NextResponse.json({ ...result, ...checkins, ...calendars, ...jobs, ...mail });
+  // Money (Phase 5E): each person's holdings priced once a day.
+  const prices = await dispatchPrices(db(), now).catch((err) => {
+    console.error("prices failed", err);
+    return { pricedHoldings: 0 };
+  });
+  return NextResponse.json({ ...result, ...checkins, ...calendars, ...jobs, ...mail, ...prices });
 }
 
 export const GET = handle;

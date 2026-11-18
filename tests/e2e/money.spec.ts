@@ -43,6 +43,16 @@ test("money is logged from the Money page and Quick Add, shown by month, edited 
   await expect(page.getByRole("button", { name: `Open Ada ${r}` })).toHaveCount(0);
   await page.getByRole("button", { name: "Next month" }).click();
 
+  // No tab of the Money page may be wider than a phone (a wider page breaks the sheets).
+  for (const t of ["overview", "transactions", "budgets", "pots", "debts", "invest", "accounts"]) {
+    await page.goto(`/money?tab=${t}`);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), t).toBeLessThanOrEqual(
+      0,
+    );
+  }
+  await page.goto("/money?tab=transactions");
+
   // Edited, then deleted.
   await page.getByRole("button", { name: `Open Lunch ${r}` }).click();
   const edit = page.getByRole("dialog", { name: "Edit transaction" });
@@ -276,5 +286,69 @@ test("a debt: payments, interest, the payoff plan, a goal to clear it, and settl
   await card.getByRole("button", { name: `More for Visa card ${r}` }).click();
   await page.getByRole("menuitem", { name: "Delete" }).click();
   await expect(card).toHaveCount(0);
+  await waitForSynced(page);
+});
+
+test("investments: a priced crypto holding, a hand-valued property, the spread and net worth", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name === "phone", "the same components; one run");
+  const r = run();
+  await page.goto("/money?tab=invest");
+  await waitForSynced(page);
+
+  // Bitcoin, 0.1 of it, bought for ₦6,000,000; the test price source says $60,000 at ₦1,500 to the dollar.
+  await page.getByRole("button", { name: "New holding" }).click();
+  const form = page.getByRole("dialog", { name: "New holding" });
+  await form.getByRole("textbox", { name: "Name" }).fill(`Bitcoin ${r}`);
+  await form.getByRole("radio", { name: "Crypto" }).click();
+  await form.getByRole("textbox", { name: /Coin id/ }).fill("bitcoin");
+  await form.getByRole("textbox", { name: "Units" }).fill("0.1");
+  await form.getByRole("textbox", { name: "What it cost in all" }).fill("6000000");
+  await form.getByRole("button", { name: "Add holding" }).click();
+  const list = page.getByRole("list", { name: "Holdings" });
+  const btc = list.getByRole("listitem").filter({ hasText: `Bitcoin ${r}` });
+  await expect(btc).toContainText("no price yet");
+  await expect(btc).toContainText("₦6,000,000");
+  await waitForSynced(page); // the server prices what it has
+  await page.getByRole("button", { name: "Refresh prices" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "1 price updated" })).toBeVisible();
+  await expect(btc).toContainText("0.1 × ₦90,000,000.00", { timeout: 15_000 });
+  await expect(btc).toContainText("₦9,000,000");
+  await expect(btc).toContainText("+₦3,000,000 · +50%");
+
+  // A flat, valued by hand.
+  await page.getByRole("button", { name: "New holding" }).click();
+  await form.getByRole("textbox", { name: "Name" }).fill(`Flat ${r}`);
+  await form.getByRole("radio", { name: "Property" }).click();
+  await form.getByRole("textbox", { name: "What it cost in all" }).fill("20000000");
+  await form.getByRole("textbox", { name: /Worth today/ }).fill("25000000");
+  await form.getByRole("button", { name: "Add holding" }).click();
+  const flat = list.getByRole("listitem").filter({ hasText: `Flat ${r}` });
+  await expect(flat).toContainText("₦25,000,000");
+  await expect(flat).toContainText("+25%");
+  await flat.getByRole("button", { name: `More for Flat ${r}` }).click();
+  await page.getByRole("menuitem", { name: "Update value" }).click();
+  const value = page.getByRole("dialog", { name: `Flat ${r}: worth today` });
+  await value.getByRole("textbox", { name: "Worth today" }).fill("26000000");
+  await value.getByRole("button", { name: "Save" }).click();
+  await expect(flat).toContainText("₦26,000,000");
+
+  // The spread and the net worth card.
+  await expect(page.getByRole("list", { name: "Holdings by type" })).toContainText("Property");
+  await expect(page.getByRole("list", { name: "Holdings by type" })).toContainText("Crypto");
+  await expect(page.getByRole("region", { name: "Net worth" })).toContainText("holdings");
+  await expect(page.getByRole("img", { name: "Net worth over the last twelve months" })).toBeVisible();
+
+  // Tidy.
+  for (const name of [`Bitcoin ${r}`, `Flat ${r}`]) {
+    await list
+      .getByRole("listitem")
+      .filter({ hasText: name })
+      .getByRole("button", { name: `More for ${name}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    await expect(list.getByRole("listitem").filter({ hasText: name })).toHaveCount(0);
+  }
   await waitForSynced(page);
 });

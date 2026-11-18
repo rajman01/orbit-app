@@ -72,6 +72,7 @@ import { instanceFields, type DueOccurrence } from "./money/recurring";
 import { newPotFields, potBalance, type Pot, type PotFields } from "./money/pots";
 import { importFields, type ImportRow } from "./money/import";
 import { debtState, newDebtFields, type Debt, type DebtFields } from "./money/debts";
+import { holdingValueId, newHoldingFields, type HoldingFields } from "./money/holdings";
 import { formatMoney, minorPerMajor } from "./money/model";
 import { subjectThreadId, type CoachSubject } from "./coach/subject";
 import {
@@ -1676,6 +1677,29 @@ export function createActions(engine: SyncEngine, userId: string) {
         if (kr && !kr.deletedAt) await engine.remove("keyResults", kr.id);
       }
       await engine.update("debts", debt.id, { goalId: null, keyResultId: null });
+    },
+
+    // ---- 5E: holdings (D49)
+    createHolding: (fields: Partial<HoldingFields> & { name: string }) =>
+      engine.create("holdings", newHoldingFields(fields)),
+    updateHolding: (id: string, patch: Partial<HoldingFields>) => engine.update("holdings", id, patch),
+    archiveHolding: (id: string, archived: boolean) =>
+      engine.update("holdings", id, { archivedAt: archived ? now() : null }),
+    async deleteHolding(id: string) {
+      for (const v of await db.holdingValues.where("holdingId").equals(id).toArray()) {
+        if (!v.deletedAt) await engine.remove("holdingValues", v.id);
+      }
+      await engine.remove("holdings", id);
+    },
+    /** A hand-valued holding's value today, kept for the net worth chart as this month's value. */
+    async setHoldingValue(id: string, manualValue: number) {
+      await engine.update("holdings", id, { manualValue });
+      const s = await settings();
+      const month = today(s.timezone).slice(0, 7);
+      const vid = holdingValueId(id, month);
+      const existing = await db.holdingValues.get(vid);
+      if (existing && !existing.deletedAt) await engine.update("holdingValues", vid, { value: manualValue });
+      else await engine.create("holdingValues", { holdingId: id, month, value: manualValue }, vid);
     },
 
     /** 5C: rows from a statement, skipping any whose hash is already here. Returns how many were added. */

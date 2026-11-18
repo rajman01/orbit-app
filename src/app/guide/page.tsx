@@ -656,7 +656,12 @@ export default function GuidePage() {
                   a month would save. <b>Make clearing it a goal</b> adds a key result that follows the payments.
                 </li>
                 <li>
-                  <b>Coming next:</b> investments with daily prices, and net worth.
+                  <b>Invest:</b> what you hold: stocks, funds, crypto, a fixed deposit, property. Add each with what it
+                  cost. Stocks, funds and crypto with a symbol (AAPL, VOO, bitcoin) are priced once a day in your
+                  currency; the rest you value by hand with <b>Update value</b>. The tab shows what each is worth, the
+                  gain or loss, how your holdings are spread by type, and your <b>net worth</b>: accounts, pots and
+                  holdings, plus what&rsquo;s owed to you, minus what you owe, with a line for the last twelve months.
+                  Orbit explains and shows; it never tells you what to buy or sell.
                 </li>
               </ul>
             </Section>

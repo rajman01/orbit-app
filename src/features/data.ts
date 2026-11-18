@@ -445,3 +445,22 @@ export function useDebts(opts: { includeArchived?: boolean } = {}): DebtDoc[] | 
     [db, opts.includeArchived],
   );
 }
+
+export type HoldingDoc = SyncedDoc<"holdings">;
+export type HoldingValueDoc = SyncedDoc<"holdingValues">;
+
+export function useHoldings(opts: { includeArchived?: boolean } = {}): HoldingDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(
+    async () =>
+      live(await db.holdings.toArray())
+        .filter((h) => opts.includeArchived || h.archivedAt == null)
+        .sort((a, b) => a.order - b.order),
+    [db, opts.includeArchived],
+  );
+}
+
+export function useHoldingValues(): HoldingValueDoc[] | undefined {
+  const { db } = useSync();
+  return useLiveQuery(async () => live(await db.holdingValues.toArray()), [db]);
+}
