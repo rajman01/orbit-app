@@ -11,10 +11,10 @@ Each phase has its own plan so the [PRD](../PRD.md) stays the product spec, not 
 | 1D — Habits, levels and reminders | [phase-1d.md](./phase-1d.md) | ✅ Deployed (2026-11-12) — two-cycle trial running |
 | 2 — Coach, calendar, people | [phase-2.md](./phase-2.md) · [2A](./phase-2a.md) · [2B](./phase-2b.md) · [2C](./phase-2c.md) · [2D](./phase-2d.md) | In progress (2A, 2B, 2C built; 2D built) |
 | 3 — Insight and growth | [phase-3.md](./phase-3.md) | In progress — 3A–3G built (2026-11-16), 3H and 3I (2026-11-17); owner setup and real-use checks left |
-| 5 — Money | [phase-5.md](./phase-5.md) | In progress — 5A–5B built (2026-11-17), 5C–5F (2026-11-18); 5G planned |
+| 5 — Money | [phase-5.md](./phase-5.md) | ✅ Built (5A–5B 2026-11-17, 5C–5G 2026-11-18) — owner: Finnhub key, a month of real use |
 | 4 — Opening up | [phase-4.md](./phase-4.md) | Optional (outline) |
 
-**What's left for you:** [owner-checklist.md](../owner-checklist.md) — setup, phone checks and real use for Phases 1–3, in one list.
+**What's left for you:** [owner-checklist.md](../owner-checklist.md) — setup, phone checks and real use for Phases 1–3 and 5, in one list.
 
 **Side track** (doesn't block any phase):
 

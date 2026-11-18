@@ -81,7 +81,7 @@ Existing tools fall short: project tools (Linear/Jira) aren't designed for perso
 ### 3.2 Non-goals (for now)
 
 - Team/collaborative features (shared goals, assigning tasks to others).
-- Full budgeting/expense tracking (Finance is an Area for goals and tasks, not a ledger).
+- ~~Full budgeting/expense tracking (Finance is an Area for goals and tasks, not a ledger).~~ Reversed 2026-11-17: Phase 5 adds a manual-entry ledger, budgets, savings pots, debts and holdings (§7.18, D46). Still out: bank connections and investment advice.
 - Native iOS/Android apps (PWA only).
 - Health device integrations (Apple Health, wearables).
 - Public profiles or social features.
@@ -370,6 +370,28 @@ Priority key: **P0** = required for MVP (Phase 1), **P1** = Phase 2, **P2** = Ph
 | SET-7 | Data export (JSON + markdown) and account deletion. | P1 |
 | SET-8 | Personal API tokens (for iOS Shortcuts / integrations). | P1 |
 
+### 7.18 Money (Phase 5)
+
+Manual entry only (D46), one currency in minor units (D47); the coach explains and never advises trades (D52). Built in Phase 5A–5F (2026-11-17/18); details in [phase-5.md](./phases/phase-5.md).
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FIN-1 | A currency setting (naira by default); amounts kept as integers in the minor unit and formatted for display. | P1 |
+| FIN-2 | Accounts (cash, bank, card, savings, investment, other) with an opening balance; balance = opening + what went through it. | P1 |
+| FIN-3 | Spending and income categories, seeded with a default set; a goal's category for money goals is the Finance area. | P1 |
+| FIN-4 | Transactions: expense, income, transfer (between accounts, into a pot, onto a debt); a Money page with a month Overview, the ledger by day, and a fast Log sheet. | P1 |
+| FIN-5 | Quick capture of money by words ("spent 12.50 lunch", "+250000 salary") in Quick Add, the iOS Shortcut and the coach; past-tense money words only, so tasks stay tasks. | P1 |
+| FIN-6 | Budgets per category and overall, every month or one month, with pace against the share of the month gone. | P1 |
+| FIN-7 | Recurring transactions (weekly to every three months) that come due to confirm or skip; nothing logged on its own. | P1 |
+| FIN-8 | Money in the weekly report and email; an optional "log today's spending" nudge at Shutdown. | P1 |
+| FIN-9 | Savings pots with a target and date, money in and out, a projection, and a link to a goal through a key result that follows the balance. | P1 |
+| FIN-10 | CSV import of a bank statement with a preview, guessed categories and duplicate rows skipped. | P2 |
+| FIN-11 | Debts owed or owing, with interest, due days, payments, settling with a person, a payoff plan (avalanche or snowball), a goal link and a due-day reminder. | P1 |
+| FIN-12 | Holdings valued by a daily server price (crypto, stocks, ETFs; a currency rate) or by hand; gains, the spread, and net worth with a twelve-month line. | P1 |
+| FIN-13 | Coach tools to read money, the payoff plan and investments, and to log transactions, set budgets, move pot money, and record debts and payments. | P1 |
+| FIN-14 | Insights: where the money went and six months of in and out. | P2 |
+| FIN-15 | Focused coach conversations about a pot or a debt. | P2 |
+
 ---
 
 ## 8. Accountability system
@@ -481,7 +503,7 @@ The AI coach is a conversational assistant built on Claude that knows the user's
 | AI-8 | **Quick capture parser**: messy text/voice → structured tasks into inbox. | P1 |
 | AI-9 | **Memory**: persistent notes about the user (preferences, context, what works for them), viewable and editable by the user. | P1 |
 | AI-10 | Voice input in chat (browser speech-to-text). Built in Phase 3G (2026-11-16) for the coach chat and the brain dump. | P2 |
-| AI-11 | **Focused conversations**: one ongoing coach conversation per goal, task, job lead or course, opened from the item; each message carries the item's current details and the coach stays on getting it done. Built in Phase 3H (2026-11-17). | P1 |
+| AI-11 | **Focused conversations**: one ongoing coach conversation per goal, task, job lead, course, savings pot or debt (pots and debts from 5F), opened from the item; each message carries the item's current details and the coach stays on getting it done. Built in Phase 3H (2026-11-17). | P1 |
 
 ### 10.2 Tools (actions the AI can take)
 
@@ -813,6 +835,15 @@ pushSubscriptions{ userId, endpoint, keys, userAgent, createdAt }
 reminders        { userId, kind, entityType, entityId, title, body, fireAt,
                    recurrence, status /*'scheduled'|'sent'|'cancelled'*/, createdBy }
 notifications    { userId, kind, title, body, link, readAt, at }
+// Phase 5: money (all synced; amounts in minor units)
+accounts         { userId, name, type, openingBalance, openingDate, archivedAt, order }
+categories       { userId, name, icon, color, kind, archivedAt, order }
+transactions     { userId, kind, amount, accountId?, toAccountId?, potId?, debtId?, categoryId?, date, note, goalId?, recurrence?, recurrenceParentId?, createdBy, importHash? }
+budgets          { userId, month, categoryId?, amount }            // id fixed per user, month and category
+savingsPots      { userId, name, target, targetDate?, goalId?, keyResultId?, accountId?, note, archivedAt, order }
+debts            { userId, name, kind, direction, principal, startDate, interestRate?, minimumPayment?, dueDay?, personId?, goalId?, keyResultId?, accountId?, note, closedAt, archivedAt, order }
+holdings         { userId, name, type, symbol?, quantity, costBasis, manualValue?, price?, priceCurrency?, priceAt?, accountId?, note, archivedAt, order }
+holdingValues    { userId, holdingId, month, value }              // one per holding and month
 
 // Calendar
 calendarConnections { userId, provider /*'google'|'caldav'*/, credentialsEnc,
@@ -1003,6 +1034,7 @@ The detailed plan for each phase — scope, data model changes, decisions, steps
 | [1D — Habits, levels and reminders](./phases/phase-1d.md) | HAB-1–3, §9, §8.3, weekly report, NOT-1/2/4/6, SET-3 | **Phase 1 exit:** two full cycles run in Orbit, with push reminders, habits and XP, offline on the phone | ✅ Deployed (2026-11-12) — trial running |
 | [2 — Coach, calendar, people](./phases/phase-2.md) | AI-1–9, CAL-1–7, VIEW-3, REL-1–7, VIS-1/2, QTR-1–6, RIT-7, GOAL-7/8, CYC-6/7, CAR-1, JRN-1/2, quick capture, HAB-4/6, TASK-7, CMD-4, SET-5–8 | The coach builds a plan that lands in Orbit and the calendar; relationship reminders work | 2A deployed (2026-11-14), 2B planned |
 | [3 — Insight and growth](./phases/phase-3.md) | INS-1–4, CAR-2–6, AREA-3/4, HAB-5, TASK-8, NOT-7, PWA-6, JRN-3, AI-10, AI-11, GOAL-10, email capture | Insights reflect four cycles of real data | In progress (3A–3G built 2026-11-16, 3H and 3I 2026-11-17) |
+| [5 — Money](./phases/phase-5.md) | FIN-1–15 | A month of real spending logged; budgets pace, a pot moves a goal, a debt has a payoff month, net worth is right; the coach explains the month | 5A–5G built (2026-11-17/18); owner: Finnhub key, a month of real use |
 | [4 — Opening up](./phases/phase-4.md) | Multi-user hardening, AI limits, billing, legal, admin | — | Optional |
 
 PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
@@ -1027,7 +1059,7 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 
 ## 23. Open questions
 
-1. **Finance area scope** — goals/tasks only for now; any finance-specific features (savings goals with amounts, net-worth tracking)? *(Owner to add if remembered.)*
+1. ~~**Finance area scope** — goals/tasks only for now; any finance-specific features (savings goals with amounts, net-worth tracking)?~~ — Resolved 2026-11-17: Phase 5 Money (§7.18, D46–D52).
 2. **Other life areas** — Health, Mind, Home etc. can be added anytime; should any be pre-created but hidden?
 3. **Habit ideas** — no existing habits to import; do you want a starter habit library during onboarding?
 4. ~~**AI autonomy default**~~ — `Act and tell me` confirmed (D33).
@@ -1089,3 +1121,10 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 | D43 | Voice input (AI-10) as Phase 3G, with the browser's own speech recognition only: a mic button that fills the text box as you speak (coach chat, brain dump), hidden where unsupported (Firefox). No audio reaches Orbit. A record-and-transcribe fallback on Orbit's server (a paid speech-to-text service) only if it proves unreliable in the installed iPhone app | Owner choice (2026-11-16): free, quick, no new processor for Orbit |
 | D44 | Focused conversations (AI-11) reuse ordinary coach conversations with a link to the item and a fixed id per item, and the item's details go in the per-turn context rather than the standing prompt (which stays cached). Long conversations are condensed by summarising the oldest part once with the light model, not by cutting it off | Owner request (2026-11-17); keeps one coach, one history and the prompt cache; an item's conversation can run for weeks |
 | D45 | The goal roadmap (GOAL-10) is drawn from what a goal already has (start and target dates, milestone dates, tasks per milestone); no new data. Stops are placed by date; a stop is "behind" when overdue, or past halfway through its stretch with less than its share of tasks done (25 points of slack) | Owner request (2026-11-17); nothing new to fill in, and a fresh stretch isn't flagged |
+| D46 | Money is entered by hand: no bank aggregator. Capture is made fast instead (the Log sheet, money words in Quick Add and the Shortcut, the coach, CSV import) | Owner choice (2026-11-17): aggregators mean fees, KYC, bank tokens on a server and patchy support by country |
+| D47 | One currency per account (`settings.currency`, naira by default); every amount is an integer in the minor unit, formatted with `Intl.NumberFormat` | Owner choice (2026-11-17): the owner lives and spends in one country; integers never drift |
+| D48 | Savings goals are goals: a pot links to a key result in the currency that follows the pot's balance through the ordinary check-in | Owner choice (2026-11-17): progress, health, the roadmap and the coach work unchanged |
+| D49 | Prices once a day on the server: CoinGecko for crypto (no key), Finnhub for stocks and ETFs (owner's free key), a currency rate from open.er-api.com (covers the naira); written per unit in the main currency; a failed lookup keeps the last price; anything without a symbol is valued by hand | Owner choice (2026-11-17): live prices wanted; free sources with a hand fallback |
+| D50 | One ledger: transfers between accounts, into pots and onto debts are transactions too, so every balance is a sum over one table | Keeps balances, pot totals, debt balances and net worth consistent by construction |
+| D51 | Debts are records; payments are transactions with `debtId`. Balance = principal + simple monthly interest − payments; people you owe or who owe you link to People, and settling up is noted there. The payoff plan is a pure calculation (avalanche or snowball) | Owner request (2026-11-17): "I have some debt I would like to clear" |
+| D52 | The coach explains money and compares with rules of thumb; it never says what to buy or sell, or whether an investment is good | Keeps Orbit out of regulated advice and consistent with the terms |

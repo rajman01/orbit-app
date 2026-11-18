@@ -1,6 +1,6 @@
-# Owner checklist — what's left from Phases 1–3
+# Owner checklist — what's left from Phases 1–3 and 5
 
-Every planned build step in Phases 1–3 is done (as of 2026-11-16). What's left is setup only you can do, using Orbit for real so each phase's goal is met, and one feature that waits for a domain. Tick items off here as you go; each links to the phase doc with the details.
+Every planned build step in Phases 1–3 and 5 is done (as of 2026-11-18). What's left is setup only you can do, using Orbit for real so each phase's goal is met, and one feature that waits for a domain. Tick items off here as you go; each links to the phase doc with the details.
 
 ## Do first: setup (about an hour in all)
 
@@ -16,6 +16,7 @@ Every planned build step in Phases 1–3 is done (as of 2026-11-16). What's left
   - [ ] Google Auth Platform → Clients → your web client → add the redirect URI `https://orbit-app-three-beta.vercel.app/api/people/google/callback`.
   - [ ] Check: import a few real people, then get a birthday reminder on your phone.
 - [ ] **iOS Shortcut "Add to Orbit"** — [2D](./phases/phase-2d.md): create an API token in Settings, then follow the Shortcut setup page in Orbit.
+- [ ] **Finnhub (stock and ETF prices, optional)** — [5E](./phases/phase-5.md): create a free account at finnhub.io, copy the API key, add it in Vercel as `FINNHUB_API_KEY`, then redeploy. Crypto prices work without it.
 - [ ] **Adzuna job source (optional)** — [3D](./phases/phase-3.md): add the `ADZUNA_*` keys in Vercel if you want more job listings.
 
 ## Phone checks (about 15 minutes)
@@ -32,7 +33,6 @@ Every planned build step in Phases 1–3 is done (as of 2026-11-16). What's left
 - [ ] **People (2C):** someone overdue shows on Today; log a call with a follow-up and the task appears — [2C](./phases/phase-2c.md).
 - [ ] **Focused coach conversations (3H):** press Coach on a real goal, task, job lead and course; check the answers use that item's details, that what it creates lands on the item, and that the conversation is still there on your phone — [3H](./phases/phase-3.md).
 - [ ] **Goal roadmap (3I):** give a real goal a target date and dated milestones (or ask the coach to plan it); check the roadmap on your phone and computer, and drag a stop to a new date — [3I](./phases/phase-3.md).
-- [ ] **Money (5A):** pick your currency in Settings, then log a week of real spending (Log button, Quick Add, the Shortcut) and see whether the categories fit — [5A](./phases/phase-5.md).
 - [ ] **Phase 2 goal:** the coach builds a plan that shows in Orbit and your calendar, and relationship reminders arrive on your phone — [Phase 2](./phases/phase-2.md).
 
 ## Using it for real (the trial)
@@ -43,6 +43,7 @@ Every planned build step in Phases 1–3 is done (as of 2026-11-16). What's left
 - [ ] **1D — Phase 1 goal:** two full cycles with reminders on your phone, habits, focus sessions and XP, including offline — [1D](./phases/phase-1d.md).
 - [ ] **Job assistant:** fill in your career profile, then send five real applications from the prepared packs; check the PDFs upload cleanly to employers' application forms — [3D](./phases/phase-3.md).
 - [ ] **A real course:** plan a course or book to a finish date and follow it for a couple of weeks — [3F](./phases/phase-3.md).
+- [ ] **Money (Phase 5):** check the currency in Settings, then a month of real use: log spending as it happens (Log, Quick Add, the Shortcut), set two or three budgets, a savings pot tied to a real goal, your real debts with their rates and due days, and what you hold; ask the coach "where did my money go this month?" — [Phase 5](./phases/phase-5.md).
 - [ ] **Phase 3 goal:** Insights reflect four cycles of real data (follows from the trial above) — [Phase 3](./phases/phase-3.md).
 
 ## Waiting on a domain
