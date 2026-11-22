@@ -613,7 +613,13 @@ export const COACH_TOOLS = {
       kind: z.enum(["loan", "card", "bnpl", "person", "other"]).optional(),
       interestRate: z.number().min(0).max(1000).optional().describe("Annual %"),
       minimumPayment: z.number().min(0).max(1e12).optional(),
-      dueDay: z.number().int().min(1).max(28).optional(),
+      dueDay: z
+        .number()
+        .int()
+        .min(1)
+        .max(31)
+        .optional()
+        .describe("Day of the month it's due; 31 = the last day of every month"),
     }),
   },
   pay_debt: {
@@ -635,11 +641,34 @@ export const COACH_TOOLS = {
   },
   set_income: {
     description:
-      "Record expected monthly income (salary, side income): amount per month in the main unit, and the day it lands. Same name updates it; amount 0 removes it.",
+      "Record expected income (salary, side income, instalments): amount per payment in the main unit, the day it lands, and optionally the months it runs. A salary that starts later: set `from`. A fixed run of payments (instalments, a contract): set `from` with `payments` (or `until`). A one-off payment: `from` and `until` the same month (or payments 1). A run whose first payment falls on a different day from the rest is two entries with different names, e.g. 'Acada gig (1st)' once in Nov on the last day and 'Acada gig' on the 20th Jan–Apr. Months with nothing from a source don't count it. Same name updates it; amount 0 removes it.",
     input: z.object({
       name: z.string().trim().min(1).max(60),
-      amount: z.number().min(0).max(1e12),
-      day: z.number().int().min(1).max(28).optional(),
+      amount: z.number().min(0).max(1e12).describe("Per payment (one payment a month)"),
+      day: z
+        .number()
+        .int()
+        .min(1)
+        .max(31)
+        .optional()
+        .describe("Day of the month it lands; 31 = the last day of every month (30 Nov, 28 Feb…)"),
+      from: z
+        .string()
+        .regex(/^\d{4}-\d{2}$/)
+        .optional()
+        .describe("YYYY-MM of the first payment; from now when left out"),
+      until: z
+        .string()
+        .regex(/^\d{4}-\d{2}$/)
+        .optional()
+        .describe("YYYY-MM of the last payment; open-ended when left out"),
+      payments: z
+        .number()
+        .int()
+        .min(1)
+        .max(120)
+        .optional()
+        .describe("How many monthly payments from `from` (sets `until`); 1 for a one-off"),
     }),
   },
   plan_month: {

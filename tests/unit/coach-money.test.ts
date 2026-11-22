@@ -111,7 +111,9 @@ describe("income and the month plan (5H)", () => {
     await runCoachTool("set_income", { name: "Salary", amount: 800000, day: 25 }, deps);
     await runCoachTool("set_income", { name: "salary", amount: 850000, day: 25 }, deps); // same name updates
     const s = await db.settings.toArray();
-    expect(s[0].money?.incomes).toEqual([{ id: expect.any(String), name: "salary", amount: 85_000_000, day: 25 }]);
+    expect(s[0].money?.incomes).toEqual([
+      { id: expect.any(String), name: "salary", amount: 85_000_000, day: 25, from: null, until: null },
+    ]);
     const money: { plan: { expectedIncome: number; left: number } } = json(await runCoachTool("get_money", {}, deps));
     expect(money.plan.expectedIncome).toBe(850000);
     expect(money.plan.left).toBe(850000);
@@ -142,5 +144,21 @@ describe("income and the month plan (5H)", () => {
     expect(after.plan.left).toBe(850000 - 60000 - 150000);
     await runCoachTool("set_income", { name: "Salary", amount: 0 }, deps);
     expect((await db.settings.toArray())[0].money?.incomes).toEqual([]);
+
+    // Start months, instalments and the last day.
+    await runCoachTool("set_income", { name: "Acumen", amount: 676000, day: 31 }, deps);
+    await runCoachTool("set_income", { name: "Natively", amount: 2000000, day: 10, from: "2099-12" }, deps);
+    await runCoachTool("set_income", { name: "Acada", amount: 425000, day: 20, from: "2100-01", payments: 4 }, deps);
+    const incomes = (await db.settings.toArray())[0].money?.incomes ?? [];
+    expect(incomes.map((i) => [i.name, i.day, i.from, i.until])).toEqual([
+      ["Acumen", 31, null, null],
+      ["Natively", 10, "2099-12", null],
+      ["Acada", 20, "2100-01", "2100-04"],
+    ]);
+    const later: { plan: { expectedIncome: number; incomeByMonth: { month: string; income: number }[] } } = json(
+      await runCoachTool("get_money", {}, deps),
+    );
+    expect(later.plan.expectedIncome).toBe(676000);
+    expect(later.plan.incomeByMonth).toHaveLength(6);
   });
 });

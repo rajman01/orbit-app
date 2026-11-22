@@ -1,4 +1,5 @@
 import { daysBetween, type Day } from "@/lib/dates";
+import { daysInMonth } from "./income";
 import type { EntityFields, SyncedDoc } from "@/lib/sync/entities";
 import { addMonthsTo, monthOf, type Transaction } from "./model";
 
@@ -103,15 +104,17 @@ export function debtState(debt: Debt, transactions: Transaction[], todayDay: Day
   let dueIn: number | null = null;
   if (debt.dueDay && balance > 0 && !debt.closedAt) {
     const paidThisMonth = payments.some((p) => monthOf(p.date) === last);
-    const thisMonth = `${last}-${String(debt.dueDay).padStart(2, "0")}`;
-    nextDue =
-      paidThisMonth || thisMonth < todayDay
-        ? `${addMonthsTo(last, 1)}-${String(debt.dueDay).padStart(2, "0")}`
-        : thisMonth;
+    const thisMonth = dueDateIn(last, debt.dueDay);
+    nextDue = paidThisMonth || thisMonth < todayDay ? dueDateIn(addMonthsTo(last, 1), debt.dueDay) : thisMonth;
     if (!paidThisMonth && thisMonth < todayDay) nextDue = thisMonth; // overdue this month
     dueIn = daysBetween(todayDay, nextDue);
   }
   return { balance, paid, interest, nextDue, dueIn };
+}
+
+/** The due date in `month` (YYYY-MM); a day past the month's end is its last day (31 = "the last day"). */
+export function dueDateIn(month: string, dueDay: number): Day {
+  return `${month}-${String(Math.min(dueDay, daysInMonth(month))).padStart(2, "0")}`;
 }
 
 /* ---------- the payoff plan ---------- */

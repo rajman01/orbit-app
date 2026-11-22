@@ -78,6 +78,11 @@ describe("a debt's balance (5D, D51)", () => {
       dueIn: 17,
     });
     expect(debtState(debt({ id: "none", principal: 1 }), [], "2026-11-18").nextDue).toBeNull();
+    // Due on the last day: 30 Nov, then 31 Dec; 28 Feb in a short month.
+    const loan = debt({ id: "loan", principal: 50_000, dueDay: 31 });
+    expect(debtState(loan, [], "2026-11-22")).toMatchObject({ nextDue: "2026-11-30", dueIn: 8 });
+    expect(debtState(loan, [pay("loan", 5_000, "2026-11-25")], "2026-11-26").nextDue).toBe("2026-12-31");
+    expect(debtState(loan, [], "2027-02-10").nextDue).toBe("2027-02-28");
   });
 });
 

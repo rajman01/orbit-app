@@ -2,6 +2,7 @@ import type { Day } from "@/lib/dates";
 import type { Settings } from "@/features/settings/model";
 import { budgetStatuses, type Budget } from "./budgets";
 import { debtState, type Debt } from "./debts";
+import { addMonthsToMonth, incomeActiveIn, incomeTimingLabel } from "./income";
 import { monthOf, type Transaction } from "./model";
 import { potProjection, type Pot } from "./pots";
 
@@ -25,6 +26,8 @@ export interface MonthPlan {
   month: string;
   income: number;
   incomes: PlanLine[];
+  /** Sources that pay nothing this month (not started yet, or finished): listed, not counted. */
+  otherIncomes: PlanLine[];
   /** Recurring expense entries, as a monthly figure. */
   fixed: PlanLine[];
   fixedTotal: number;
@@ -65,12 +68,15 @@ export function monthPlan(
   month = monthOf(todayDay),
 ): MonthPlan {
   const live = <T extends { deletedAt: number | null }>(rows: T[]) => rows.filter((r) => r.deletedAt == null);
-  const incomes: PlanLine[] = (input.settings.money?.incomes ?? []).map((i) => ({
+  const line = (i: IncomeSource): PlanLine => ({
     id: i.id,
     name: i.name,
     amount: i.amount,
-    note: i.day ? `on the ${ordinal(i.day)}` : undefined,
-  }));
+    note: incomeTimingLabel(i),
+  });
+  const allIncomes = input.settings.money?.incomes ?? [];
+  const incomes = allIncomes.filter((i) => incomeActiveIn(i, month)).map(line);
+  const otherIncomes = allIncomes.filter((i) => !incomeActiveIn(i, month)).map(line);
   const income = incomes.reduce((s, i) => s + i.amount, 0);
 
   const transactions = live(input.transactions);
@@ -130,6 +136,7 @@ export function monthPlan(
     month,
     income,
     incomes,
+    otherIncomes,
     fixed,
     fixedTotal,
     budgets,
@@ -143,10 +150,17 @@ export function monthPlan(
   };
 }
 
-function ordinal(n: number) {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+/** Expected income in each of `count` months from `month`: start dates, end dates and one-offs included. */
+export function incomeByMonth(
+  incomes: IncomeSource[],
+  month: string,
+  count = 6,
+): { month: string; income: number; sources: string[] }[] {
+  return Array.from({ length: count }, (_, k) => {
+    const m = addMonthsToMonth(month, k);
+    const live = incomes.filter((i) => incomeActiveIn(i, m));
+    return { month: m, income: live.reduce((s, i) => s + i.amount, 0), sources: live.map((i) => i.name) };
+  });
 }
 
 /** A short id for an income source (settings hold them as a list). */

@@ -12,6 +12,7 @@ import { Modal } from "@/components/ui/modal";
 import { useActions } from "@/features/actions";
 import { useBudgets, useCategories, useDebts, useSavingsPots, useSettings, type TransactionDoc } from "@/features/data";
 import { monthLabel } from "@/features/money/model";
+import { LAST_DAY } from "@/features/money/income";
 import { monthPlan, type IncomeSource, type PlanLine } from "@/features/money/plan";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
@@ -80,22 +81,27 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
       </section>
 
       <div className="mb-1 flex items-center justify-between">
-        <SectionLabel count={plan.incomes.length}>Income</SectionLabel>
+        <SectionLabel count={plan.incomes.length + plan.otherIncomes.length}>Income</SectionLabel>
         <Button variant="secondary" icon={<Plus className="size-4" />} onClick={() => setEditing("new")}>
           Add income
         </Button>
       </div>
-      {plan.incomes.length ? (
+      {plan.incomes.length || plan.otherIncomes.length ? (
         <ul className="flex flex-col" aria-label="Income">
-          {plan.incomes.map((i) => {
+          {[...plan.incomes, ...plan.otherIncomes].map((i, k) => {
             const src = settings.money?.incomes?.find((x) => x.id === i.id);
+            const off = k >= plan.incomes.length;
             return (
               <li key={i.id} className="flex h-row items-center gap-3 rounded-md px-2 hover:bg-fill">
-                <span className="min-w-0 flex-1">
+                <span className={cn("min-w-0 flex-1", off && "text-label-secondary")}>
                   <span className="block truncate text-body">{i.name}</span>
-                  {i.note ? <span className="block text-footnote text-label-tertiary">{i.note}</span> : null}
+                  <span className="block text-footnote text-label-tertiary">
+                    {[i.note, off ? `nothing in ${monthLabel(month)}` : null].filter(Boolean).join(" · ")}
+                  </span>
                 </span>
-                <Money minor={i.amount} compact />
+                <span className={cn(off && "text-label-tertiary line-through")}>
+                  <Money minor={i.amount} compact />
+                </span>
                 <IconButton
                   label={`Edit ${i.name}`}
                   icon={<Pencil className="size-4" />}
@@ -112,7 +118,7 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
         </ul>
       ) : (
         <p className="text-callout text-label-secondary">
-          What you expect each month: salary, side income, anything regular. The plan and the coach work from it.
+          What you expect to come in: salary, side income, instalments. The plan and the coach work from it.
         </p>
       )}
 
@@ -214,14 +220,20 @@ function IncomeFields({ income, onDone }: { income: IncomeSource | null; onDone:
   const actions = useActions();
   const [name, setName] = useState(income?.name ?? "");
   const [amount, setAmount] = useState<number | null>(income?.amount ?? null);
-  const [day, setDay] = useState(income?.day != null ? String(income.day) : "");
+  const [day, setDay] = useState(income?.day == null ? "" : income.day >= LAST_DAY ? "last" : String(income.day));
+  const [from, setFrom] = useState(income?.from ?? "");
+  const [until, setUntil] = useState(income?.until ?? "");
+  const badRange = Boolean(from && until && until < from);
   const save = async () => {
-    if (!name.trim() || !amount) return;
+    if (!name.trim() || !amount || badRange) return;
+    const d = day.trim().toLowerCase();
     await actions.setIncome({
       id: income?.id,
       name: name.trim(),
       amount,
-      day: day.trim() ? Math.min(28, Math.max(1, Number(day) || 1)) : null,
+      day: !d ? null : d.startsWith("l") ? LAST_DAY : Math.min(LAST_DAY, Math.max(1, Number(d) || 1)),
+      from: from || null,
+      until: until || null,
     });
     onDone();
   };
@@ -233,15 +245,28 @@ function IncomeFields({ income, onDone }: { income: IncomeSource | null; onDone:
       }}
       className="flex flex-col gap-4 pb-2"
     >
-      <Field label="From">
+      <Field label="Name">
         <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Salary, Freelance" />
       </Field>
       <AmountInput value={amount} onChange={(m) => setAmount(m)} label="Per month" />
-      <Field label="Day it lands (1–28, optional)">
-        <Input inputMode="numeric" value={day} onChange={(e) => setDay(e.target.value)} placeholder="e.g. 25" />
+      <Field label="Day it lands (1–31 or “last”, optional)">
+        <Input value={day} onChange={(e) => setDay(e.target.value)} placeholder="e.g. 25, or last" />
       </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="First month (optional)">
+          <Input type="month" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+        <Field label="Last month (optional)">
+          <Input type="month" value={until} onChange={(e) => setUntil(e.target.value)} />
+        </Field>
+      </div>
+      <p className="-mt-2 text-footnote text-label-tertiary">
+        {badRange
+          ? "The last month is before the first."
+          : "Leave both empty for income that keeps coming. For a one-off, set both to the same month."}
+      </p>
       <div className="flex justify-end">
-        <Button type="submit" disabled={!name.trim() || !amount}>
+        <Button type="submit" disabled={!name.trim() || !amount || badRange}>
           {income ? "Save" : "Add income"}
         </Button>
       </div>

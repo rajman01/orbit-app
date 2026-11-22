@@ -7,6 +7,7 @@ import { addDays, dayOf } from "@/lib/dates";
 import { env, pushEnabled } from "@/lib/env";
 import { recordNotification } from "@/lib/notifications/server";
 import { jobSearchPaused, strongNewMatches } from "@/lib/jobs/server";
+import { daysInMonth, incomesLandingOn } from "@/features/money/income";
 
 export interface StoredSubscription {
   _id: string; // the endpoint
@@ -180,7 +181,7 @@ export async function dueFor(db: Db, userId: string, now: number) {
     db.collection("transactions").countDocuments(live({ userId, date: { $gte: addDays(today, -30) } })),
     db
       .collection("debts")
-      .find(live({ userId, direction: "owe", closedAt: null, archivedAt: null, dueDay: Number(today.slice(8, 10)) }))
+      .find(live({ userId, direction: "owe", closedAt: null, archivedAt: null, dueDay: dueDayQuery(today) }))
       .project({ name: 1, minimumPayment: 1 })
       .toArray(),
     sentLog(db).find({ userId }).project({ _id: 1 }).toArray(),
@@ -200,17 +201,28 @@ export async function dueFor(db: Db, userId: string, now: number) {
     routines: routines.map((r) => ({ ...r, id: String(r._id) })) as never,
     routineRuns: routineRuns as never,
     money: { today: moneyToday, recent: moneyRecent },
-    incomeDue: (
-      (settings.money as { incomes?: { id: string; name: string; amount: number; day: number | null }[] } | undefined)
-        ?.incomes ?? []
-    )
-      .filter((i) => i.day === Number(today.slice(8, 10)))
-      .map((i) => ({
-        id: i.id,
-        name: i.name,
-        amount: i.amount,
-        currency: (settings.currency as string | undefined) ?? "NGN",
-      })),
+    incomeDue: incomesLandingOn(
+      (
+        settings.money as
+          | {
+              incomes?: {
+                id: string;
+                name: string;
+                amount: number;
+                day: number | null;
+                from?: string | null;
+                until?: string | null;
+              }[];
+            }
+          | undefined
+      )?.incomes ?? [],
+      today,
+    ).map((i) => ({
+      id: i.id,
+      name: i.name,
+      amount: i.amount,
+      currency: (settings.currency as string | undefined) ?? "NGN",
+    })),
     debtsDue: debtsDue.map((d) => ({
       id: String(d._id),
       name: String(d.name),
@@ -271,4 +283,10 @@ export async function dispatchReminders(db: Db, now: number, send: Sender) {
     }
   }
   return { users, notifications };
+}
+
+/** Debts due today: the day itself, and on a month's last day also any later day (31 on 30 Nov, 29–31 in Feb). */
+function dueDayQuery(today: string): number | { $gte: number } {
+  const dom = Number(today.slice(8, 10));
+  return dom === daysInMonth(today.slice(0, 7)) ? { $gte: dom } : dom;
 }

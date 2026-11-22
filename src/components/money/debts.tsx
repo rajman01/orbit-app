@@ -396,7 +396,7 @@ function DebtFields({ debt, onDone }: { debt: DebtDoc | null; onDone: () => void
   const [startDate, setStartDate] = useState(debt?.startDate ?? todayDay);
   const [rate, setRate] = useState(debt?.interestRate != null ? String(debt.interestRate) : "");
   const [minimum, setMinimum] = useState<number | null>(debt?.minimumPayment ?? null);
-  const [dueDay, setDueDay] = useState(debt?.dueDay != null ? String(debt.dueDay) : "");
+  const [dueDay, setDueDay] = useState(debt?.dueDay == null ? "" : debt.dueDay >= 31 ? "last" : String(debt.dueDay));
   const [personId, setPersonId] = useState<string | null>(debt?.personId ?? null);
   const [goalId, setGoalId] = useState<string | null>(debt?.goalId ?? null);
   const save = async () => {
@@ -409,7 +409,11 @@ function DebtFields({ debt, onDone }: { debt: DebtDoc | null; onDone: () => void
       startDate,
       interestRate: rate.trim() ? Math.max(0, Number(rate)) || 0 : null,
       minimumPayment: minimum,
-      dueDay: dueDay.trim() ? Math.min(28, Math.max(1, Number(dueDay) || 1)) : null,
+      dueDay: !dueDay.trim()
+        ? null
+        : dueDay.trim().toLowerCase().startsWith("l")
+          ? 31
+          : Math.min(31, Math.max(1, Number(dueDay) || 1)),
       personId,
     };
     if (debt) {
@@ -492,7 +496,7 @@ function DebtFields({ debt, onDone }: { debt: DebtDoc | null; onDone: () => void
           <Input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="0" />
         </Field>
         <Field label="Due day of month">
-          <Input inputMode="numeric" value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="e.g. 5" />
+          <Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} placeholder="5, or last" />
         </Field>
         <Field label="Minimum a month">
           <Input

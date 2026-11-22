@@ -71,7 +71,7 @@ import {
   transactionLabel,
 } from "@/features/money/model";
 import { potProjection } from "@/features/money/pots";
-import { monthPlan } from "@/features/money/plan";
+import { incomeByMonth, monthPlan } from "@/features/money/plan";
 import { COACH_TOOLS, isCoachTool, WRITE_TOOLS } from "./tools";
 import { runWriteTool, type WriteDeps, type WriteToolName } from "./write-tools";
 
@@ -830,6 +830,11 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
         return {
           expectedIncome: major(pl.income, currency),
           incomes: pl.incomes.map((i) => ({ name: i.name, amount: major(i.amount, currency), note: i.note })),
+          incomeByMonth: incomeByMonth(s.money?.incomes ?? [], m).map((x) => ({
+            month: x.month,
+            income: major(x.income, currency),
+            from: x.sources,
+          })),
           fixedCosts: major(pl.fixedTotal, currency),
           budgets: major(pl.budgetsTotal, currency),
           savings: pl.savings.map((x) => ({ pot: x.name, monthly: major(x.amount, currency), basis: x.note })),

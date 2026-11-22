@@ -1509,6 +1509,8 @@ export function createActions(engine: SyncEngine, userId: string) {
         name: fields.name.trim(),
         amount: fields.amount,
         day: fields.day,
+        from: fields.from ?? null,
+        until: fields.until ?? null,
       };
       if (at >= 0) list[at] = row;
       else list.push(row);

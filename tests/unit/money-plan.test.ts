@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Budget } from "@/features/money/budgets";
 import type { Debt } from "@/features/money/debts";
 import type { Transaction } from "@/features/money/model";
-import { monthlyEquivalent, monthPlan } from "@/features/money/plan";
+import { incomeTimingLabel, incomesLandingOn } from "@/features/money/income";
+import { incomeByMonth, monthlyEquivalent, monthPlan } from "@/features/money/plan";
 import type { Pot } from "@/features/money/pots";
 import { dueNotifications } from "@/features/reminders/model";
 
@@ -155,5 +156,48 @@ describe("the month plan (5H)", () => {
     expect(n?.title).toBe("Salary lands today");
     expect(n?.body).toContain("₦800,000");
     expect(n?.url).toBe("/money?tab=plan");
+  });
+
+  it("counts income only in the months it comes in: start dates, instalments, one-offs, the last day", () => {
+    const incomes = [
+      { id: "a", name: "Acumen", amount: 67_600_000, day: 31 },
+      { id: "n", name: "Natively", amount: 200_000_000, day: 10, from: "2026-12" },
+      { id: "g1", name: "Acada (1st)", amount: 42_500_000, day: 31, from: "2026-11", until: "2026-11" },
+      { id: "g", name: "Acada", amount: 42_500_000, day: 20, from: "2027-01", until: "2027-04" },
+    ];
+    const plan = (month: string) =>
+      monthPlan(
+        {
+          settings: { currency: "NGN", money: { monthStartDay: 1, incomes } },
+          transactions: [],
+          budgets: [],
+          pots: [],
+          debts: [],
+          categories: [],
+        },
+        "2026-11-22",
+        month,
+      );
+    expect(plan("2026-11").income).toBe(110_100_000);
+    expect(plan("2026-11").otherIncomes.map((i) => i.name)).toEqual(["Natively", "Acada"]);
+    expect(plan("2026-12").income).toBe(267_600_000);
+    expect(plan("2027-02").income).toBe(310_100_000);
+    expect(plan("2027-05").income).toBe(267_600_000);
+    expect(incomeByMonth(incomes, "2026-11", 7).map((m) => m.income / 100)).toEqual([
+      1_101_000, 2_676_000, 3_101_000, 3_101_000, 3_101_000, 3_101_000, 2_676_000,
+    ]);
+
+    // Day 31 lands on the month's last day; day 20 only within its months.
+    expect(incomesLandingOn(incomes, "2026-11-30").map((i) => i.id)).toEqual(["a", "g1"]);
+    expect(incomesLandingOn(incomes, "2027-02-28").map((i) => i.id)).toEqual(["a"]);
+    expect(incomesLandingOn(incomes, "2027-02-20").map((i) => i.id)).toEqual(["g"]);
+    expect(incomesLandingOn(incomes, "2026-11-20")).toEqual([]);
+    expect(incomesLandingOn(incomes, "2026-11-10")).toEqual([]);
+    expect(incomesLandingOn(incomes, "2026-12-10").map((i) => i.id)).toEqual(["n"]);
+
+    expect(incomeTimingLabel(incomes[0])).toBe("on the last day");
+    expect(incomeTimingLabel(incomes[1])).toBe("on the 10th · from Dec 2026");
+    expect(incomeTimingLabel(incomes[2])).toBe("on the last day · once, Nov 2026");
+    expect(incomeTimingLabel(incomes[3])).toBe("on the 20th · Jan–Apr 2027");
   });
 });

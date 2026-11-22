@@ -10,6 +10,7 @@ import type { SyncEngine } from "@/lib/sync/engine";
 import { recordingEngine, undoChanges, type Change } from "./record";
 import { BULK_LIMIT, COACH_TOOLS } from "./tools";
 import { DEFAULT_CURRENCY, formatMoney, minorPerMajor } from "@/features/money/model";
+import { addMonthsToMonth, incomeTimingLabel } from "@/features/money/income";
 
 /**
  * The coach's write tools (PRD §10.2) and the rules around them (§10.5): every change is recorded
@@ -258,7 +259,10 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       const p = input as Input<"set_income">;
       const s = await loadSettings(db, userId);
       if (!p.amount) return `Remove the income ${q(p.name)}`;
-      return `Expect ${formatMoney(toMinor(p.amount, s), s.currency ?? DEFAULT_CURRENCY, { compact: true })} a month from ${q(p.name)}${p.day ? ` on the ${p.day}` : ""}`;
+      const t = incomeTiming(p, todayOf(s.timezone).slice(0, 7));
+      const once = t.from != null && t.from === t.until;
+      const when = incomeTimingLabel(t);
+      return `Expect ${formatMoney(toMinor(p.amount, s), s.currency ?? DEFAULT_CURRENCY, { compact: true })}${once ? "" : " a month"} from ${q(p.name)}${when ? ` ${when}` : ""}`;
     }
     case "plan_month": {
       const p = input as Input<"plan_month">;
@@ -689,7 +693,11 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
         if (match) await actions.removeIncome(match.id);
         return { removed: Boolean(match) };
       }
-      const id = await actions.setIncome({ name: p.name, amount: toMinor(p.amount, s), day: p.day ?? null });
+      const id = await actions.setIncome({
+        name: p.name,
+        amount: toMinor(p.amount, s),
+        ...incomeTiming(p, todayOf(s.timezone).slice(0, 7)),
+      });
       return { incomeId: id };
     }
     case "plan_month": {
@@ -957,3 +965,10 @@ export async function undoAction(engine: SyncEngine, actionId: string) {
 }
 
 export const UNDO_DAYS = 30;
+
+/** set_income's day and months, with `payments` turned into the last month. */
+function incomeTiming(p: Input<"set_income">, thisMonth: string) {
+  const from = p.from ?? (p.payments ? thisMonth : null);
+  const until = p.payments && from ? addMonthsToMonth(from, p.payments - 1) : (p.until ?? null);
+  return { day: p.day ?? null, from, until };
+}

@@ -185,8 +185,19 @@ export const entitySchemas = {
               name: z.string().trim().min(1).max(60),
               /** Per month, in minor units. */
               amount: minor,
-              /** The day of the month it lands, 1–28, or null. */
-              day: z.number().int().min(1).max(28).nullable(),
+              /** The day of the month it lands, 1–31 (past the month's end it's the last day), or null. */
+              day: z.number().int().min(1).max(31).nullable(),
+              /** First and last month it comes in (YYYY-MM, inclusive); null for open-ended. */
+              from: z
+                .string()
+                .regex(/^\d{4}-\d{2}$/)
+                .nullable()
+                .optional(),
+              until: z
+                .string()
+                .regex(/^\d{4}-\d{2}$/)
+                .nullable()
+                .optional(),
             }),
           )
           .max(10)
@@ -965,7 +976,8 @@ export const entitySchemas = {
     interestRate: z.number().min(0).max(1000).nullable(),
     minimumPayment: minor.nullable(),
     /** Day of the month a payment is due, 1–28. */
-    dueDay: z.number().int().min(1).max(28).nullable(),
+    /** Day of the month it falls due, 1–31; past the month's end it's the last day. */
+    dueDay: z.number().int().min(1).max(31).nullable(),
     personId: ref,
     goalId: ref,
     keyResultId: ref,
