@@ -92,7 +92,7 @@ export function MoneyView() {
       />
       <PageBody>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-          {/* Six tabs are wider than a phone: the strip scrolls, the page never does. */}
+          {/* Eight tabs are wider than a phone: the strip scrolls, the page never does. */}
           <div className="max-w-full [scrollbar-width:none] overflow-x-auto">
             <Segmented
               label="Show"
@@ -101,10 +101,12 @@ export function MoneyView() {
               compact
               options={[
                 { value: "overview", label: "Overview" },
+                { value: "plan", label: "Plan" },
                 { value: "transactions", label: "Transactions" },
                 { value: "budgets", label: "Budgets" },
                 { value: "pots", label: "Pots" },
                 { value: "debts", label: "Debts" },
+                { value: "invest", label: "Invest" },
                 { value: "accounts", label: "Accounts" },
               ]}
             />
