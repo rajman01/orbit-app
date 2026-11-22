@@ -829,7 +829,15 @@ const TOOL_RUNNERS: { [N in ReadToolName]: Runner<N> } = {
         const pl = monthPlan({ settings: s, transactions, budgets, pots, debts, categories }, day, m);
         return {
           expectedIncome: major(pl.income, currency),
-          incomes: pl.incomes.map((i) => ({ name: i.name, amount: major(i.amount, currency), note: i.note })),
+          incomes: pl.incomes.map((i) => ({
+            name: i.name,
+            amount: major(i.amount, currency),
+            note: i.note,
+            status: i.status?.state,
+            expectedOn: i.status?.expectedDate ?? undefined,
+            received: i.status?.received ? major(i.status.received, currency) : undefined,
+          })),
+          receivedSoFar: major(pl.actual.income, currency),
           incomeByMonth: incomeByMonth(s.money?.incomes ?? [], m).map((x) => ({
             month: x.month,
             income: major(x.income, currency),

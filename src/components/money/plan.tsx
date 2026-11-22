@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { CoachIcon } from "@/components/coach/coach-icon";
@@ -9,20 +9,24 @@ import { SectionLabel } from "@/components/tasks/task-list";
 import { Button, IconButton } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { Pill } from "@/components/ui/pill";
+import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
 import { useBudgets, useCategories, useDebts, useSavingsPots, useSettings, type TransactionDoc } from "@/features/data";
-import { monthLabel } from "@/features/money/model";
+import { formatMoney, monthLabel } from "@/features/money/model";
 import { LAST_DAY } from "@/features/money/income";
-import { monthPlan, type IncomeSource, type PlanLine } from "@/features/money/plan";
+import { monthPlan, type IncomeSource, type IncomeStatus, type PlanLine } from "@/features/money/plan";
 import { useToday } from "@/features/use-today";
 import { cn } from "@/lib/cn";
-import { AmountInput, Money } from "./amount";
+import { AmountInput, Money, useCurrency } from "./amount";
 
 /** 5H: the Plan tab — expected income against bills, budgets, savings and debt minimums. */
 export function Plan({ transactions, month }: { transactions: TransactionDoc[]; month: string }) {
   const actions = useActions();
   const settings = useSettings();
   const todayDay = useToday();
+  const toast = useToast();
+  const currency = useCurrency();
   const budgets = useBudgets() ?? [];
   const pots = useSavingsPots() ?? [];
   const debts = useDebts() ?? [];
@@ -30,27 +34,50 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
   const [editing, setEditing] = useState<IncomeSource | "new" | null>(null);
   const plan = monthPlan({ settings, transactions, budgets, pots, debts, categories }, todayDay, month);
   const negative = plan.left < 0;
+  const toCome = plan.incomes.reduce((sum, i) => sum + (i.status?.state === "received" ? 0 : i.amount), 0);
+  const canLog = month <= todayDay.slice(0, 7);
+  const logIt = async (src: IncomeSource, expectedDate: string | null) => {
+    const date = expectedDate && expectedDate <= todayDay ? expectedDate : todayDay;
+    const id = await actions.logExpectedIncome(src, month, date);
+    toast({
+      message: `Logged ${formatMoney(src.amount, currency, { compact: true })} from ${src.name}`,
+      action: { label: "Undo", onClick: () => void actions.deleteTransaction(id) },
+    });
+  };
 
   return (
     <>
       <section aria-label="Month plan" className="mb-4 rounded-xl bg-surface p-4 shadow-1 dark:bg-surface-raised">
         <p className="text-footnote text-label-secondary">
-          {monthLabel(month)} · what&rsquo;s left after everything is set aside
+          {monthLabel(month)} · planned to spare, once everything is set aside
         </p>
-        <p className={cn("text-title1 tabular", negative && "text-danger-text")}>
-          <Money minor={plan.left} compact signed />
+        <p className={cn("text-title1 text-label tabular", negative && "text-danger-text")}>
+          <Money minor={plan.left} compact />
         </p>
         {plan.income ? (
-          <p className="mt-1 text-footnote text-label-secondary">
-            Income <Money minor={plan.income} compact /> − bills <Money minor={plan.fixedTotal} compact /> − budgets{" "}
-            <Money minor={plan.budgetsTotal} compact /> − savings <Money minor={plan.savingsTotal} compact />
-            {plan.debtsTotal ? (
-              <>
-                {" "}
-                − debt minimums <Money minor={plan.debtsTotal} compact />
-              </>
-            ) : null}
-          </p>
+          <>
+            <p className="mt-1 text-callout">
+              Expected <Money minor={plan.income} compact /> · received{" "}
+              <Money minor={plan.actual.income} compact className="font-semibold" />
+              {toCome > 0 ? (
+                <>
+                  {" "}
+                  · still to come <Money minor={toCome} compact />
+                </>
+              ) : null}
+            </p>
+            <p className="mt-1 text-footnote text-label-secondary">
+              Expected income <Money minor={plan.income} compact /> − bills <Money minor={plan.fixedTotal} compact /> −
+              budgets <Money minor={plan.budgetsTotal} compact /> − savings <Money minor={plan.savingsTotal} compact />
+              {plan.debtsTotal ? (
+                <>
+                  {" "}
+                  − debt minimums <Money minor={plan.debtsTotal} compact />
+                </>
+              ) : null}
+              . A plan, not money in hand.
+            </p>
+          </>
         ) : (
           <p className="mt-1 text-footnote text-label-secondary">
             Add your expected income below and the plan adds up.
@@ -75,8 +102,7 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
           </Button>
         </div>
         <p className="mt-2 text-footnote text-label-tertiary">
-          So far this month: in <Money minor={plan.actual.income} compact />, out{" "}
-          <Money minor={plan.actual.expense} compact />.
+          Spent so far this month: <Money minor={plan.actual.expense} compact />.
         </p>
       </section>
 
@@ -92,12 +118,26 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
             const src = settings.money?.incomes?.find((x) => x.id === i.id);
             const off = k >= plan.incomes.length;
             return (
-              <li key={i.id} className="flex h-row items-center gap-3 rounded-md px-2 hover:bg-fill">
+              <li key={i.id} className="flex min-h-row items-center gap-3 rounded-md px-2 py-1.5 hover:bg-fill">
                 <span className={cn("min-w-0 flex-1", off && "text-label-secondary")}>
                   <span className="block truncate text-body">{i.name}</span>
                   <span className="block text-footnote text-label-tertiary">
                     {[i.note, off ? `nothing in ${monthLabel(month)}` : null].filter(Boolean).join(" · ")}
                   </span>
+                  {i.status ? (
+                    <span className="mt-1 flex flex-wrap items-center gap-2">
+                      <IncomeStatusPill status={i.status} amount={i.amount} />
+                      {i.status.state !== "received" && canLog && src ? (
+                        <button
+                          type="button"
+                          onClick={() => void logIt(src, i.status!.expectedDate)}
+                          className="text-footnote font-medium text-accent-text hover:underline"
+                        >
+                          Mark received
+                        </button>
+                      ) : null}
+                    </span>
+                  ) : null}
                 </span>
                 <span className={cn(off && "text-label-tertiary line-through")}>
                   <Money minor={i.amount} compact />
@@ -158,6 +198,26 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
       />
     </>
   );
+}
+
+/** Received (with the amount when it differs), expected on its day, or late. */
+function IncomeStatusPill({ status, amount }: { status: IncomeStatus; amount: number }) {
+  const currency = useCurrency();
+  const day = status.expectedDate ? shortDay(status.expectedDate) : null;
+  if (status.state === "received")
+    return (
+      <Pill tone="success">
+        <Check className="size-3" aria-hidden />
+        Received
+        {status.received !== amount ? ` ${formatMoney(status.received, currency, { compact: true })}` : ""}
+      </Pill>
+    );
+  if (status.state === "late") return <Pill tone="warning">{day ? `Late · was due ${day}` : "Not in yet"}</Pill>;
+  return <Pill tone="neutral">{day ? `Expected ${day}` : "Expected this month"}</Pill>;
+}
+
+function shortDay(day: string) {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 function Lines({

@@ -670,7 +670,9 @@ export default function GuidePage() {
                   income minus bills (your recurring entries), budgets, what each pot takes a month and debt minimums,
                   and what&rsquo;s left; red when more is set aside than comes in. &ldquo;Plan it with the coach&rdquo;
                   asks for budgets and pot amounts that fit your income, shown as a proposal you accept. On payday Orbit
-                  reminds you to log it.
+                  reminds you to log it. The top figure is a plan, not money in hand: next to it you see what&rsquo;s
+                  expected, what&rsquo;s come in and what&rsquo;s still to come, and each income says Expected, Received
+                  or Late; &ldquo;Mark received&rdquo; logs it in one tap.
                 </li>
                 <li>
                   <b>The coach:</b> ask &ldquo;where did my money go this month?&rdquo;, &ldquo;spent 4,500 on

@@ -71,7 +71,7 @@ import { budgetId } from "./money/budgets";
 import { instanceFields, type DueOccurrence } from "./money/recurring";
 import { newPotFields, potBalance, type Pot, type PotFields } from "./money/pots";
 import { importFields, type ImportRow } from "./money/import";
-import { incomeId, type IncomeSource } from "./money/plan";
+import { incomeEntryId, incomeId, type IncomeSource } from "./money/plan";
 import { debtState, newDebtFields, type Debt, type DebtFields } from "./money/debts";
 import { holdingValueId, newHoldingFields, type HoldingFields } from "./money/holdings";
 import { formatMoney, minorPerMajor } from "./money/model";
@@ -1496,6 +1496,34 @@ export function createActions(engine: SyncEngine, userId: string) {
       if (existing) return;
       await engine.create("transactions", instanceFields(due.template, due.date), due.id);
       if (skip) await engine.remove("transactions", due.id);
+    },
+
+    /**
+     * Log a source's payment for `month` as income, on its day (or today, if that's still ahead),
+     * with an id the plan recognises; into the first account, under Salary or side income.
+     */
+    async logExpectedIncome(source: IncomeSource, month: string, date: string) {
+      await actions.ensureDefaultCategories();
+      const [accounts, categories] = await Promise.all([db.accounts.toArray(), db.categories.toArray()]);
+      const account = accounts
+        .filter((a) => a.deletedAt == null && a.archivedAt == null)
+        .sort((a, b) => a.order - b.order)[0];
+      const slug = /salary|wage|pay/i.test(source.name) ? "salary" : "freelance";
+      const category =
+        categories.find((c) => c.id === presetCategoryId(userId, slug) && c.deletedAt == null) ??
+        categories.find((c) => c.kind === "income" && c.deletedAt == null && c.archivedAt == null);
+      return engine.create(
+        "transactions",
+        newTransactionFields({
+          kind: "income",
+          amount: source.amount,
+          date,
+          note: source.name,
+          accountId: account?.id ?? null,
+          categoryId: category?.id ?? null,
+        }),
+        incomeEntryId(source.id, month),
+      );
     },
 
     // ---- 5H: expected income (kept in settings)

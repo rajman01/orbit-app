@@ -2,7 +2,7 @@ import type { Day } from "@/lib/dates";
 import type { Settings } from "@/features/settings/model";
 import { budgetStatuses, type Budget } from "./budgets";
 import { debtState, type Debt } from "./debts";
-import { addMonthsToMonth, incomeActiveIn, incomeTimingLabel } from "./income";
+import { addMonthsToMonth, daysInMonth, incomeActiveIn, incomeDayIn, incomeTimingLabel } from "./income";
 import { monthOf, type Transaction } from "./model";
 import { potProjection, type Pot } from "./pots";
 
@@ -20,6 +20,20 @@ export interface PlanLine {
   /** Per month, in minor units. */
   amount: number;
   note?: string;
+  /** Income only: whether this month's payment has come in. */
+  status?: IncomeStatus;
+}
+
+/**
+ * Has a source paid this month? "received" once an income entry for it is logged; otherwise "late"
+ * after its day (or the month's end, with no day) has passed, else "expected".
+ */
+export interface IncomeStatus {
+  state: "received" | "expected" | "late";
+  /** The day it's due this month, or null with no day. */
+  expectedDate: Day | null;
+  /** What was logged against it, in minor units. */
+  received: number;
 }
 
 export interface MonthPlan {
@@ -75,7 +89,9 @@ export function monthPlan(
     note: incomeTimingLabel(i),
   });
   const allIncomes = input.settings.money?.incomes ?? [];
-  const incomes = allIncomes.filter((i) => incomeActiveIn(i, month)).map(line);
+  const activeIncomes = allIncomes.filter((i) => incomeActiveIn(i, month));
+  const statuses = incomeStatuses(activeIncomes, live(input.transactions), month, todayDay);
+  const incomes = activeIncomes.map((i) => ({ ...line(i), status: statuses.get(i.id) }));
   const otherIncomes = allIncomes.filter((i) => !incomeActiveIn(i, month)).map(line);
   const income = incomes.reduce((s, i) => s + i.amount, 0);
 
@@ -161,6 +177,55 @@ export function incomeByMonth(
     const live = incomes.filter((i) => incomeActiveIn(i, m));
     return { month: m, income: live.reduce((s, i) => s + i.amount, 0), sources: live.map((i) => i.name) };
   });
+}
+
+/** Entries logged from the plan for a source and month start with this, so the plan can find them. */
+export function incomeEntryPrefix(incomeId: string, month: string): string {
+  return `${incomeId}${month.replace("-", "")}`;
+}
+
+/** A fresh id for such an entry (a suffix, so logging again after an undo isn't blocked by the tombstone). */
+export function incomeEntryId(incomeId: string, month: string): string {
+  return `${incomeEntryPrefix(incomeId, month)}${Math.random().toString(36).slice(2, 8)}`.slice(0, 40);
+}
+
+/**
+ * Each source's status for `month`. An entry logged from the plan counts for its source; any other
+ * income logged that month counts for a source when it's within 10% of the amount (closest first,
+ * each entry once).
+ */
+export function incomeStatuses(
+  incomes: IncomeSource[],
+  transactions: Transaction[],
+  month: string,
+  todayDay: Day,
+): Map<string, IncomeStatus> {
+  const inMonth = transactions.filter((t) => t.kind === "income" && t.deletedAt == null && monthOf(t.date) === month);
+  const prefixes = incomes.map((i) => [i.id, incomeEntryPrefix(i.id, month)] as const);
+  const linked = (t: Transaction) => prefixes.find(([, p]) => t.id.startsWith(p))?.[0];
+  const loose = inMonth.filter((t) => !linked(t));
+  const out = new Map<string, IncomeStatus>();
+  for (const i of incomes) {
+    const day = incomeDayIn(i, month);
+    const expectedDate = day != null ? `${month}-${String(day).padStart(2, "0")}` : null;
+    let received = inMonth.filter((t) => linked(t) === i.id).reduce((s, t) => s + t.amount, 0);
+    if (!received) {
+      const match = loose
+        .filter((t) => Math.abs(t.amount - i.amount) <= i.amount * 0.1)
+        .sort((a, b) => Math.abs(a.amount - i.amount) - Math.abs(b.amount - i.amount))[0];
+      if (match) {
+        received = match.amount;
+        loose.splice(loose.indexOf(match), 1);
+      }
+    }
+    const dueBy = expectedDate ?? `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+    out.set(i.id, {
+      state: received ? "received" : dueBy < todayDay ? "late" : "expected",
+      expectedDate,
+      received,
+    });
+  }
+  return out;
 }
 
 /** A short id for an income source (settings hold them as a list). */

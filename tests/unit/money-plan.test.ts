@@ -3,7 +3,7 @@ import type { Budget } from "@/features/money/budgets";
 import type { Debt } from "@/features/money/debts";
 import type { Transaction } from "@/features/money/model";
 import { incomeTimingLabel, incomesLandingOn } from "@/features/money/income";
-import { incomeByMonth, monthlyEquivalent, monthPlan } from "@/features/money/plan";
+import { incomeByMonth, incomeEntryId, incomeStatuses, monthlyEquivalent, monthPlan } from "@/features/money/plan";
 import type { Pot } from "@/features/money/pots";
 import { dueNotifications } from "@/features/reminders/model";
 
@@ -199,5 +199,60 @@ describe("the month plan (5H)", () => {
     expect(incomeTimingLabel(incomes[1])).toBe("on the 10th · from Dec 2026");
     expect(incomeTimingLabel(incomes[2])).toBe("on the last day · once, Nov 2026");
     expect(incomeTimingLabel(incomes[3])).toBe("on the 20th · Jan–Apr 2027");
+  });
+
+  it("says which income has come in: received, expected or late", () => {
+    const incomes = [
+      { id: "incacumen01", name: "Acumen Salary", amount: 67_600_000, day: 31 },
+      { id: "incacada001", name: "Acada (1st)", amount: 42_500_000, day: 31, from: "2026-11", until: "2026-11" },
+      { id: "incfree0001", name: "Freelance", amount: 10_000_000, day: 10 },
+      { id: "incbonus001", name: "Bonus", amount: 5_000_000, day: null },
+    ];
+    const status = (txs: Transaction[], today: string) =>
+      Object.fromEntries(
+        [...incomeStatuses(incomes, txs, "2026-11", today)].map(([id, s]) => [
+          id,
+          [s.state, s.expectedDate, s.received],
+        ]),
+      );
+
+    // Before anything lands: day 31 means the 30th in November; past days with nothing logged are late.
+    expect(status([], "2026-11-22")).toEqual({
+      incacumen01: ["expected", "2026-11-30", 0],
+      incacada001: ["expected", "2026-11-30", 0],
+      incfree0001: ["late", "2026-11-10", 0],
+      incbonus001: ["expected", null, 0],
+    });
+
+    // Logged from the plan (by id), even for a different amount; or by hand within 10% of the amount.
+    const txs = [
+      tx({ id: incomeEntryId("incacumen01", "2026-11"), kind: "income", amount: 60_000_000, date: "2026-11-30" }),
+      tx({ kind: "income", amount: 9_500_000, date: "2026-11-12" }),
+      tx({ kind: "income", amount: 1_000_000, date: "2026-11-12" }), // too small to be anything
+      tx({ kind: "income", amount: 42_500_000, date: "2026-10-31" }), // last month
+    ];
+    expect(status(txs, "2026-12-01")).toEqual({
+      incacumen01: ["received", "2026-11-30", 60_000_000],
+      incacada001: ["late", "2026-11-30", 0],
+      incfree0001: ["received", "2026-11-10", 9_500_000],
+      incbonus001: ["late", null, 0],
+    });
+
+    // Next month's payment doesn't count for this month, and a plan entry only for its own source.
+    const december = tx({
+      id: incomeEntryId("incacumen01", "2026-12"),
+      kind: "income",
+      amount: 67_600_000,
+      date: "2026-12-31",
+    });
+    const acada = tx({
+      id: incomeEntryId("incacada001", "2026-11"),
+      kind: "income",
+      amount: 67_600_000,
+      date: "2026-11-30",
+    });
+    const s = status([december, acada], "2026-11-22");
+    expect(s.incacumen01[0]).toBe("expected");
+    expect(s.incacada001[0]).toBe("received");
   });
 });
