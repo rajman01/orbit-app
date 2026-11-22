@@ -1499,10 +1499,22 @@ export function createActions(engine: SyncEngine, userId: string) {
     },
 
     /**
-     * Log a source's payment for `month` as income, on its day (or today, if that's still ahead),
-     * with an id the plan recognises; into the first account, under Salary or side income.
+     * Log income from a source: its payment for `month`, or (`extra`) extra money counted for that
+     * month. The date can fall in another month (a salary paid early). Into the chosen account, else
+     * the first one; under Salary or side income.
      */
-    async logExpectedIncome(source: IncomeSource, month: string, date: string) {
+    async logIncomeEntry(
+      source: Pick<IncomeSource, "id" | "name">,
+      entry: {
+        month: string;
+        date: string;
+        amount: number;
+        extra?: boolean;
+        note?: string;
+        accountId?: string | null;
+        createdBy?: TransactionFields["createdBy"];
+      },
+    ) {
       await actions.ensureDefaultCategories();
       const [accounts, categories] = await Promise.all([db.accounts.toArray(), db.categories.toArray()]);
       const account = accounts
@@ -1512,17 +1524,19 @@ export function createActions(engine: SyncEngine, userId: string) {
       const category =
         categories.find((c) => c.id === presetCategoryId(userId, slug) && c.deletedAt == null) ??
         categories.find((c) => c.kind === "income" && c.deletedAt == null && c.archivedAt == null);
+      const label = entry.extra ? `${source.name} (extra)` : source.name;
       return engine.create(
         "transactions",
         newTransactionFields({
           kind: "income",
-          amount: source.amount,
-          date,
-          note: source.name,
-          accountId: account?.id ?? null,
+          amount: entry.amount,
+          date: entry.date,
+          note: entry.note?.trim() ? `${label} · ${entry.note.trim()}` : label,
+          accountId: entry.accountId !== undefined ? entry.accountId : (account?.id ?? null),
           categoryId: category?.id ?? null,
+          createdBy: entry.createdBy ?? "user",
         }),
-        incomeEntryId(source.id, month),
+        incomeEntryId(source.id, entry.month, entry.extra),
       );
     },
 

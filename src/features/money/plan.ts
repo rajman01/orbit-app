@@ -32,8 +32,10 @@ export interface IncomeStatus {
   state: "received" | "expected" | "late";
   /** The day it's due this month, or null with no day. */
   expectedDate: Day | null;
-  /** What was logged against it, in minor units. */
+  /** What was logged against it as this month's payment, in minor units. */
   received: number;
+  /** Extra money from it counted for this month (bonuses, top-ups), in minor units. */
+  extra: number;
 }
 
 export interface MonthPlan {
@@ -57,6 +59,11 @@ export interface MonthPlan {
   left: number;
   /** Actuals so far this month, to compare. */
   actual: { income: number; expense: number };
+  /**
+   * Income that counts for this month: entries logged for a source and this month (whatever their
+   * date, so a salary paid early counts for the month it's for) plus other income dated this month.
+   */
+  received: number;
 }
 
 /** A recurring entry's monthly equivalent: weekly × 52/12, every two weeks × 26/12, monthly, every N months ÷ N. */
@@ -90,7 +97,7 @@ export function monthPlan(
   });
   const allIncomes = input.settings.money?.incomes ?? [];
   const activeIncomes = allIncomes.filter((i) => incomeActiveIn(i, month));
-  const statuses = incomeStatuses(activeIncomes, live(input.transactions), month, todayDay);
+  const statuses = incomeStatuses(activeIncomes, live(input.transactions), month, todayDay, allIncomes);
   const incomes = activeIncomes.map((i) => ({ ...line(i), status: statuses.get(i.id) }));
   const otherIncomes = allIncomes.filter((i) => !incomeActiveIn(i, month)).map(line);
   const income = incomes.reduce((s, i) => s + i.amount, 0);
@@ -163,6 +170,7 @@ export function monthPlan(
     debtsTotal,
     left: income - fixedTotal - budgetsTotal - savingsTotal - debtsTotal,
     actual: { income: actualIncome, expense: actualExpense },
+    received: incomeReceived(allIncomes, transactions, month),
   };
 }
 
@@ -179,36 +187,64 @@ export function incomeByMonth(
   });
 }
 
-/** Entries logged from the plan for a source and month start with this, so the plan can find them. */
+/**
+ * Entries logged for a source start with its id and the month they count for (YYYYMM), then "x" for
+ * extra money (a bonus, a top-up) or anything else for the month's payment, then a random suffix (so
+ * logging again after an undo isn't blocked by the tombstone). The month can differ from the entry's
+ * date: a salary paid on 30 Nov can count for December.
+ */
 export function incomeEntryPrefix(incomeId: string, month: string): string {
   return `${incomeId}${month.replace("-", "")}`;
 }
 
-/** A fresh id for such an entry (a suffix, so logging again after an undo isn't blocked by the tombstone). */
-export function incomeEntryId(incomeId: string, month: string): string {
-  return `${incomeEntryPrefix(incomeId, month)}${Math.random().toString(36).slice(2, 8)}`.slice(0, 40);
+export function incomeEntryId(incomeId: string, month: string, extra = false): string {
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `${incomeEntryPrefix(incomeId, month)}${extra ? "x" : "p"}${rand}`.slice(0, 40);
+}
+
+/** Which source, month and kind an entry was logged for, or null for income logged any other way. */
+export function incomeEntryLink(
+  t: Pick<Transaction, "id" | "kind">,
+  incomes: Pick<IncomeSource, "id">[],
+): { incomeId: string; month: string; extra: boolean } | null {
+  if (t.kind !== "income") return null;
+  for (const i of incomes) {
+    if (!t.id.startsWith(i.id)) continue;
+    const ym = t.id.slice(i.id.length, i.id.length + 6);
+    if (!/^\d{6}$/.test(ym)) continue;
+    return { incomeId: i.id, month: `${ym.slice(0, 4)}-${ym.slice(4)}`, extra: t.id[i.id.length + 6] === "x" };
+  }
+  return null;
 }
 
 /**
- * Each source's status for `month`. An entry logged from the plan counts for its source; any other
- * income logged that month counts for a source when it's within 10% of the amount (closest first,
- * each entry once).
+ * Each source's status for `month`. Entries logged for a source and month count for it, whatever their
+ * date. Any other income dated that month counts as a source's payment when it's within 10% of the
+ * amount (closest first, each entry once). `all` is every source, so entries logged for one that isn't
+ * paying this month are never mistaken for another's.
  */
 export function incomeStatuses(
   incomes: IncomeSource[],
   transactions: Transaction[],
   month: string,
   todayDay: Day,
+  all: IncomeSource[] = incomes,
 ): Map<string, IncomeStatus> {
-  const inMonth = transactions.filter((t) => t.kind === "income" && t.deletedAt == null && monthOf(t.date) === month);
-  const prefixes = incomes.map((i) => [i.id, incomeEntryPrefix(i.id, month)] as const);
-  const linked = (t: Transaction) => prefixes.find(([, p]) => t.id.startsWith(p))?.[0];
-  const loose = inMonth.filter((t) => !linked(t));
+  const income = transactions.filter((t) => t.kind === "income" && t.deletedAt == null);
+  const links = new Map(income.map((t) => [t.id, incomeEntryLink(t, all)]));
+  const loose = income.filter((t) => !links.get(t.id) && monthOf(t.date) === month);
   const out = new Map<string, IncomeStatus>();
   for (const i of incomes) {
     const day = incomeDayIn(i, month);
     const expectedDate = day != null ? `${month}-${String(day).padStart(2, "0")}` : null;
-    let received = inMonth.filter((t) => linked(t) === i.id).reduce((s, t) => s + t.amount, 0);
+    let received = 0;
+    let extra = 0;
+    for (const t of income) {
+      const l = links.get(t.id);
+      if (l?.incomeId !== i.id || l.month !== month) continue;
+      if (l.extra) extra += t.amount;
+      else received += t.amount;
+    }
     if (!received) {
       const match = loose
         .filter((t) => Math.abs(t.amount - i.amount) <= i.amount * 0.1)
@@ -223,9 +259,21 @@ export function incomeStatuses(
       state: received ? "received" : dueBy < todayDay ? "late" : "expected",
       expectedDate,
       received,
+      extra,
     });
   }
   return out;
+}
+
+/** Income that counts for `month`: entries logged for it, plus other income dated in it. */
+export function incomeReceived(incomes: IncomeSource[], transactions: Transaction[], month: string): number {
+  let sum = 0;
+  for (const t of transactions) {
+    if (t.kind !== "income" || t.deletedAt != null) continue;
+    const l = incomeEntryLink(t, incomes);
+    if (l ? l.month === month : monthOf(t.date) === month) sum += t.amount;
+  }
+  return sum;
 }
 
 /** A short id for an income source (settings hold them as a list). */

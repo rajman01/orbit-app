@@ -3,7 +3,15 @@ import type { Budget } from "@/features/money/budgets";
 import type { Debt } from "@/features/money/debts";
 import type { Transaction } from "@/features/money/model";
 import { incomeTimingLabel, incomesLandingOn } from "@/features/money/income";
-import { incomeByMonth, incomeEntryId, incomeStatuses, monthlyEquivalent, monthPlan } from "@/features/money/plan";
+import {
+  incomeByMonth,
+  incomeEntryId,
+  incomeEntryLink,
+  incomeReceived,
+  incomeStatuses,
+  monthlyEquivalent,
+  monthPlan,
+} from "@/features/money/plan";
 import type { Pot } from "@/features/money/pots";
 import { dueNotifications } from "@/features/reminders/model";
 
@@ -254,5 +262,49 @@ describe("the month plan (5H)", () => {
     const s = status([december, acada], "2026-11-22");
     expect(s.incacumen01[0]).toBe("expected");
     expect(s.incacada001[0]).toBe("received");
+  });
+
+  it("counts a payment for the month it's for, and extras on top", () => {
+    const incomes = [
+      { id: "incacumen01", name: "Acumen Salary", amount: 67_600_000, day: 31 },
+      { id: "incnative01", name: "Natively Salary", amount: 200_000_000, day: 10, from: "2026-12" },
+    ];
+    const txs = [
+      // December's Natively salary, paid on 30 Nov.
+      tx({ id: incomeEntryId("incnative01", "2026-12"), kind: "income", amount: 200_000_000, date: "2026-11-30" }),
+      // Acumen paid early in November, and a bonus with it.
+      tx({ id: incomeEntryId("incacumen01", "2026-11"), kind: "income", amount: 67_600_000, date: "2026-11-26" }),
+      tx({ id: incomeEntryId("incacumen01", "2026-11", true), kind: "income", amount: 15_000_000, date: "2026-11-26" }),
+      // Something else entirely.
+      tx({ kind: "income", amount: 2_000_000, date: "2026-11-15" }),
+    ];
+    expect(incomeEntryLink(txs[0], incomes)).toEqual({ incomeId: "incnative01", month: "2026-12", extra: false });
+    expect(incomeEntryLink(txs[2], incomes)).toEqual({ incomeId: "incacumen01", month: "2026-11", extra: true });
+    expect(incomeEntryLink(txs[3], incomes)).toBeNull();
+
+    const nov = incomeStatuses([incomes[0]], txs, "2026-11", "2026-11-30", incomes);
+    expect(nov.get("incacumen01")).toMatchObject({ state: "received", received: 67_600_000, extra: 15_000_000 });
+    const dec = incomeStatuses(incomes, txs, "2026-12", "2026-12-15", incomes);
+    expect(dec.get("incnative01")).toMatchObject({ state: "received", received: 200_000_000, extra: 0 });
+    // Acumen's December payment isn't in yet: November's entries don't count for it.
+    expect(dec.get("incacumen01")).toMatchObject({ state: "expected", received: 0 });
+
+    // What counts for each month: the early salary goes to December.
+    expect(incomeReceived(incomes, txs, "2026-11")).toBe(67_600_000 + 15_000_000 + 2_000_000);
+    expect(incomeReceived(incomes, txs, "2026-12")).toBe(200_000_000);
+    const plan = monthPlan(
+      {
+        settings: { currency: "NGN", money: { monthStartDay: 1, incomes } },
+        transactions: txs,
+        budgets: [],
+        pots: [],
+        debts: [],
+        categories: [],
+      },
+      "2026-11-30",
+      "2026-12",
+    );
+    expect(plan.received).toBe(200_000_000);
+    expect(plan.actual.income).toBe(0); // cash by date is still November's
   });
 });

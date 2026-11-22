@@ -572,7 +572,7 @@ export const COACH_TOOLS = {
   },
   log_transaction: {
     description:
-      "Log money spent or received. Amount in the main unit (12.5 = twelve and a half). Category by name when they say one.",
+      "Log money spent or received. Amount in the main unit (12.5 = twelve and a half). Category by name when they say one. For income from one of their expected income sources, name it in `income` so the plan marks it received: `forMonth` when it's for another month than its date (a salary paid early), and `extra` for a bonus or top-up on top of the usual payment.",
     input: z.object({
       kind: z.enum(["expense", "income"]),
       amount: z.number().positive().max(1e12),
@@ -580,6 +580,13 @@ export const COACH_TOOLS = {
       note: z.string().trim().max(500).optional(),
       date: day.optional().describe("Defaults to today"),
       account: z.string().trim().max(60).optional().describe("An account name, when they say one"),
+      income: z.string().trim().max(60).optional().describe("Income only: the expected income source's name"),
+      forMonth: z
+        .string()
+        .regex(/^\d{4}-\d{2}$/)
+        .optional()
+        .describe("With income: YYYY-MM it counts for; the date's month when left out"),
+      extra: z.boolean().optional().describe("With income: extra money, not the month's usual payment"),
     }),
   },
   set_budget: {

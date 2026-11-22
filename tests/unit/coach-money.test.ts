@@ -160,5 +160,27 @@ describe("income and the month plan (5H)", () => {
     );
     expect(later.plan.expectedIncome).toBe(676000);
     expect(later.plan.incomeByMonth).toHaveLength(6);
+
+    // Logging income against a source: paid early for a later month, and an extra.
+    await runCoachTool(
+      "log_transaction",
+      { kind: "income", amount: 2000000, income: "natively", forMonth: "2099-12", date: "2099-11-30" },
+      deps,
+    );
+    await runCoachTool("log_transaction", { kind: "income", amount: 50000, income: "Acumen", extra: true }, deps);
+    const logged = (await db.transactions.toArray()).filter((t) => t.kind === "income");
+    const natively = incomes.find((i) => i.name === "Natively")!;
+    const acumen = incomes.find((i) => i.name === "Acumen")!;
+    expect(logged.find((t) => t.id.startsWith(`${natively.id}209912p`))).toMatchObject({
+      amount: 200_000_000,
+      date: "2099-11-30",
+      createdBy: "ai",
+    });
+    expect(logged.find((t) => t.id.startsWith(acumen.id) && t.id[acumen.id.length + 6] === "x")?.amount).toBe(
+      5_000_000,
+    );
+    const unknown = await runCoachTool("log_transaction", { kind: "income", amount: 1, income: "Nope" }, deps);
+    expect(unknown.isError).toBe(true);
+    expect(unknown.content).toContain("No expected income called");
   });
 });

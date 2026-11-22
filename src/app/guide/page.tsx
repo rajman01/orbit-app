@@ -672,7 +672,9 @@ export default function GuidePage() {
                   asks for budgets and pot amounts that fit your income, shown as a proposal you accept. On payday Orbit
                   reminds you to log it. The top figure is a plan, not money in hand: next to it you see what&rsquo;s
                   expected, what&rsquo;s come in and what&rsquo;s still to come, and each income says Expected, Received
-                  or Late; &ldquo;Mark received&rdquo; logs it in one tap.
+                  or Late. &ldquo;Mark received&rdquo; asks for the amount, the day it came in and the month it counts
+                  for, so a salary paid early counts for the right month (next month&rsquo;s income can be marked too);
+                  &ldquo;Add extra&rdquo; records a bonus or top-up from that source without changing what you expect.
                 </li>
                 <li>
                   <b>The coach:</b> ask &ldquo;where did my money go this month?&rdquo;, &ldquo;spent 4,500 on

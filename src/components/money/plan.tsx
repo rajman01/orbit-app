@@ -13,7 +13,7 @@ import { Pill } from "@/components/ui/pill";
 import { useToast } from "@/components/ui/toast";
 import { useActions } from "@/features/actions";
 import { useBudgets, useCategories, useDebts, useSavingsPots, useSettings, type TransactionDoc } from "@/features/data";
-import { formatMoney, monthLabel } from "@/features/money/model";
+import { addMonthsTo, formatMoney, monthLabel } from "@/features/money/model";
 import { LAST_DAY } from "@/features/money/income";
 import { monthPlan, type IncomeSource, type IncomeStatus, type PlanLine } from "@/features/money/plan";
 import { useToday } from "@/features/use-today";
@@ -35,15 +35,14 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
   const plan = monthPlan({ settings, transactions, budgets, pots, debts, categories }, todayDay, month);
   const negative = plan.left < 0;
   const toCome = plan.incomes.reduce((sum, i) => sum + (i.status?.state === "received" ? 0 : i.amount), 0);
-  const canLog = month <= todayDay.slice(0, 7);
-  const logIt = async (src: IncomeSource, expectedDate: string | null) => {
-    const date = expectedDate && expectedDate <= todayDay ? expectedDate : todayDay;
-    const id = await actions.logExpectedIncome(src, month, date);
+  // A payment can be logged for this month, earlier ones, and next month (a salary paid early).
+  const canLog = month <= addMonthsTo(todayDay.slice(0, 7), 1);
+  const [logging, setLogging] = useState<IncomeEntryTarget | null>(null);
+  const onLogged = (id: string, amount: number, target: IncomeEntryTarget) =>
     toast({
-      message: `Logged ${formatMoney(src.amount, currency, { compact: true })} from ${src.name}`,
+      message: `Logged ${formatMoney(amount, currency, { compact: true })}${target.extra ? " extra" : ""} from ${target.source.name}`,
       action: { label: "Undo", onClick: () => void actions.deleteTransaction(id) },
     });
-  };
 
   return (
     <>
@@ -58,7 +57,7 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
           <>
             <p className="mt-1 text-callout">
               Expected <Money minor={plan.income} compact /> · received{" "}
-              <Money minor={plan.actual.income} compact className="font-semibold" />
+              <Money minor={plan.received} compact className="font-semibold" />
               {toCome > 0 ? (
                 <>
                   {" "}
@@ -127,13 +126,27 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
                   {i.status ? (
                     <span className="mt-1 flex flex-wrap items-center gap-2">
                       <IncomeStatusPill status={i.status} amount={i.amount} />
-                      {i.status.state !== "received" && canLog && src ? (
+                      {i.status.extra ? (
+                        <Pill tone="success">+{formatMoney(i.status.extra, currency, { compact: true })} extra</Pill>
+                      ) : null}
+                      {canLog && src && i.status.state !== "received" ? (
                         <button
                           type="button"
-                          onClick={() => void logIt(src, i.status!.expectedDate)}
+                          onClick={() =>
+                            setLogging({ source: src, month, extra: false, expectedDate: i.status!.expectedDate })
+                          }
                           className="text-footnote font-medium text-accent-text hover:underline"
                         >
                           Mark received
+                        </button>
+                      ) : null}
+                      {canLog && src ? (
+                        <button
+                          type="button"
+                          onClick={() => setLogging({ source: src, month, extra: true, expectedDate: null })}
+                          className="text-footnote font-medium text-accent-text hover:underline"
+                        >
+                          Add extra
                         </button>
                       ) : null}
                     </span>
@@ -196,7 +209,102 @@ export function Plan({ transactions, month }: { transactions: TransactionDoc[]; 
         onOpenChange={(o) => !o && setEditing(null)}
         income={editing === "new" ? null : editing}
       />
+      <Modal
+        open={logging != null}
+        onOpenChange={(o) => !o && setLogging(null)}
+        title={logging ? (logging.extra ? `Extra from ${logging.source.name}` : `${logging.source.name} received`) : ""}
+      >
+        {logging ? (
+          <IncomeEntryFields
+            key={`${logging.source.id}${logging.month}${logging.extra}`}
+            target={logging}
+            todayDay={todayDay}
+            onDone={(id, amount) => {
+              onLogged(id, amount, logging);
+              setLogging(null);
+            }}
+          />
+        ) : null}
+      </Modal>
     </>
+  );
+}
+
+interface IncomeEntryTarget {
+  source: IncomeSource;
+  /** The month it counts for. */
+  month: string;
+  extra: boolean;
+  expectedDate: string | null;
+}
+
+/**
+ * Mark a payment received, or add extra money from a source: the amount (the expected one, for a
+ * payment), the day it came in, and the month it counts for, which can differ (December's salary paid
+ * on 30 Nov counts for December).
+ */
+function IncomeEntryFields({
+  target,
+  todayDay,
+  onDone,
+}: {
+  target: IncomeEntryTarget;
+  todayDay: string;
+  onDone: (id: string, amount: number) => void;
+}) {
+  const actions = useActions();
+  const [amount, setAmount] = useState<number | null>(target.extra ? null : target.source.amount);
+  const [date, setDate] = useState(
+    target.expectedDate && target.expectedDate < todayDay ? target.expectedDate : todayDay,
+  );
+  const [month, setMonth] = useState(target.month);
+  const [note, setNote] = useState("");
+  const early = Boolean(date && month && date.slice(0, 7) < month);
+  const ok = Boolean(amount && amount > 0 && date && month);
+  const save = async () => {
+    if (!ok) return;
+    const id = await actions.logIncomeEntry(target.source, { month, date, amount: amount!, extra: target.extra, note });
+    onDone(id, amount!);
+  };
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+      className="flex flex-col gap-4 pb-2"
+    >
+      <AmountInput
+        value={amount}
+        onChange={(m) => setAmount(m)}
+        label={target.extra ? "How much extra" : "Amount that came in"}
+      />
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Day it came in">
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        <Field label="Counts for">
+          <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+        </Field>
+      </div>
+      <p className="-mt-2 text-footnote text-label-tertiary">
+        {early
+          ? `Came in early: it counts for ${monthLabel(month)}, not ${monthLabel(date.slice(0, 7))}.`
+          : target.extra
+            ? "A bonus or top-up. It adds to what came in without changing what you expect each month."
+            : "Change the amount if it came in short or with something extra."}
+      </p>
+      {target.extra ? (
+        <Field label="Note (optional)">
+          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Year-end bonus" />
+        </Field>
+      ) : null}
+      <div className="flex justify-end">
+        <Button type="submit" disabled={!ok}>
+          {target.extra ? "Add extra" : "Mark received"}
+        </Button>
+      </div>
+    </form>
   );
 }
 

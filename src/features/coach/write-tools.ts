@@ -223,6 +223,8 @@ export async function describeWrite(name: WriteToolName, input: Record<string, u
       const p = input as Input<"log_transaction">;
       const s = await loadSettings(db, userId);
       const money = formatMoney(toMinor(p.amount, s), s.currency ?? DEFAULT_CURRENCY);
+      if (p.kind === "income" && p.income)
+        return `Log ${money}${p.extra ? " extra" : ""} from ${q(p.income)}${p.forMonth ? ` for ${p.forMonth}` : ""}`;
       return `${p.kind === "income" ? "Log income" : "Log spending"}: ${money}${p.note ? ` · ${p.note}` : p.category ? ` · ${p.category}` : ""}`;
     }
     case "set_budget": {
@@ -642,6 +644,25 @@ async function perform(name: WriteToolName, input: Record<string, unknown>, acti
         throw new Error(`No category called “${p.category}”. Leave it out, or use one of theirs.`);
       const account = p.account ? await accountNamed(db, p.account) : null;
       if (p.account && !account) throw new Error(`No account called “${p.account}”.`);
+      if (p.kind === "income" && p.income) {
+        const sources = s.money?.incomes ?? [];
+        const source = sources.find((i) => i.name.trim().toLowerCase() === p.income!.trim().toLowerCase());
+        if (!source)
+          throw new Error(
+            `No expected income called “${p.income}”${sources.length ? `; theirs are ${sources.map((i) => `“${i.name}”`).join(", ")}` : ""}. Leave income out to log it on its own.`,
+          );
+        const date = p.date ?? todayOf(s.timezone);
+        const id = await actions.logIncomeEntry(source, {
+          month: p.forMonth ?? date.slice(0, 7),
+          date,
+          amount: toMinor(p.amount, s),
+          extra: p.extra ?? false,
+          note: p.note,
+          accountId: account?.id,
+          createdBy: "ai",
+        });
+        return { transactionId: id, income: source.name, forMonth: p.forMonth ?? date.slice(0, 7) };
+      }
       const id = await actions.createTransaction({
         kind: p.kind,
         amount: toMinor(p.amount, s),
