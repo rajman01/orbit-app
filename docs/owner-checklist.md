@@ -23,6 +23,7 @@ Every planned build step in Phases 1–3 and 5 is done (as of 2026-11-18). What'
 
 - [ ] Notification buttons (Done, Snooze and the like) work from the phone's notification — [2D](./phases/phase-2d.md).
 - [ ] The iOS Shortcut puts a task in the Inbox, including through Siri — [2D](./phases/phase-2d.md).
+- [ ] After the next deploy, the installed app shows "A new version of Orbit is ready" with Reload while it's open (PWA-7) — [Phase 3 build log](./phases/phase-3.md).
 - [ ] The app icon badge shows on the installed app — [3E](./phases/phase-3.md).
 - [ ] **Voice input:** the mic works in the coach chat and the brain dump in the installed iPhone app. If it's unreliable there, ask for the fallback (transcribe on the server) — [3G](./phases/phase-3.md), D43.
 

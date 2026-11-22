@@ -625,6 +625,7 @@ The owner wants **full offline support**: create, edit and complete things witho
 | PWA-4 | iOS polish: safe-area insets, status bar style, splash screens, no rubber-band glitches, standalone navigation (no browser chrome). | P0 |
 | PWA-5 | Update flow: "New version available — Reload" toast. | P0 |
 | PWA-6 | App badge (unread notifications / due count) via Badging API where supported. | P2 |
+| PWA-7 | New version prompt: when a deploy has installed behind the open app, a "new version is ready" bar offers a reload (and the worker checks for updates when the app comes to the front and every half hour). Built 2026-11-18. | P1 |
 
 ### 14.2 Offline architecture (local-first)
 

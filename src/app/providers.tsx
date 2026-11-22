@@ -4,6 +4,7 @@ import { SerwistProvider } from "@serwist/turbopack/react";
 import { ThemeProvider } from "next-themes";
 import { ToastProvider } from "@/components/ui/toast";
 import { KeyboardWatcher } from "@/lib/keyboard";
+import { UpdateBanner } from "@/components/app/update-banner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange={false}>
         <ToastProvider>{children}</ToastProvider>
         <KeyboardWatcher />
+        <UpdateBanner />
       </ThemeProvider>
     </SerwistProvider>
   );
