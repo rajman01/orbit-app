@@ -19,7 +19,7 @@ import { emailConfigured, layout, sendEmail } from "./send";
 const IMPORTANT = /^(review|qplan|qreview|date|job|jobsfound):/;
 export const REMINDER_EMAILS_PER_DAY = 2;
 
-const appUrl = () => (process.env.BETTER_AUTH_URL ?? "https://orbit-app-three-beta.vercel.app").replace(/\/$/, "");
+const appUrl = () => (process.env.BETTER_AUTH_URL ?? "https://startorbit.app").replace(/\/$/, "");
 const live = <T extends Document>(filter: T) => ({ ...filter, deletedAt: null });
 
 async function emailOf(db: Db, userId: string): Promise<string | null> {

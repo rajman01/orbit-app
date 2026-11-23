@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | ✅ Complete — 2026-11-12 |
 | **Commit** | `d441e86` |
-| **Live** | https://orbit-app-three-beta.vercel.app |
+| **Live** | https://startorbit.app (first deployed at orbit-app-three-beta.vercel.app, which still works) |
 | **PRD** | [§21 Roadmap](../PRD.md#21-roadmap-and-phases) |
 
 ## Goal

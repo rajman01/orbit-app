@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const SITE = (process.env.BETTER_AUTH_URL ?? "https://orbit-app-three-beta.vercel.app").replace(/\/$/, "");
+const SITE = (process.env.BETTER_AUTH_URL ?? "https://startorbit.app").replace(/\/$/, "");
 
 export const metadata: Metadata = {
   // Lets link previews use absolute URLs (the preview image is src/app/opengraph-image.tsx).

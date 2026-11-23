@@ -75,7 +75,7 @@ Orbit sees your real day and can put work into it: your Google and iCloud events
 **Google Cloud (same project as Google sign-in):**
 1. APIs & Services → Library → enable **Google Calendar API**.
 2. OAuth consent screen → Data access → add the three scopes above.
-3. Credentials → your OAuth client → Authorized redirect URIs → add `https://orbit-app-three-beta.vercel.app/api/calendar/google/callback` (and `http://localhost:3000/api/calendar/google/callback` for local).
+3. Credentials → your OAuth client → Authorized redirect URIs → add `https://startorbit.app/api/calendar/google/callback` (and `http://localhost:3000/api/calendar/google/callback` for local).
 4. Publishing status: **In production** (unverified is fine for personal use; you'll click through a "Google hasn't verified this app" screen once). In **Testing** status Google expires the calendar connection every 7 days.
 
 **Vercel:** add `CALENDAR_ENCRYPTION_KEY` (I'll give you the command to generate it).

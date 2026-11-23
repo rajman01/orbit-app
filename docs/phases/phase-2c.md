@@ -75,7 +75,7 @@ Keep the people who matter close without having to remember everything: Orbit kn
 
 1. APIs & Services → Library → **People API** → Enable.
 2. Google Auth Platform → **Data access** → Add or remove scopes → add `https://www.googleapis.com/auth/contacts.readonly` (it's a sensitive scope, like Calendar's; fine while the app is used by you and test users, and listed when you submit for verification).
-3. Google Auth Platform → **Clients** → your web client → Authorised redirect URIs → add `https://orbit-app-three-beta.vercel.app/api/people/google/callback` (and `http://localhost:3000/api/people/google/callback` for local use).
+3. Google Auth Platform → **Clients** → your web client → Authorised redirect URIs → add `https://startorbit.app/api/people/google/callback` (and `http://localhost:3000/api/people/google/callback` for local use).
 
 No new environment variables: the import uses the existing `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Until steps 1–3 are done, Import shows Google's error page or comes back with "Couldn't read your Google contacts".
 

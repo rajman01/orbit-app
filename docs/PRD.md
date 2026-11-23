@@ -1068,7 +1068,7 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 5. ~~**Strictness default**~~ — built with `Firm` as the default (D26); changeable in Settings → Accountability.
 6. ~~**Level titles**~~ — space-themed (D30).
 7. ~~**Notifications**~~ — built with the proposed times (D26); editable in Settings.
-8. **Domain** — *(2026-11-15: later, with Resend for email; Postmark without a domain until then — see phase-3.md "Later")* will Orbit have a custom domain? Currently `orbit-app-three-beta.vercel.app`; a change means updating `BETTER_AUTH_URL` and the Google OAuth client.
+8. ~~**Domain**~~ — `startorbit.app`, bought 2026-11-23 (D53). Email still goes through Postmark; moving to Resend and building Email to Inbox on the domain is the remaining step (phase-3.md "Later").
 9. ~~**Reminder scheduler**~~ — cron-job.org, free (D29).
 10. ~~**Quarter boundaries**~~ — calendar quarters chosen (D34). Was: calendar quarters (Q1 = January–March), or 12-week blocks of 6 cycles so quarters and cycles line up exactly? *(Proposed: calendar quarters; the last cycle of a quarter can run a few days past its end. Needed by Phase 2.)*
 
@@ -1130,3 +1130,4 @@ PWA app shortcuts (Phase 1 in the original plan) shipped in Phase 0.
 | D50 | One ledger: transfers between accounts, into pots and onto debts are transactions too, so every balance is a sum over one table | Keeps balances, pot totals, debt balances and net worth consistent by construction |
 | D51 | Debts are records; payments are transactions with `debtId`. Balance = principal + simple monthly interest − payments; people you owe or who owe you link to People, and settling up is noted there. The payoff plan is a pure calculation (avalanche or snowball) | Owner request (2026-11-17): "I have some debt I would like to clear" |
 | D52 | The coach explains money and compares with rules of thumb; it never says what to buy or sell, or whether an investment is good | Keeps Orbit out of regulated advice and consistent with the terms |
+| D53 | Orbit's address is `https://startorbit.app` (the bare domain; `www` redirects to it). `BETTER_AUTH_URL` and the Google redirect URIs use exactly that form; the old `orbit-app-three-beta.vercel.app` keeps working | Owner bought the domain 2026-11-23; getorbit.app was taken |

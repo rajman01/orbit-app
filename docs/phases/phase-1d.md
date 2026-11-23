@@ -82,7 +82,7 @@ The keys are already in `.env.local` (generated locally, never committed). Produ
 
 1. **Vercel → Project → Settings → Environment Variables** (Production): add `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` and `CRON_SECRET`, copying each value from `.env.local`. Then redeploy.
 2. **cron-job.org**: create a free account → *Create cronjob* →
-   - URL: `https://orbit-app-three-beta.vercel.app/api/cron/dispatch-reminders`
+   - URL: `https://startorbit.app/api/cron/dispatch-reminders`
    - Schedule: every minute
    - Advanced → Headers: `Authorization` = `Bearer ` followed by the `CRON_SECRET` value
    - Save, then use *Test run*: it should answer `200` with `{"users":…,"notifications":…}`. A `401` means the header or secret doesn't match; `503` means the VAPID keys aren't set on Vercel yet.

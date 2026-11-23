@@ -1,8 +1,18 @@
 # Owner checklist — what's left from Phases 1–3 and 5
 
-Every planned build step in Phases 1–3 and 5 is done (as of 2026-11-18). What's left is setup only you can do, using Orbit for real so each phase's goal is met, and one feature that waits for a domain. Tick items off here as you go; each links to the phase doc with the details.
+Every planned build step in Phases 1–3 and 5 is done (as of 2026-11-18). What's left is setup only you can do, using Orbit for real so each phase's goal is met, and one feature that now has its domain. Tick items off here as you go; each links to the phase doc with the details.
 
-## Do first: setup (about an hour in all)
+## Do first: connect startorbit.app (about 30 minutes) — D53
+
+- [ ] **Vercel → Settings → Domains:** add `startorbit.app` as the main domain and `www.startorbit.app` as a redirect to it.
+- [ ] **At your domain provider (keep its nameservers):** add the A record for `startorbit.app` and the CNAME for `www` exactly as Vercel shows them. On Cloudflare, set both to *DNS only* (grey cloud). Wait for *Valid Configuration* in Vercel.
+- [ ] **Vercel → Environment Variables:** set `BETTER_AUTH_URL` to `https://startorbit.app` (no `www`, no trailing slash), then redeploy.
+- [ ] **Google Auth Platform → Branding:** add `startorbit.app` to Authorized domains; change the home page, privacy and terms links to `https://startorbit.app`, `/privacy` and `/terms`.
+- [ ] **Google Auth Platform → Clients → your web client → Authorised redirect URIs:** add `https://startorbit.app/api/auth/callback/google`, `https://startorbit.app/api/calendar/google/callback` and `https://startorbit.app/api/people/google/callback`. Keep the old `vercel.app` ones until everything works.
+- [ ] **cron-job.org:** change the reminders job's URL to `https://startorbit.app/api/cron/dispatch-reminders` and use *Test run* (expects `200`).
+- [ ] **Check:** sign in with Google at `https://startorbit.app`, reconnect Google Calendar in Settings, then on the phone open `startorbit.app` in Safari, sign in and *Add to Home Screen*; delete the old icon once the new one works.
+
+## Then: setup (about an hour in all)
 
 - [ ] **Postmark (emails)** — [3E](./phases/phase-3.md)
   - [ ] Create a free Postmark account.
@@ -13,7 +23,7 @@ Every planned build step in Phases 1–3 and 5 is done (as of 2026-11-18). What'
 - [ ] **Google Contacts** — [2C](./phases/phase-2c.md) (same Google Cloud project as sign-in and Calendar)
   - [ ] APIs & Services → Library → **People API** → Enable.
   - [ ] Google Auth Platform → Data access → add the `contacts.readonly` scope.
-  - [ ] Google Auth Platform → Clients → your web client → add the redirect URI `https://orbit-app-three-beta.vercel.app/api/people/google/callback`.
+  - [ ] Google Auth Platform → Clients → your web client → add the redirect URI `https://startorbit.app/api/people/google/callback`.
   - [ ] Check: import a few real people, then get a birthday reminder on your phone.
 - [ ] **iOS Shortcut "Add to Orbit"** — [2D](./phases/phase-2d.md): create an API token in Settings, then follow the Shortcut setup page in Orbit.
 - [ ] **Finnhub (stock and ETF prices, optional)** — [5E](./phases/phase-5.md): create a free account at finnhub.io, copy the API key, add it in Vercel as `FINNHUB_API_KEY`, then redeploy. Crypto prices work without it.
@@ -47,9 +57,10 @@ Every planned build step in Phases 1–3 and 5 is done (as of 2026-11-18). What'
 - [ ] **Money (Phase 5):** check the currency in Settings, then a month of real use: add your expected income on the Plan tab, log spending as it happens (Log, Quick Add, the Shortcut), set two or three budgets, a savings pot tied to a real goal, your real debts with their rates and due days, and what you hold; ask the coach "where did my money go this month?" — [Phase 5](./phases/phase-5.md).
 - [ ] **Phase 3 goal:** Insights reflect four cycles of real data (follows from the trial above) — [Phase 3](./phases/phase-3.md).
 
-## Waiting on a domain
+## Now possible with the domain
 
-- [ ] Buy a domain, then: move email from Postmark to Resend and build **Email to Inbox** (forward an email to make a task) — [Phase 3, "Later"](./phases/phase-3.md), D42.
+- [x] Buy a domain — `startorbit.app`, 2026-11-23 (D53).
+- [ ] Move email from Postmark to Resend on `startorbit.app` and build **Email to Inbox** (forward an email to make a task) — [Phase 3, "Later"](./phases/phase-3.md), D42. Ask for it when you're ready; it needs a few DNS records added at your provider.
 
 ## Optional, not started
 
